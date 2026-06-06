@@ -1,0 +1,17 @@
+# Local runtime data and uploaded documents
+data/*
+!data/.gitkeep
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Environment/secrets
+.env
+.env.*
