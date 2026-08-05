@@ -1,0 +1,159 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 11,
+    "section_id": "eval-methods",
+    "section_name": "평가방법",
+    "hwpx_path": "Contents/section4.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "c2e0f239af5a8ee4c8cad471fd1b66e1a654d94e547d71711b2d15a5c3c88353"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_slots",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "eval-methods.eval_methods_body",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-methods",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "eval_methods_body",
+        "source_text": "ㅇ 조사방법(문헌, 면담, 초점그룹면담, 설문조사, 현지실사 등)과 분석방법(통계분석, 문헌분석 등) 제시",
+        "type": "body_after_heading",
+        "paragraph_index": 235,
+        "heading_text": "3. 평가방법"
+      },
+      "review_note": "평가방법 본문 작성 영역"
+    },
+    {
+      "slot_id": "eval-methods.remove_eval_methods_guide_1",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-methods",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_methods_guide_1",
+        "source_text": "ㅇ 이해관계자 분석결과 기반으로, 면담, 초점그룹 면담, 설문조사 수행 대상 기술",
+        "type": "remove_paragraph",
+        "paragraph_index": 236,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-methods.remove_eval_methods_guide_2",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-methods",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_methods_guide_2",
+        "source_text": "ㅇ 수혜자 인터뷰 또는 설문조사 수행 시, 평가윤리 준수사항 기술",
+        "type": "remove_paragraph",
+        "paragraph_index": 237,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-methods.remove_eval_methods_guide_3",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-methods",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_methods_guide_3",
+        "source_text": "- 평가/설문조사의 목적 상세 안내, 참여 동의 서면으로 확보",
+        "type": "remove_paragraph",
+        "paragraph_index": 238,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-methods.remove_eval_methods_guide_4",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-methods",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_methods_guide_4",
+        "source_text": "- 미성년자 대상의 경우, 보호자 동의 서면으로 확보",
+        "type": "remove_paragraph",
+        "paragraph_index": 239,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-methods.remove_eval_methods_guide_5",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-methods",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_methods_guide_5",
+        "source_text": "- 민감한 이슈 또는 해당 지역 문화에 따라, 여성 면담자가 면담 실시 등",
+        "type": "remove_paragraph",
+        "paragraph_index": 240,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section11_eval_methods_slots_v1",
+    "apply_order": [
+      "eval-methods.eval_methods_body",
+      "eval-methods.remove_eval_methods_guide_1",
+      "eval-methods.remove_eval_methods_guide_2",
+      "eval-methods.remove_eval_methods_guide_3",
+      "eval-methods.remove_eval_methods_guide_4",
+      "eval-methods.remove_eval_methods_guide_5"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

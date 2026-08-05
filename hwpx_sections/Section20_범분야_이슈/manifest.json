@@ -1,0 +1,35 @@
+{
+  "section_number": 20,
+  "section_id": "criteria-crosscutting",
+  "section_name": "범분야 이슈",
+  "hwpx_path": "Contents/section7.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "criteria_crosscutting_body",
+      "heading_text": "6. 범분야 이슈",
+      "paragraph_index": 94,
+      "source_text": "",
+      "replacement_type": "body_after_heading",
+      "description": "범분야 이슈 본문 작성 영역"
+    },
+    {
+      "key": "remove_crosscutting_guide_1",
+      "paragraph_index": 95,
+      "replacement_type": "remove_paragraph",
+      "source_text": ""
+    },
+    {
+      "key": "remove_crosscutting_guide_2",
+      "paragraph_index": 97,
+      "replacement_type": "remove_paragraph",
+      "source_text": ""
+    },
+    {
+      "key": "remove_crosscutting_guide_3",
+      "paragraph_index": 99,
+      "replacement_type": "remove_paragraph",
+      "source_text": ""
+    }
+  ]
+}

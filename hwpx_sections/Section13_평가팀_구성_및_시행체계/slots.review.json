@@ -1,0 +1,138 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 13,
+    "section_id": "eval-team",
+    "section_name": "평가팀 구성 및 시행체계",
+    "hwpx_path": "Contents/section4.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "c2e0f239af5a8ee4c8cad471fd1b66e1a654d94e547d71711b2d15a5c3c88353"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_slots",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "eval-team.eval_team_body",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-team",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "eval_team_body",
+        "source_text": "ㅇ 평가팀 구성",
+        "type": "body_after_heading",
+        "paragraph_index": 249,
+        "heading_text": "5. 평가팀 구성 및 시행체계"
+      },
+      "review_note": "평가팀 구성 및 시행체계 본문 작성 영역"
+    },
+    {
+      "slot_id": "eval-team.remove_eval_team_guide_1",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-team",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_team_guide_1",
+        "source_text": "- 평가책임자 :　000 (소속, 직함, 담당업무)",
+        "type": "remove_paragraph",
+        "paragraph_index": 250,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-team.remove_eval_team_guide_2",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-team",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_team_guide_2",
+        "source_text": "- 평가전문가 :　000 (소속, 직함, 담당업무)",
+        "type": "remove_paragraph",
+        "paragraph_index": 251,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-team.remove_eval_team_guide_3",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-team",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_team_guide_3",
+        "source_text": "- 분야전문가 :　000 (소속, 직함, 담당업무)",
+        "type": "remove_paragraph",
+        "paragraph_index": 252,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-team.remove_eval_team_guide_4",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-team",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_team_guide_4",
+        "source_text": "- 평가보조원 :　000 (소속, 직함, 담당업무)",
+        "type": "remove_paragraph",
+        "paragraph_index": 253,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section13_eval_team_slots_v1",
+    "apply_order": [
+      "eval-team.eval_team_body",
+      "eval-team.remove_eval_team_guide_1",
+      "eval-team.remove_eval_team_guide_2",
+      "eval-team.remove_eval_team_guide_3",
+      "eval-team.remove_eval_team_guide_4"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

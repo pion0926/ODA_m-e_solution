@@ -1,0 +1,33 @@
+{
+  "section_number": 18,
+  "section_id": "criteria-efficiency",
+  "section_name": "효율성",
+  "hwpx_path": "Contents/section7.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "criteria_efficiency_body",
+      "heading_text": "4. 효율성",
+      "paragraph_index": 1,
+      "source_text": "",
+      "replacement_type": "body_after_heading",
+      "description": "효율성 본문 작성 영역"
+    },
+    {
+      "key": "remove_efficiency_example_1",
+      "paragraph_index": 2,
+      "replacement_type": "remove_paragraph",
+      "source_text": ""
+    },
+    {
+      "key": "remove_efficiency_reference_tables",
+      "paragraph_index": 3,
+      "replacement_type": "remove_reference_block",
+      "source_text": "효율성 평가사례 및 참고문헌 (보고서 작성시 삭제)",
+      "required_parts": [
+        "효율성 평가사례",
+        "보고서 작성시 삭제"
+      ]
+    }
+  ]
+}

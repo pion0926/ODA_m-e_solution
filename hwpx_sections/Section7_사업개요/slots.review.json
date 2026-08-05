@@ -1,0 +1,355 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 7,
+    "section_id": "project-overview",
+    "section_name": "사업개요",
+    "hwpx_path": "Contents/section3.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "600eab5c68ef20324368ef212e7aa9cf691763a68bd58c0766534312faf57cf8"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_table_cells",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor",
+      "insert_markdown_table_outside_original_table"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "project-overview.project_name_ko",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "project_name_ko",
+        "type": "table_cell",
+        "cell_index": 4,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "사업명(국문) 표 내용 셀"
+    },
+    {
+      "slot_id": "project-overview.project_name_en",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "project_name_en",
+        "type": "table_cell",
+        "cell_index": 6,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "사업명(영문) 표 내용 셀"
+    },
+    {
+      "slot_id": "project-overview.target_country_region",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "target_country_region",
+        "type": "table_cell",
+        "cell_index": 8,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "대상국가/지역 표 내용 셀"
+    },
+    {
+      "slot_id": "project-overview.project_period_budget",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "project_period_budget",
+        "type": "table_cell",
+        "cell_index": 10,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "사업기간/예산 표 내용 셀"
+    },
+    {
+      "slot_id": "project-overview.project_sector",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "project_sector",
+        "type": "table_cell",
+        "cell_index": 14,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "사업분야 표 내용 셀"
+    },
+    {
+      "slot_id": "project-overview.project_purpose",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "project_purpose",
+        "type": "table_cell",
+        "cell_index": 16,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "사업 목적 표 내용 셀"
+    },
+    {
+      "slot_id": "project-overview.pcp_feasibility_review",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "pcp_feasibility_review",
+        "type": "table_cell",
+        "cell_index": 19,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "PCP 및 사전타당성조사 표 내용 셀"
+    },
+    {
+      "slot_id": "project-overview.korean_textbook_development",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "korean_textbook_development",
+        "type": "table_cell",
+        "cell_index": 23,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "우리정부 분담사항 - 교재개발"
+    },
+    {
+      "slot_id": "project-overview.korean_equipment_support",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "korean_equipment_support",
+        "type": "table_cell",
+        "cell_index": 25,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "우리정부 분담사항 - 기자재"
+    },
+    {
+      "slot_id": "project-overview.korean_expert_dispatch",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "korean_expert_dispatch",
+        "type": "table_cell",
+        "cell_index": 27,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "우리정부 분담사항 - 전문가파견"
+    },
+    {
+      "slot_id": "project-overview.korean_invitation_training",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "korean_invitation_training",
+        "type": "table_cell",
+        "cell_index": 29,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "우리정부 분담사항 - 초청연수"
+    },
+    {
+      "slot_id": "project-overview.partner_contribution",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "partner_contribution",
+        "type": "table_cell",
+        "cell_index": 31,
+        "table_required_parts": [
+          "사업명(국문)",
+          "사업명(영문)",
+          "사업기간"
+        ]
+      },
+      "review_note": "수원국 분담사항"
+    },
+    {
+      "slot_id": "project-overview.remove_project_overview_guide",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "project-overview",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section3.xml",
+        "value_key": "remove_project_overview_guide",
+        "value_group": "remove_texts",
+        "type": "remove_paragraph",
+        "source_text": "ㅇ 분량 1쪽 이내",
+        "paragraph_index": 47
+      },
+      "review_note": "작성 안내 문단 제거"
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section7_project_overview_slots_v1",
+    "apply_order": [
+      "project-overview.project_name_ko",
+      "project-overview.project_name_en",
+      "project-overview.target_country_region",
+      "project-overview.project_period_budget",
+      "project-overview.project_sector",
+      "project-overview.project_purpose",
+      "project-overview.pcp_feasibility_review",
+      "project-overview.korean_textbook_development",
+      "project-overview.korean_equipment_support",
+      "project-overview.korean_expert_dispatch",
+      "project-overview.korean_invitation_training",
+      "project-overview.partner_contribution"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_table_cells_changed",
+      "no_markdown_table_inserted_outside_original_table"
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 17,
+    "section_id": "criteria-effectiveness",
+    "section_name": "효과성",
+    "hwpx_path": "Contents/section6.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "0fe9afd520d0b69b92355c28074961018a718e3b6e10c11ff3014ddc16349145"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_slots",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "criteria-effectiveness.criteria_effectiveness_body",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "criteria-effectiveness",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section6.xml",
+        "value_key": "criteria_effectiveness_body",
+        "source_text": "",
+        "type": "body_after_heading",
+        "paragraph_index": 15,
+        "heading_text": "3. 효과성"
+      },
+      "review_note": "효과성 본문 작성 영역"
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section17_criteria_effectiveness_slots_v1",
+    "apply_order": [
+      "criteria-effectiveness.criteria_effectiveness_body"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

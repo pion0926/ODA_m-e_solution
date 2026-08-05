@@ -1,0 +1,75 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 22,
+    "section_id": "conclusion",
+    "section_name": "결론",
+    "hwpx_path": "Contents/section7.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "bd24580d25b7fbd7961ad3ff3a39394712b27047a8bbdc480403d8fba76467b5"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_slots",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "conclusion.conclusion_body",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "conclusion",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section7.xml",
+        "value_key": "conclusion_body",
+        "source_text": "9Clickhere:set:66:Direction:wstring:23:이곳을 마우스로 누르고 내용을 입력하세요.",
+        "type": "body_after_heading",
+        "paragraph_index": 124,
+        "heading_text": "1. 결론"
+      },
+      "review_note": "결론 본문 작성 영역"
+    },
+    {
+      "slot_id": "conclusion.remove_conclusion_guide_1",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "conclusion",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section7.xml",
+        "value_key": "remove_conclusion_guide_1",
+        "source_text": "",
+        "type": "remove_paragraph",
+        "paragraph_index": 125,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section22_conclusion_slots_v1",
+    "apply_order": [
+      "conclusion.conclusion_body",
+      "conclusion.remove_conclusion_guide_1"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

@@ -1,0 +1,386 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 3,
+    "section_id": "notice",
+    "section_name": "평가보고서 관련 공지",
+    "hwpx_path": "Contents/section2.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "4e3ec0fd8a2e5be1754103f9a59fc2b451e5fa47ff37bb83177d17ea79438775"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only",
+    "forbidden_operations": [
+      "add_or_remove_xml_elements",
+      "add_or_remove_paragraphs",
+      "add_or_remove_runs",
+      "modify_linesegarray",
+      "modify_section_properties"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "notice.responsible_evaluator_name_first",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "responsible_evaluator_name_first",
+        "source_text": "ㅇㅇㅇ",
+        "type": "paragraph_run_text",
+        "paragraph_index": 4,
+        "run_index": 1
+      },
+      "review_note": "첫 문장 책임 평가자 이름"
+    },
+    {
+      "slot_id": "notice.country_name",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "country_name",
+        "source_text": "ㅇㅇ(나라명) ",
+        "type": "paragraph_run_text",
+        "paragraph_index": 4,
+        "run_index": 3
+      },
+      "review_note": "KOICA 사무소 국가명"
+    },
+    {
+      "slot_id": "notice.evaluated_project_name",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "evaluated_project_name",
+        "source_text": "ㅇㅇ(사업명) 종료 평가",
+        "type": "paragraph_run_text",
+        "paragraph_index": 4,
+        "run_index": 7
+      },
+      "review_note": "공지문 내 평가 대상 사업명"
+    },
+    {
+      "slot_id": "notice.responsible_evaluator_name_second",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "responsible_evaluator_name_second",
+        "source_text": "ㅇㅇㅇ",
+        "type": "paragraph_run_text",
+        "paragraph_index": 4,
+        "run_index": 11
+      },
+      "review_note": "두 번째 책임 평가자 이름"
+    },
+    {
+      "slot_id": "notice.completion_date_value",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "completion_date_value",
+        "source_text": "20xx년 xx월 xx일",
+        "type": "paragraph_run_text",
+        "paragraph_index": 6,
+        "run_index": 2
+      },
+      "review_note": "평가 완료일 날짜 값"
+    },
+    {
+      "slot_id": "notice.lead_evaluator_line",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "lead_evaluator_line",
+        "source_text": " 책 임 평 가 자 : ㅇㅇㅇ (소속)",
+        "type": "paragraph_run_text",
+        "paragraph_index": 9,
+        "run_index": 1
+      },
+      "review_note": "책임평가자 행"
+    },
+    {
+      "slot_id": "notice.evaluation_expert_line",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "evaluation_expert_line",
+        "source_text": "  평 가 전 문 가 : ㅇㅇㅇ (소속)",
+        "type": "paragraph_run_text",
+        "paragraph_index": 10,
+        "run_index": 0
+      },
+      "review_note": "평가전문가 행"
+    },
+    {
+      "slot_id": "notice.sector_expert_line",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "sector_expert_line",
+        "source_text": "  분 야 전 문 가 : ㅇㅇㅇ (소속)",
+        "type": "paragraph_run_text",
+        "paragraph_index": 11,
+        "run_index": 0
+      },
+      "review_note": "분야전문가 행"
+    },
+    {
+      "slot_id": "notice.assistant_evaluator_line",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "assistant_evaluator_line",
+        "source_text": "  평 가 보 조 원 : ㅇㅇㅇ (소속)",
+        "type": "paragraph_run_text",
+        "paragraph_index": 12,
+        "run_index": 0
+      },
+      "review_note": "평가보조원 행"
+    },
+    {
+      "slot_id": "notice.quality_review_date_value",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "quality_review_date_value",
+        "source_text": "20xx년 xx월 xx일",
+        "type": "paragraph_run_text",
+        "paragraph_index": 14,
+        "run_index": 2
+      },
+      "review_note": "평가 품질심의 완료일 날짜 값"
+    },
+    {
+      "slot_id": "notice.quality_grade_value",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "quality_grade_value",
+        "source_text": "(A,B,C,D)",
+        "type": "paragraph_run_text",
+        "paragraph_index": 16,
+        "run_index": 2
+      },
+      "review_note": "평가품질 등급 값"
+    },
+    {
+      "slot_id": "notice.review_chair_name",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "review_chair_name",
+        "source_text": "ㅇㅇㅇ (소속)",
+        "type": "paragraph_run_text",
+        "paragraph_index": 20,
+        "run_index": 2
+      },
+      "review_note": "검토위원장 이름 및 소속"
+    },
+    {
+      "slot_id": "notice.review_member_1_name",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "review_member_1_name",
+        "source_text": "ㅇㅇㅇ (소속)",
+        "type": "paragraph_run_text",
+        "paragraph_index": 21,
+        "run_index": 1
+      },
+      "review_note": "외부위원 1 이름 및 소속"
+    },
+    {
+      "slot_id": "notice.review_member_2_name",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "review_member_2_name",
+        "source_text": "ㅇㅇㅇ (소속)",
+        "type": "paragraph_run_text",
+        "paragraph_index": 22,
+        "run_index": 1
+      },
+      "review_note": "외부위원 2 이름 및 소속"
+    },
+    {
+      "slot_id": "notice.review_member_3_name",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "review_member_3_name",
+        "source_text": "ㅇㅇㅇ (소속)",
+        "type": "paragraph_run_text",
+        "paragraph_index": 23,
+        "run_index": 1
+      },
+      "review_note": "외부위원 3 이름 및 소속"
+    },
+    {
+      "slot_id": "notice.citation_lead",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "notice",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "citation_lead",
+        "source_text": "홍길동(평가책임자 이름). 2023. KOICA OO사업 평가보고서. ",
+        "type": "paragraph_run_text",
+        "paragraph_index": 30,
+        "run_index": 0
+      },
+      "review_note": "인용 표기 중 파란색 placeholder 영역"
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section3_notice_slots_v1",
+    "apply_order": [
+      "notice.responsible_evaluator_name_first",
+      "notice.country_name",
+      "notice.evaluated_project_name",
+      "notice.responsible_evaluator_name_second",
+      "notice.completion_date_value",
+      "notice.lead_evaluator_line",
+      "notice.evaluation_expert_line",
+      "notice.sector_expert_line",
+      "notice.assistant_evaluator_line",
+      "notice.quality_review_date_value",
+      "notice.quality_grade_value",
+      "notice.review_chair_name",
+      "notice.review_member_1_name",
+      "notice.review_member_2_name",
+      "notice.review_member_3_name",
+      "notice.citation_lead"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

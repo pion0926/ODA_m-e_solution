@@ -1,0 +1,1008 @@
+{
+  "base": "sections 1~4 plus selected section5 slots",
+  "slots": [
+    {
+      "index": 1,
+      "slot_id": "summary-ko.project_name_line",
+      "value_key": "project_name_line",
+      "paragraph_index": 2,
+      "type": "paragraph_text",
+      "valueLength": 45,
+      "valuePreview": "가. 사업명 : 네팔 무구지역 모자보건환경개선사업(2013-2018/ 500만불)"
+    },
+    {
+      "index": 2,
+      "slot_id": "summary-ko.business_background",
+      "value_key": "business_background",
+      "paragraph_index": 6,
+      "type": "paragraph_text",
+      "valueLength": 97,
+      "valuePreview": "- 네팔 내 최빈곤 지역인 무구군의 열악한 보건의료 인프라와 지리적 고립성으로 인한 높은 모성 및 영아 사망률을 해결하고, 보건의료 서비스 접근성을 향상하기 위해 추진되었다."
+    },
+    {
+      "index": 3,
+      "slot_id": "summary-ko.business_overview",
+      "value_key": "business_overview",
+      "paragraph_index": 9,
+      "type": "paragraph_text",
+      "valueLength": 142,
+      "valuePreview": "- (사업개요) 네팔 무구지역 모자보건환경개선사업(2013~2018, 500만 불)은 무구 군립병원 신축 및 기자재 지원, 보건의료 인력 역량 강화, 지역사회 인식 개선 활동을 통해 무구지역의 보건의료체계 개선과 모자보건 서비스 향상을 목표로 수행되었다."
+    },
+    {
+      "index": 4,
+      "slot_id": "summary-ko.evaluation_purpose",
+      "value_key": "evaluation_purpose",
+      "paragraph_index": 13,
+      "type": "paragraph_text",
+      "valueLength": 160,
+      "valuePreview": "- (평가목적) 본 평가는 사업 종료 시점에서 사업의 계획, 수행과정 및 성과를 OECD-DAC 평가 기준에 따라 객관적으로 분석하여 사업의 적절성, 효율성, 효과성, 지속가능성을 검증하고, 향후 유사 보건의료 ODA 사업의 기획 및 추진을 위한 교훈과 제언을 도출하는 데 목적이 있다."
+    },
+    {
+      "index": 5,
+      "slot_id": "summary-ko.evaluation_scope",
+      "value_key": "evaluation_scope",
+      "paragraph_index": 14,
+      "type": "paragraph_text",
+      "valueLength": 121,
+      "valuePreview": "- (평가범위) 2013년부터 2018년까지 수행된 사업 전반을 대상으로 하며, OECD-DAC 6대 평가 기준 및 젠더·환경 등 범분야 이슈를 포함하여 설계부터 종료까지의 투입, 산출, 성과 달성 과정을 평가하였다."
+    },
+    {
+      "index": 6,
+      "slot_id": "summary-ko.evaluation_method_overview",
+      "value_key": "evaluation_method_overview",
+      "paragraph_index": 16,
+      "type": "paragraph_text",
+      "valueLength": 53,
+      "valuePreview": "ㅇ 평가방법: 문헌조사, 이해관계자 인터뷰, 설문조사, 현장점검 및 정량자료 분석을 병행하였다."
+    },
+    {
+      "index": 7,
+      "slot_id": "summary-ko.document_review_method",
+      "value_key": "document_review_method",
+      "paragraph_index": 17,
+      "type": "paragraph_text",
+      "valueLength": 116,
+      "valuePreview": "- (문헌조사) KOICA CPS, 사업개요서(PCP), 연차점검 보고서, 사업 변경요청서, 운영위원회 회의록 및 네팔 국가보건전략과 보건 통계 자료를 분석하여 사업의 설계 적절성과 정책 정합성을 검토하였다."
+    },
+    {
+      "index": 8,
+      "slot_id": "summary-ko.stakeholder_interview_method",
+      "value_key": "stakeholder_interview_method",
+      "paragraph_index": 18,
+      "type": "paragraph_text",
+      "valueLength": 138,
+      "valuePreview": "- (이해관계자 인터뷰) KOICA 본부 및 네팔 사무소, UNICEF 관계자, 네팔 보건부 관계자, 현지 보건의료 인력 및 주민 수혜자를 대상으로 심층 면담 및 포커스 그룹 인터뷰(FGD)를 실시하여 사업 참여 경험과 성과를 다각도로 확인하였다."
+    },
+    {
+      "index": 9,
+      "slot_id": "summary-ko.field_survey_method",
+      "value_key": "field_survey_method",
+      "paragraph_index": 19,
+      "type": "paragraph_text",
+      "valueLength": 84,
+      "valuePreview": "- (현지실사) 무구 군립병원 및 주요 보건시설을 방문하여 건축 상태, 기자재 배치 및 가동 현황을 점검하고, 운영·유지관리 체계의 실태를 파악하였다."
+    },
+    {
+      "index": 10,
+      "slot_id": "summary-ko.evaluation_limitations",
+      "value_key": "evaluation_limitations",
+      "paragraph_index": 20,
+      "type": "paragraph_text",
+      "valueLength": 142,
+      "valuePreview": "ㅇ 평가의 한계: 무구지역의 지리적·기후적 접근성 제약으로 현장 방문에 어려움이 있었으며, 네팔 정부의 연방제 전환에 따른 인사 이동으로 정책 연속성 파악에 한계가 있었다. 또한 일부 성과지표의 데이터 품질 및 기자재 유지관리 기록의 미비점이 존재하였다."
+    },
+    {
+      "index": 11,
+      "slot_id": "summary-ko.achievement_summary",
+      "value_key": "achievement_summary",
+      "paragraph_index": 24,
+      "type": "paragraph_text",
+      "valueLength": 129,
+      "valuePreview": "ㅇ 군립병원 신축(2동), 조산사 양성(18명), HMIS 정기보고(26건), 산전진찰 4회 완수율(60%) 등 주요 산출물 및 성과지표가 목표치를 상회하거나 달성하였으며, 지역사회 모자보건 인식 개선 등 정성적 성과도 확인되었다."
+    },
+    {
+      "index": 12,
+      "slot_id": "summary-ko.relevance_summary",
+      "value_key": "relevance_summary",
+      "paragraph_index": 28,
+      "type": "paragraph_text",
+      "valueLength": 126,
+      "valuePreview": "- 네팔의 국가보건전략 및 KOICA의 대네팔 국별협력전략과 부합하며, 무구지역의 열악한 보건 수요를 정확히 반영하여 설계되었다. 연방제 전환 등 외부 환경 변화에도 유연한 사업 관리와 파트너십 조정을 통해 적절히 대응하였다."
+    },
+    {
+      "index": 13,
+      "slot_id": "summary-ko.coherence_summary",
+      "value_key": "coherence_summary",
+      "paragraph_index": 31,
+      "type": "paragraph_text",
+      "valueLength": 148,
+      "valuePreview": "- UNICEF와의 전략적 파트너십을 통해 현지 보건 시스템 내 역량 강화 활동을 효과적으로 수행하였으며, EDP 그룹 참여를 통해 타 공여기관과의 조화를 도모하였다. 다만, 범분야 세이프가드 준수 기록의 체계화와 기자재 유지보수 관련 협력 체계는 보완이 필요하다."
+    },
+    {
+      "index": 14,
+      "slot_id": "summary-ko.effectiveness_summary",
+      "value_key": "effectiveness_summary",
+      "paragraph_index": 34,
+      "type": "paragraph_text",
+      "valueLength": 123,
+      "valuePreview": "- 병원 신축 및 기자재 지원 등 핵심 산출물을 양호하게 달성하였고, 시설 분만율 증가 등 유의미한 성과가 확인되었다. 다만, 사업 개입의 직접적 기여도 분석과 성별·지역별 분리 통계 자료의 세분화가 향후 과제로 남았다."
+    },
+    {
+      "index": 15,
+      "slot_id": "summary-ko.efficiency_summary",
+      "value_key": "efficiency_summary",
+      "paragraph_index": 37,
+      "type": "paragraph_text",
+      "valueLength": 126,
+      "valuePreview": "- 지리적·기후적 제약을 극복하기 위해 연락사무소 철수 및 현장 중심의 이원 체제로 전환하는 등 유연한 운영 전략을 통해 경제적 효율성을 제고하였다. 다만, 활동별 상세 인력 투입 기록 등 관리 증빙의 체계적 보완이 요구된다."
+    },
+    {
+      "index": 16,
+      "slot_id": "summary-ko.sustainability_summary",
+      "value_key": "sustainability_summary",
+      "paragraph_index": 40,
+      "type": "paragraph_text",
+      "valueLength": 117,
+      "valuePreview": "- 병원 운영을 위한 전문 인력 수급의 어려움과 정치적 개입 등 구조적 한계로 인해 지속가능성에 상당한 제약이 확인된다. 기자재 유지보수 체계와 재정적 자립역량 확보를 위한 정부 차원의 제도적 장치가 시급하다."
+    },
+    {
+      "index": 17,
+      "slot_id": "summary-ko.crosscutting_human_rights_gender",
+      "value_key": "crosscutting_human_rights_gender",
+      "paragraph_index": 43,
+      "type": "paragraph_text",
+      "valueLength": 98,
+      "valuePreview": "- (인권 및 성 주류화) 모성뿐만 아니라 아버지의 참여를 독려하는 등 포용적 접근을 시도하였으나, 성별·지역별 분리 통계 분석 등 구체적인 성과 관리 자료는 보완이 필요하다."
+    },
+    {
+      "index": 18,
+      "slot_id": "summary-ko.crosscutting_environment",
+      "value_key": "crosscutting_environment",
+      "paragraph_index": 44,
+      "type": "paragraph_text",
+      "valueLength": 106,
+      "valuePreview": "- (환경영향) 사업 수행 과정에서 환경에 미치는 부정적 영향은 크지 않은 것으로 판단되나, 향후 병원 운영 시 폐기물 처리 등 환경 관련 규정을 준수하고 기초환경조사를 강화할 필요가 있다."
+    },
+    {
+      "index": 19,
+      "slot_id": "summary-ko.conclusion_goal_achievement",
+      "value_key": "conclusion_goal_achievement",
+      "paragraph_index": 48,
+      "type": "paragraph_text",
+      "valueLength": 110,
+      "valuePreview": "- (사업 목표 달성) 무구지역 보건의료체계 개선 및 모자보건 서비스 향상이라는 사업 목표를 성공적으로 달성하였으며, 인프라 확충과 역량 강화가 결합되어 지역 보건 서비스 접근성 개선에 기여하였다."
+    },
+    {
+      "index": 20,
+      "slot_id": "summary-ko.conclusion_dac_results",
+      "value_key": "conclusion_dac_results",
+      "paragraph_index": 49,
+      "type": "paragraph_text",
+      "valueLength": 129,
+      "valuePreview": "- (DAC 6대 기준에 따른 평가결과) 사업의 적절성, 효율성, 효과성은 양호하게 평가되나, 지속가능성 측면에서 전문 인력 확보와 운영 예산 마련 등 수원국의 자립적 운영 기반이 미흡하여 향후 사후관리 사업과의 연계가 필수적이다."
+    },
+    {
+      "index": 21,
+      "slot_id": "summary-ko.conclusion_crosscutting_results",
+      "value_key": "conclusion_crosscutting_results",
+      "paragraph_index": 50,
+      "type": "paragraph_text",
+      "valueLength": 108,
+      "valuePreview": "- (범 분야 이슈 평가 결과) 젠더 및 인권 측면에서 포용적 접근을 시도하였으나, 성과 관리의 정교함이 부족하였다. 환경 영향은 미미하나 향후 시설 운영 시 환경 관리 체계의 정착이 권고된다."
+    },
+    {
+      "index": 22,
+      "slot_id": "summary-ko.lesson_working_factors",
+      "value_key": "lesson_working_factors",
+      "paragraph_index": 52,
+      "type": "paragraph_text",
+      "valueLength": 102,
+      "valuePreview": "- (작동요인) 무구지역의 높은 보건 수요를 반영한 사업 설계, UNICEF와의 전략적 파트너십, 현장 접근성 제약을 극복하기 위한 유연한 사무소 운영 전략이 성과 달성에 기여하였다."
+    },
+    {
+      "index": 23,
+      "slot_id": "summary-ko.lesson_nonworking_factors",
+      "value_key": "lesson_nonworking_factors",
+      "paragraph_index": 53,
+      "type": "paragraph_text",
+      "valueLength": 99,
+      "valuePreview": "- (비작동요인) 현지 전문 인력 수급의 어려움, 기자재 유지보수 체계의 미흡, 병원 운영위원회 내 정치적 개입 등 구조적 요인이 지속가능성을 저해하는 주요 요인으로 작용하였다."
+    },
+    {
+      "index": 24,
+      "slot_id": "summary-ko.recommendation_project_model",
+      "value_key": "recommendation_project_model",
+      "paragraph_index": 56,
+      "type": "paragraph_text",
+      "valueLength": 99,
+      "valuePreview": "- (사업모델 변경제언) 향후 보건의료 사업 기획 시 수원국 정부의 인건비 보장 및 운영 예산 확약 등 오너십을 강화할 수 있는 제도적 장치를 사업 설계 단계부터 포함해야 한다."
+    },
+    {
+      "index": 25,
+      "slot_id": "summary-ko.recommendation_project_management",
+      "value_key": "recommendation_project_management",
+      "paragraph_index": 57,
+      "type": "paragraph_text",
+      "valueLength": 91,
+      "valuePreview": "- (사업관리 개선제언) 사업 초기부터 활동별 인력 투입 기록을 정례화하고, 주요 의사결정 회의록을 체계적으로 관리하여 사업관리의 투명성과 효율성을 제고해야 한다."
+    },
+    {
+      "index": 26,
+      "slot_id": "summary-ko.recommendation_structural_limits",
+      "value_key": "recommendation_structural_limits",
+      "paragraph_index": 58,
+      "type": "paragraph_text",
+      "valueLength": 119,
+      "valuePreview": "- (개발환경 및 개입 특성상의 구조적 한계 분석 제언) 연방제 전환 등 수원국의 거버넌스 변화에 따른 행정적 리스크를 사전에 식별하고, 지방정부와의 정기적인 정책 협의체를 운영하여 제도적 연속성을 확보해야 한다."
+    },
+    {
+      "index": 27,
+      "slot_id": "summary-ko.recommendation_other",
+      "value_key": "recommendation_other",
+      "paragraph_index": 59,
+      "type": "paragraph_text",
+      "valueLength": 96,
+      "valuePreview": "- (기타) 기자재 유지보수를 위한 의공기사 배치 및 정기 점검 매뉴얼 수립을 포함한 실질적인 사후관리 계획을 수립하여 기 지원된 인프라의 활용도를 극대화할 것을 권고한다."
+    }
+  ],
+  "cumulative": [
+    {
+      "toSlot": 1,
+      "value_key": "project_name_line",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_01_project_name_line.hwpx",
+      "bytes": 1252136,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 2,
+      "value_key": "business_background",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_02_business_background.hwpx",
+      "bytes": 1252124,
+      "zipbad": null,
+      "changedSlots": 2,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 3,
+      "value_key": "business_overview",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_03_business_overview.hwpx",
+      "bytes": 1252087,
+      "zipbad": null,
+      "changedSlots": 3,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 4,
+      "value_key": "evaluation_purpose",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_04_evaluation_purpose.hwpx",
+      "bytes": 1252015,
+      "zipbad": null,
+      "changedSlots": 4,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 5,
+      "value_key": "evaluation_scope",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_05_evaluation_scope.hwpx",
+      "bytes": 1252056,
+      "zipbad": null,
+      "changedSlots": 5,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 6,
+      "value_key": "evaluation_method_overview",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_06_evaluation_method_overview.hwpx",
+      "bytes": 1252068,
+      "zipbad": null,
+      "changedSlots": 6,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 7,
+      "value_key": "document_review_method",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_07_document_review_method.hwpx",
+      "bytes": 1252074,
+      "zipbad": null,
+      "changedSlots": 7,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 8,
+      "value_key": "stakeholder_interview_method",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_08_stakeholder_interview_method.hwpx",
+      "bytes": 1252044,
+      "zipbad": null,
+      "changedSlots": 8,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 9,
+      "value_key": "field_survey_method",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_09_field_survey_method.hwpx",
+      "bytes": 1252037,
+      "zipbad": null,
+      "changedSlots": 9,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 10,
+      "value_key": "evaluation_limitations",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_10_evaluation_limitations.hwpx",
+      "bytes": 1252091,
+      "zipbad": null,
+      "changedSlots": 10,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 11,
+      "value_key": "achievement_summary",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_11_achievement_summary.hwpx",
+      "bytes": 1252046,
+      "zipbad": null,
+      "changedSlots": 11,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 12,
+      "value_key": "relevance_summary",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_12_relevance_summary.hwpx",
+      "bytes": 1251897,
+      "zipbad": null,
+      "changedSlots": 12,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 13,
+      "value_key": "coherence_summary",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_13_coherence_summary.hwpx",
+      "bytes": 1251772,
+      "zipbad": null,
+      "changedSlots": 13,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 14,
+      "value_key": "effectiveness_summary",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_14_effectiveness_summary.hwpx",
+      "bytes": 1251738,
+      "zipbad": null,
+      "changedSlots": 14,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 15,
+      "value_key": "efficiency_summary",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_15_efficiency_summary.hwpx",
+      "bytes": 1251569,
+      "zipbad": null,
+      "changedSlots": 15,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 16,
+      "value_key": "sustainability_summary",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_16_sustainability_summary.hwpx",
+      "bytes": 1251507,
+      "zipbad": null,
+      "changedSlots": 16,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 17,
+      "value_key": "crosscutting_human_rights_gender",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_17_crosscutting_human_rights_gender.hwpx",
+      "bytes": 1251490,
+      "zipbad": null,
+      "changedSlots": 17,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 18,
+      "value_key": "crosscutting_environment",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_18_crosscutting_environment.hwpx",
+      "bytes": 1251361,
+      "zipbad": null,
+      "changedSlots": 18,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 19,
+      "value_key": "conclusion_goal_achievement",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_19_conclusion_goal_achievement.hwpx",
+      "bytes": 1251291,
+      "zipbad": null,
+      "changedSlots": 19,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 20,
+      "value_key": "conclusion_dac_results",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_20_conclusion_dac_results.hwpx",
+      "bytes": 1251252,
+      "zipbad": null,
+      "changedSlots": 20,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 21,
+      "value_key": "conclusion_crosscutting_results",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_21_conclusion_crosscutting_results.hwpx",
+      "bytes": 1251153,
+      "zipbad": null,
+      "changedSlots": 21,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 22,
+      "value_key": "lesson_working_factors",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_22_lesson_working_factors.hwpx",
+      "bytes": 1251128,
+      "zipbad": null,
+      "changedSlots": 22,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 23,
+      "value_key": "lesson_nonworking_factors",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_23_lesson_nonworking_factors.hwpx",
+      "bytes": 1250937,
+      "zipbad": null,
+      "changedSlots": 23,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 24,
+      "value_key": "recommendation_project_model",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_24_recommendation_project_model.hwpx",
+      "bytes": 1250813,
+      "zipbad": null,
+      "changedSlots": 24,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 25,
+      "value_key": "recommendation_project_management",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_25_recommendation_project_management.hwpx",
+      "bytes": 1250786,
+      "zipbad": null,
+      "changedSlots": 25,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 26,
+      "value_key": "recommendation_structural_limits",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_26_recommendation_structural_limits.hwpx",
+      "bytes": 1250632,
+      "zipbad": null,
+      "changedSlots": 26,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 27,
+      "value_key": "recommendation_other",
+      "path": "output\\section5_slot_debug_preserve\\cumulative_section5_slots\\01_to_27_recommendation_other.hwpx",
+      "bytes": 1250503,
+      "zipbad": null,
+      "changedSlots": 27,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    }
+  ],
+  "solo": [
+    {
+      "index": 1,
+      "value_key": "project_name_line",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\01_project_name_line_only.hwpx",
+      "bytes": 1252136,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 2,
+      "value_key": "business_background",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\02_business_background_only.hwpx",
+      "bytes": 1252123,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 3,
+      "value_key": "business_overview",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\03_business_overview_only.hwpx",
+      "bytes": 1252106,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 4,
+      "value_key": "evaluation_purpose",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\04_evaluation_purpose_only.hwpx",
+      "bytes": 1252063,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 5,
+      "value_key": "evaluation_scope",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\05_evaluation_scope_only.hwpx",
+      "bytes": 1252177,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 6,
+      "value_key": "evaluation_method_overview",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\06_evaluation_method_overview_only.hwpx",
+      "bytes": 1252148,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 7,
+      "value_key": "document_review_method",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\07_document_review_method_only.hwpx",
+      "bytes": 1252153,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 8,
+      "value_key": "stakeholder_interview_method",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\08_stakeholder_interview_method_only.hwpx",
+      "bytes": 1252123,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 9,
+      "value_key": "field_survey_method",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\09_field_survey_method_only.hwpx",
+      "bytes": 1252145,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 10,
+      "value_key": "evaluation_limitations",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\10_evaluation_limitations_only.hwpx",
+      "bytes": 1252207,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 11,
+      "value_key": "achievement_summary",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\11_achievement_summary_only.hwpx",
+      "bytes": 1252109,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 12,
+      "value_key": "relevance_summary",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\12_relevance_summary_only.hwpx",
+      "bytes": 1252008,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 13,
+      "value_key": "coherence_summary",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\13_coherence_summary_only.hwpx",
+      "bytes": 1252033,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 14,
+      "value_key": "effectiveness_summary",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\14_effectiveness_summary_only.hwpx",
+      "bytes": 1252121,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 15,
+      "value_key": "efficiency_summary",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\15_efficiency_summary_only.hwpx",
+      "bytes": 1252037,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 16,
+      "value_key": "sustainability_summary",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\16_sustainability_summary_only.hwpx",
+      "bytes": 1252088,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 17,
+      "value_key": "crosscutting_human_rights_gender",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\17_crosscutting_human_rights_gender_only.hwpx",
+      "bytes": 1252142,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 18,
+      "value_key": "crosscutting_environment",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\18_crosscutting_environment_only.hwpx",
+      "bytes": 1252016,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 19,
+      "value_key": "conclusion_goal_achievement",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\19_conclusion_goal_achievement_only.hwpx",
+      "bytes": 1252082,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 20,
+      "value_key": "conclusion_dac_results",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\20_conclusion_dac_results_only.hwpx",
+      "bytes": 1252125,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 21,
+      "value_key": "conclusion_crosscutting_results",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\21_conclusion_crosscutting_results_only.hwpx",
+      "bytes": 1252083,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 22,
+      "value_key": "lesson_working_factors",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\22_lesson_working_factors_only.hwpx",
+      "bytes": 1252158,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 23,
+      "value_key": "lesson_nonworking_factors",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\23_lesson_nonworking_factors_only.hwpx",
+      "bytes": 1252010,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 24,
+      "value_key": "recommendation_project_model",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\24_recommendation_project_model_only.hwpx",
+      "bytes": 1252092,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 25,
+      "value_key": "recommendation_project_management",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\25_recommendation_project_management_only.hwpx",
+      "bytes": 1252134,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 26,
+      "value_key": "recommendation_structural_limits",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\26_recommendation_structural_limits_only.hwpx",
+      "bytes": 1252024,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "index": 27,
+      "value_key": "recommendation_other",
+      "path": "output\\section5_slot_debug_preserve\\solo_section5_slot_only\\27_recommendation_other_only.hwpx",
+      "bytes": 1252042,
+      "zipbad": null,
+      "changedSlots": 1,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    }
+  ]
+}

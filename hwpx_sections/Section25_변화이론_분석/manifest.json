@@ -1,0 +1,37 @@
+{
+  "section_number": 25,
+  "section_id": "theory",
+  "section_name": "변화이론 분석",
+  "hwpx_path": "Contents/section8.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "theory_body",
+      "heading_text": "(3) 변화이론 분석",
+      "paragraph_index": 1,
+      "source_text": "ㅇ 사업 종료평가 과정에서 도출된 작동, 비작동요인을 포함하여 사업 전반의 변화이론 분석 필수 실시",
+      "replacement_type": "body_after_heading",
+      "description": "변화이론 분석 본문 작성 영역"
+    },
+    {
+      "key": "remove_theory_example_1",
+      "paragraph_index": 3,
+      "replacement_type": "remove_reference_block",
+      "source_text": "(작성 예시 1: 사업 종료단계 분석) 보고서 작성 시 삭제",
+      "required_parts": [
+        "작성 예시 1",
+        "보고서 작성 시 삭제"
+      ]
+    },
+    {
+      "key": "remove_theory_example_2",
+      "paragraph_index": 11,
+      "replacement_type": "remove_reference_block",
+      "source_text": "(작성 예시 2: 사업종료단계 및 To-Be 변화이론 모델 분석) 보고서 작성 시 삭제",
+      "required_parts": [
+        "작성 예시 2",
+        "보고서 작성 시 삭제"
+      ]
+    }
+  ]
+}

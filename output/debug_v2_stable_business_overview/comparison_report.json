@@ -1,0 +1,818 @@
+{
+  "sectionCumulative": [
+    {
+      "toSection": 1,
+      "title": "표지",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_01_표지.hwpx",
+      "bytes": 1255885,
+      "changedSlots": 4,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml"
+      ]
+    },
+    {
+      "toSection": 2,
+      "title": "목차",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_02_목차.hwpx",
+      "bytes": 1255140,
+      "changedSlots": 27,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml"
+      ]
+    },
+    {
+      "toSection": 3,
+      "title": "공지",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_03_공지.hwpx",
+      "bytes": 1253578,
+      "changedSlots": 39,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml"
+      ]
+    },
+    {
+      "toSection": 4,
+      "title": "평가등급_결과표",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_04_평가등급_결과표.hwpx",
+      "bytes": 1254001,
+      "changedSlots": 74,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml"
+      ]
+    },
+    {
+      "toSection": 5,
+      "title": "국문_요약",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_05_국문_요약.hwpx",
+      "bytes": 1250580,
+      "changedSlots": 101,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSection": 6,
+      "title": "사업_추진배경",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_06_사업_추진배경.hwpx",
+      "bytes": 1250326,
+      "changedSlots": 106,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSection": 7,
+      "title": "사업개요",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_07_사업개요.hwpx",
+      "bytes": 1250846,
+      "changedSlots": 118,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSection": 8,
+      "title": "PDM",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_08_PDM.hwpx",
+      "bytes": 1250092,
+      "changedSlots": 133,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 9,
+      "title": "평가_목적과_범위",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_09_평가_목적과_범위.hwpx",
+      "bytes": 1250092,
+      "changedSlots": 134,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 10,
+      "title": "평가매트릭스",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_10_평가매트릭스.hwpx",
+      "bytes": 1251109,
+      "changedSlots": 166,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 11,
+      "title": "평가방법",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_11_평가방법.hwpx",
+      "bytes": 1252404,
+      "changedSlots": 167,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 12,
+      "title": "평가의_한계",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_12_평가의_한계.hwpx",
+      "bytes": 1252404,
+      "changedSlots": 168,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 13,
+      "title": "평가팀_구성_및_시행체계",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_13_평가팀_구성_및_시행체계.hwpx",
+      "bytes": 1253038,
+      "changedSlots": 173,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 14,
+      "title": "성과_달성도",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_14_성과_달성도.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 174,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 15,
+      "title": "적절성",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_15_적절성.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 175,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 16,
+      "title": "일관성",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_16_일관성.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 176,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 17,
+      "title": "효과성",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_17_효과성.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 177,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 18,
+      "title": "효율성",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_18_효율성.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 178,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 19,
+      "title": "지속가능성",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_19_지속가능성.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 179,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 20,
+      "title": "범분야_이슈",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_20_범분야_이슈.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 180,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 21,
+      "title": "그_외_평가기준",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_21_그_외_평가기준.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 181,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 22,
+      "title": "결론",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_22_결론.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 182,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 23,
+      "title": "작동요인",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_23_작동요인.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 183,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 24,
+      "title": "비작동요인",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_24_비작동요인.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 184,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 25,
+      "title": "변화이론_분석",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_25_변화이론_분석.hwpx",
+      "bytes": 1251840,
+      "changedSlots": 185,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 26,
+      "title": "환류과제",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_26_환류과제.hwpx",
+      "bytes": 1253193,
+      "changedSlots": 186,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml",
+        "Contents/section8.xml"
+      ]
+    },
+    {
+      "toSection": 27,
+      "title": "교훈",
+      "path": "output\\debug_v2_stable_business_overview\\section_cumulative_1_to_n\\01_to_27_교훈.hwpx",
+      "bytes": 1253337,
+      "changedSlots": 187,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml",
+        "Contents/section8.xml"
+      ]
+    }
+  ],
+  "section5SlotCumulative": [
+    {
+      "toSlot": 1,
+      "value_key": "project_name_line",
+      "slot_id": "summary-ko.project_name_line",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_01_project_name_line.hwpx",
+      "bytes": 1252138,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 2,
+      "value_key": "business_background",
+      "slot_id": "summary-ko.business_background",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_02_business_background.hwpx",
+      "bytes": 1252122,
+      "changedSlots": 2,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 3,
+      "value_key": "business_overview",
+      "slot_id": "summary-ko.business_overview",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_03_business_overview.hwpx",
+      "bytes": 1252097,
+      "changedSlots": 3,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 4,
+      "value_key": "evaluation_purpose",
+      "slot_id": "summary-ko.evaluation_purpose",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_04_evaluation_purpose.hwpx",
+      "bytes": 1252024,
+      "changedSlots": 4,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 5,
+      "value_key": "evaluation_scope",
+      "slot_id": "summary-ko.evaluation_scope",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_05_evaluation_scope.hwpx",
+      "bytes": 1252066,
+      "changedSlots": 5,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 6,
+      "value_key": "evaluation_method_overview",
+      "slot_id": "summary-ko.evaluation_method_overview",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_06_evaluation_method_overview.hwpx",
+      "bytes": 1252079,
+      "changedSlots": 6,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 7,
+      "value_key": "document_review_method",
+      "slot_id": "summary-ko.document_review_method",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_07_document_review_method.hwpx",
+      "bytes": 1252086,
+      "changedSlots": 7,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 8,
+      "value_key": "stakeholder_interview_method",
+      "slot_id": "summary-ko.stakeholder_interview_method",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_08_stakeholder_interview_method.hwpx",
+      "bytes": 1252052,
+      "changedSlots": 8,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 9,
+      "value_key": "field_survey_method",
+      "slot_id": "summary-ko.field_survey_method",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_09_field_survey_method.hwpx",
+      "bytes": 1252055,
+      "changedSlots": 9,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 10,
+      "value_key": "evaluation_limitations",
+      "slot_id": "summary-ko.evaluation_limitations",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_10_evaluation_limitations.hwpx",
+      "bytes": 1252112,
+      "changedSlots": 10,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 11,
+      "value_key": "achievement_summary",
+      "slot_id": "summary-ko.achievement_summary",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_11_achievement_summary.hwpx",
+      "bytes": 1252074,
+      "changedSlots": 11,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 12,
+      "value_key": "relevance_summary",
+      "slot_id": "summary-ko.relevance_summary",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_12_relevance_summary.hwpx",
+      "bytes": 1251931,
+      "changedSlots": 12,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 13,
+      "value_key": "coherence_summary",
+      "slot_id": "summary-ko.coherence_summary",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_13_coherence_summary.hwpx",
+      "bytes": 1251808,
+      "changedSlots": 13,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 14,
+      "value_key": "effectiveness_summary",
+      "slot_id": "summary-ko.effectiveness_summary",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_14_effectiveness_summary.hwpx",
+      "bytes": 1251779,
+      "changedSlots": 14,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 15,
+      "value_key": "efficiency_summary",
+      "slot_id": "summary-ko.efficiency_summary",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_15_efficiency_summary.hwpx",
+      "bytes": 1251609,
+      "changedSlots": 15,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 16,
+      "value_key": "sustainability_summary",
+      "slot_id": "summary-ko.sustainability_summary",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_16_sustainability_summary.hwpx",
+      "bytes": 1251551,
+      "changedSlots": 16,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 17,
+      "value_key": "crosscutting_human_rights_gender",
+      "slot_id": "summary-ko.crosscutting_human_rights_gender",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_17_crosscutting_human_rights_gender.hwpx",
+      "bytes": 1251535,
+      "changedSlots": 17,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 18,
+      "value_key": "crosscutting_environment",
+      "slot_id": "summary-ko.crosscutting_environment",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_18_crosscutting_environment.hwpx",
+      "bytes": 1251417,
+      "changedSlots": 18,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 19,
+      "value_key": "conclusion_goal_achievement",
+      "slot_id": "summary-ko.conclusion_goal_achievement",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_19_conclusion_goal_achievement.hwpx",
+      "bytes": 1251354,
+      "changedSlots": 19,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 20,
+      "value_key": "conclusion_dac_results",
+      "slot_id": "summary-ko.conclusion_dac_results",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_20_conclusion_dac_results.hwpx",
+      "bytes": 1251319,
+      "changedSlots": 20,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 21,
+      "value_key": "conclusion_crosscutting_results",
+      "slot_id": "summary-ko.conclusion_crosscutting_results",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_21_conclusion_crosscutting_results.hwpx",
+      "bytes": 1251215,
+      "changedSlots": 21,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 22,
+      "value_key": "lesson_working_factors",
+      "slot_id": "summary-ko.lesson_working_factors",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_22_lesson_working_factors.hwpx",
+      "bytes": 1251191,
+      "changedSlots": 22,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 23,
+      "value_key": "lesson_nonworking_factors",
+      "slot_id": "summary-ko.lesson_nonworking_factors",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_23_lesson_nonworking_factors.hwpx",
+      "bytes": 1251005,
+      "changedSlots": 23,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 24,
+      "value_key": "recommendation_project_model",
+      "slot_id": "summary-ko.recommendation_project_model",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_24_recommendation_project_model.hwpx",
+      "bytes": 1250881,
+      "changedSlots": 24,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 25,
+      "value_key": "recommendation_project_management",
+      "slot_id": "summary-ko.recommendation_project_management",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_25_recommendation_project_management.hwpx",
+      "bytes": 1250854,
+      "changedSlots": 25,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 26,
+      "value_key": "recommendation_structural_limits",
+      "slot_id": "summary-ko.recommendation_structural_limits",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_26_recommendation_structural_limits.hwpx",
+      "bytes": 1250703,
+      "changedSlots": 26,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSlot": 27,
+      "value_key": "recommendation_other",
+      "slot_id": "summary-ko.recommendation_other",
+      "path": "output\\debug_v2_stable_business_overview\\section5_slot_cumulative\\01_to_27_recommendation_other.hwpx",
+      "bytes": 1250580,
+      "changedSlots": 27,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    }
+  ]
+}

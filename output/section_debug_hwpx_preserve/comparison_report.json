@@ -1,0 +1,685 @@
+{
+  "original": "output\\section_debug_hwpx_preserve\\00_original_placeholder_copy.hwpx",
+  "solo": [
+    {
+      "section": 1,
+      "title": "표지",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\01_section_01_표지_only.hwpx",
+      "bytes": 1255885,
+      "changedSlots": 4,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml"
+      ]
+    },
+    {
+      "section": 2,
+      "title": "목차",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\02_section_02_목차_only.hwpx",
+      "bytes": 1255271,
+      "changedSlots": 23,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section1.xml"
+      ]
+    },
+    {
+      "section": 3,
+      "title": "공지",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\03_section_03_공지_only.hwpx",
+      "bytes": 1254454,
+      "changedSlots": 12,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section2.xml"
+      ]
+    },
+    {
+      "section": 4,
+      "title": "평가등급_결과표",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\04_section_04_평가등급_결과표_only.hwpx",
+      "bytes": 1254945,
+      "changedSlots": 35,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section2.xml"
+      ]
+    },
+    {
+      "section": 5,
+      "title": "국문_요약",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\05_section_05_국문_요약_only.hwpx",
+      "bytes": 1252520,
+      "changedSlots": 27,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "section": 6,
+      "title": "사업_추진배경",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\06_section_06_사업_추진배경_only.hwpx",
+      "bytes": 1253943,
+      "changedSlots": 5,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "section": 7,
+      "title": "사업개요",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\07_section_07_사업개요_only.hwpx",
+      "bytes": 1254661,
+      "changedSlots": 12,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "section": 8,
+      "title": "PDM",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\08_section_08_PDM_only.hwpx",
+      "bytes": 1255262,
+      "changedSlots": 15,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "section": 9,
+      "title": "평가_목적과_범위",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\09_section_09_평가_목적과_범위_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 10,
+      "title": "평가매트릭스",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\10_section_10_평가매트릭스_only.hwpx",
+      "bytes": 1255410,
+      "changedSlots": 32,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "section": 11,
+      "title": "평가방법",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\11_section_11_평가방법_only.hwpx",
+      "bytes": 1255735,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "section": 12,
+      "title": "평가의_한계",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\12_section_12_평가의_한계_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 13,
+      "title": "평가팀_구성_및_시행체계",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\13_section_13_평가팀_구성_및_시행체계_only.hwpx",
+      "bytes": 1255163,
+      "changedSlots": 5,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "section": 14,
+      "title": "성과_달성도",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\14_section_14_성과_달성도_only.hwpx",
+      "bytes": 1254818,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "section": 15,
+      "title": "적절성",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\15_section_15_적절성_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 16,
+      "title": "일관성",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\16_section_16_일관성_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 17,
+      "title": "효과성",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\17_section_17_효과성_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 18,
+      "title": "효율성",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\18_section_18_효율성_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 19,
+      "title": "지속가능성",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\19_section_19_지속가능성_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 20,
+      "title": "범분야_이슈",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\20_section_20_범분야_이슈_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 21,
+      "title": "그_외_평가기준",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\21_section_21_그_외_평가기준_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 22,
+      "title": "결론",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\22_section_22_결론_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 23,
+      "title": "작동요인",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\23_section_23_작동요인_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 24,
+      "title": "비작동요인",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\24_section_24_비작동요인_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 25,
+      "title": "변화이론_분석",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\25_section_25_변화이론_분석_only.hwpx",
+      "bytes": 1256016,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": []
+    },
+    {
+      "section": 26,
+      "title": "환류과제",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\26_section_26_환류과제_only.hwpx",
+      "bytes": 1257369,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section8.xml"
+      ]
+    },
+    {
+      "section": 27,
+      "title": "교훈",
+      "path": "output\\section_debug_hwpx_preserve\\solo_one_section_only\\27_section_27_교훈_only.hwpx",
+      "bytes": 1257441,
+      "changedSlots": 1,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section8.xml"
+      ]
+    }
+  ],
+  "cumulative": [
+    {
+      "toSection": 1,
+      "title": "표지",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_01_표지.hwpx",
+      "bytes": 1255885,
+      "changedSlots": 4,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml"
+      ]
+    },
+    {
+      "toSection": 2,
+      "title": "목차",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_02_목차.hwpx",
+      "bytes": 1255140,
+      "changedSlots": 27,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml"
+      ]
+    },
+    {
+      "toSection": 3,
+      "title": "공지",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_03_공지.hwpx",
+      "bytes": 1253578,
+      "changedSlots": 39,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml"
+      ]
+    },
+    {
+      "toSection": 4,
+      "title": "평가등급_결과표",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_04_평가등급_결과표.hwpx",
+      "bytes": 1253999,
+      "changedSlots": 74,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml"
+      ]
+    },
+    {
+      "toSection": 5,
+      "title": "국문_요약",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_05_국문_요약.hwpx",
+      "bytes": 1250503,
+      "changedSlots": 101,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSection": 6,
+      "title": "사업_추진배경",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_06_사업_추진배경.hwpx",
+      "bytes": 1250246,
+      "changedSlots": 106,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSection": 7,
+      "title": "사업개요",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_07_사업개요.hwpx",
+      "bytes": 1250767,
+      "changedSlots": 118,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml"
+      ]
+    },
+    {
+      "toSection": 8,
+      "title": "PDM",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_08_PDM.hwpx",
+      "bytes": 1250013,
+      "changedSlots": 133,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 9,
+      "title": "평가_목적과_범위",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_09_평가_목적과_범위.hwpx",
+      "bytes": 1250013,
+      "changedSlots": 134,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 10,
+      "title": "평가매트릭스",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_10_평가매트릭스.hwpx",
+      "bytes": 1251030,
+      "changedSlots": 166,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 11,
+      "title": "평가방법",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_11_평가방법.hwpx",
+      "bytes": 1252326,
+      "changedSlots": 167,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 12,
+      "title": "평가의_한계",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_12_평가의_한계.hwpx",
+      "bytes": 1252326,
+      "changedSlots": 168,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 13,
+      "title": "평가팀_구성_및_시행체계",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_13_평가팀_구성_및_시행체계.hwpx",
+      "bytes": 1252956,
+      "changedSlots": 173,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml"
+      ]
+    },
+    {
+      "toSection": 14,
+      "title": "성과_달성도",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_14_성과_달성도.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 174,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 15,
+      "title": "적절성",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_15_적절성.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 175,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 16,
+      "title": "일관성",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_16_일관성.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 176,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 17,
+      "title": "효과성",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_17_효과성.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 177,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 18,
+      "title": "효율성",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_18_효율성.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 178,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 19,
+      "title": "지속가능성",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_19_지속가능성.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 179,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 20,
+      "title": "범분야_이슈",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_20_범분야_이슈.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 180,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 21,
+      "title": "그_외_평가기준",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_21_그_외_평가기준.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 181,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 22,
+      "title": "결론",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_22_결론.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 182,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 23,
+      "title": "작동요인",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_23_작동요인.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 183,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 24,
+      "title": "비작동요인",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_24_비작동요인.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 184,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 25,
+      "title": "변화이론_분석",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_25_변화이론_분석.hwpx",
+      "bytes": 1251758,
+      "changedSlots": 185,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml"
+      ]
+    },
+    {
+      "toSection": 26,
+      "title": "환류과제",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_26_환류과제.hwpx",
+      "bytes": 1253111,
+      "changedSlots": 186,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml",
+        "Contents/section8.xml"
+      ]
+    },
+    {
+      "toSection": 27,
+      "title": "교훈",
+      "path": "output\\section_debug_hwpx_preserve\\cumulative_1_to_n\\01_to_27_교훈.hwpx",
+      "bytes": 1253255,
+      "changedSlots": 187,
+      "zipbad": null,
+      "replacements": [
+        "Contents/section0.xml",
+        "Contents/section1.xml",
+        "Contents/section2.xml",
+        "Contents/section3.xml",
+        "Contents/section4.xml",
+        "Contents/section5.xml",
+        "Contents/section8.xml"
+      ]
+    }
+  ]
+}

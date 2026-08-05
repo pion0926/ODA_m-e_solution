@@ -1,0 +1,201 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 15,
+    "section_id": "criteria-relevance",
+    "section_name": "적절성",
+    "hwpx_path": "Contents/section6.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "0fe9afd520d0b69b92355c28074961018a718e3b6e10c11ff3014ddc16349145"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_slots",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "criteria-relevance.criteria_relevance_body",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "criteria-relevance",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section6.xml",
+        "value_key": "criteria_relevance_body",
+        "source_text": "9Clickhere:set:66:Direction:wstring:23:이곳을 마우스로 누르고 내용을 입력하세요.",
+        "type": "body_after_heading",
+        "paragraph_index": 3,
+        "heading_text": "1. 적절성"
+      },
+      "review_note": "적절성 본문 작성 영역"
+    },
+    {
+      "slot_id": "criteria-relevance.remove_relevance_guide_1",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "criteria-relevance",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section6.xml",
+        "value_key": "remove_relevance_guide_1",
+        "source_text": "",
+        "type": "remove_paragraph",
+        "paragraph_index": 4,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "criteria-relevance.remove_relevance_guide_2",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "criteria-relevance",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section6.xml",
+        "value_key": "remove_relevance_guide_2",
+        "source_text": "",
+        "type": "remove_paragraph",
+        "paragraph_index": 5,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "criteria-relevance.remove_relevance_example_1",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "criteria-relevance",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section6.xml",
+        "value_key": "remove_relevance_example_1",
+        "source_text": "",
+        "type": "remove_paragraph",
+        "paragraph_index": 7,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "criteria-relevance.remove_relevance_example_2",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "criteria-relevance",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section6.xml",
+        "value_key": "remove_relevance_example_2",
+        "source_text": "",
+        "type": "remove_paragraph",
+        "paragraph_index": 8,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "criteria-relevance.remove_relevance_example_3",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "criteria-relevance",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section6.xml",
+        "value_key": "remove_relevance_example_3",
+        "source_text": "",
+        "type": "remove_paragraph",
+        "paragraph_index": 9,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "criteria-relevance.remove_relevance_example_4",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "criteria-relevance",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section6.xml",
+        "value_key": "remove_relevance_example_4",
+        "source_text": "",
+        "type": "remove_paragraph",
+        "paragraph_index": 10,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "criteria-relevance.remove_relevance_example_5",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "criteria-relevance",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section6.xml",
+        "value_key": "remove_relevance_example_5",
+        "source_text": "",
+        "type": "remove_paragraph",
+        "paragraph_index": 11,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section15_criteria_relevance_slots_v1",
+    "apply_order": [
+      "criteria-relevance.criteria_relevance_body",
+      "criteria-relevance.remove_relevance_guide_1",
+      "criteria-relevance.remove_relevance_guide_2",
+      "criteria-relevance.remove_relevance_example_1",
+      "criteria-relevance.remove_relevance_example_2",
+      "criteria-relevance.remove_relevance_example_3",
+      "criteria-relevance.remove_relevance_example_4",
+      "criteria-relevance.remove_relevance_example_5"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

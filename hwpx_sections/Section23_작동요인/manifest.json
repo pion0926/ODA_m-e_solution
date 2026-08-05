@@ -1,0 +1,27 @@
+{
+  "section_number": 23,
+  "section_id": "working-factors",
+  "section_name": "작동요인",
+  "hwpx_path": "Contents/section7.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "working_factors_body",
+      "heading_text": "(1) 작동요인",
+      "paragraph_index": 132,
+      "source_text": "9Clickhere:set:66:Direction:wstring:23:이곳을 마우스로 누르고 내용을 입력하세요.",
+      "replacement_type": "body_after_heading",
+      "description": "작동요인 본문 작성 영역"
+    },
+    {
+      "key": "remove_working_factor_example",
+      "paragraph_index": 134,
+      "replacement_type": "remove_reference_block",
+      "source_text": "작동요인 작성 예시 (보고서 작성시 삭제)",
+      "required_parts": [
+        "작동요인 작성 예시",
+        "보고서 작성시 삭제"
+      ]
+    }
+  ]
+}

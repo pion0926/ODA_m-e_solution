@@ -1,0 +1,41 @@
+{
+  "section_number": 13,
+  "section_id": "eval-team",
+  "section_name": "평가팀 구성 및 시행체계",
+  "hwpx_path": "Contents/section4.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "eval_team_body",
+      "heading_text": "5. 평가팀 구성 및 시행체계",
+      "paragraph_index": 249,
+      "source_text": "ㅇ 평가팀 구성",
+      "replacement_type": "body_after_heading",
+      "description": "평가팀 구성 및 시행체계 본문 작성 영역"
+    },
+    {
+      "key": "remove_eval_team_guide_1",
+      "paragraph_index": 250,
+      "replacement_type": "remove_paragraph",
+      "source_text": "- 평가책임자 :　000 (소속, 직함, 담당업무)"
+    },
+    {
+      "key": "remove_eval_team_guide_2",
+      "paragraph_index": 251,
+      "replacement_type": "remove_paragraph",
+      "source_text": "- 평가전문가 :　000 (소속, 직함, 담당업무)"
+    },
+    {
+      "key": "remove_eval_team_guide_3",
+      "paragraph_index": 252,
+      "replacement_type": "remove_paragraph",
+      "source_text": "- 분야전문가 :　000 (소속, 직함, 담당업무)"
+    },
+    {
+      "key": "remove_eval_team_guide_4",
+      "paragraph_index": 253,
+      "replacement_type": "remove_paragraph",
+      "source_text": "- 평가보조원 :　000 (소속, 직함, 담당업무)"
+    }
+  ]
+}

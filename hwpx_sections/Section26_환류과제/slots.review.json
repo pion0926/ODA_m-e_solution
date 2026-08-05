@@ -1,0 +1,54 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 26,
+    "section_id": "feedback",
+    "section_name": "환류과제",
+    "hwpx_path": "Contents/section8.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "26bca065773303ceece1c11da1cdaed9152ab37bc01969b6f0e710e7aa6d07b2"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_slots",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "feedback.feedback_body",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "feedback",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section8.xml",
+        "value_key": "feedback_body",
+        "source_text": "",
+        "type": "body_paragraph",
+        "paragraph_index": 15,
+        "heading_text": "(1) 환류과제"
+      },
+      "review_note": "환류과제 본문 작성 영역"
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section26_feedback_slots_v1",
+    "apply_order": [
+      "feedback.feedback_body"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

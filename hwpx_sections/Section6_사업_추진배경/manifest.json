@@ -1,0 +1,44 @@
+{
+  "section_number": 6,
+  "section_id": "project-background",
+  "section_name": "사업 추진배경",
+  "hwpx_path": "Contents/section3.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "mdg_maternal_health_context",
+      "paragraph_index": 66,
+      "source_text": "ㅇ 네팔은 MDG의 성과로서 2006년 모성사망률이 출생아 10만 명 당 539명에서 2010년 281명으로 큰 감소를 보였으나 여전히 모든 출생의 65%는 숙련된 출산보조자의 도움을 받지 못한 채 가정에서 출산하고 있었고, 열악한 의료서비스의 질, 장비, 도구, 인프라의 부족 등의 문제를 가지고 있있음. 또한 도시와 농촌지역의 격차가 심해서 도시 거주자의 73%가, 농촌 거주자는 32%만이 출산과정에서 숙련자의 도움을 받고 있었음.",
+      "replacement_type": "paragraph_text",
+      "description": "Country and maternal health context bullet"
+    },
+    {
+      "key": "government_policy_context",
+      "paragraph_index": 68,
+      "source_text": "ㅇ 네팔 정부는 2010년 8월 3개년 중기개발계획(Three Year Interim Plan)을 통해 모든 국민들에게 양질의 보편적 보건 서비스를 제공한다는 가치 아래 안전한 분만 및 모자보건사업의 확대를 천명한 바 있음.",
+      "replacement_type": "paragraph_text",
+      "description": "Government policy context bullet"
+    },
+    {
+      "key": "target_region_need",
+      "paragraph_index": 70,
+      "source_text": "ㅇ 네팔은 지형적으로 모자보건서비스의 불균형 문제가 심각한 상황에서 이를 해결하기 위해 네팔의 서부 산간지역(해발 2,700m)에 위치한 극빈지역으로 네팔에서도 인간개발지수(HDI)가 가장 낮고 보건의료서비스 제공여건이 열악한 지역인 “Mugu District”에 보건의료서비스 강화 및 지역주민 기초보건 향상을 위해 동 사업을 요청함.",
+      "replacement_type": "paragraph_text",
+      "description": "Target region need and request background bullet"
+    },
+    {
+      "key": "koica_policy_alignment",
+      "paragraph_index": 72,
+      "source_text": "ㅇ KOICA는 2010년 대 개발도상국 지원 전략의 일환으로 최빈국・저소득국 지원확대, MDGs 달성 지원을 위한 교육, 보건, 농촌개발 분야 사업 지원 확대 등을 채택하였으며, 보건의료분야의 중장기전략(2008~2010)의 세부 추진전략으로 ①제도적 역량강화, ②인적자원개발, ③보건의료 자원 확충을 채택하고 있었기에 정책심사 결과, 협력 대상국에 대한 개발목표 달성 기여도가 높은 것으로 평가되었음.",
+      "replacement_type": "paragraph_text",
+      "description": "KOICA policy alignment bullet"
+    },
+    {
+      "key": "project_selection_rationale",
+      "paragraph_index": 74,
+      "source_text": "ㅇ 또한 전 국민을 대상으로 하는 무상 필수 의료서비스 제공은 네팔의 국가 정책으로 추진되고 있음에도 불구하고 의료시설 부족과 재원 미비 등으로 낙후된 지역에 대한 의료서비스 제공은 매우 부족한 무구 지역에 대한 선택적 지원을 통하여 사업의 효율을 높일 수 있고, NGO활동과 연계하여 외딴 지역에 대한 새로운 사업 모델을 제시할 수 있을 것이라는 판단하에 2013년도 신규사업으로 추진하게 되었음.",
+      "replacement_type": "paragraph_text",
+      "description": "Project selection rationale bullet"
+    }
+  ]
+}

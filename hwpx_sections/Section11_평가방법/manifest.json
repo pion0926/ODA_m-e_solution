@@ -1,0 +1,47 @@
+{
+  "section_number": 11,
+  "section_id": "eval-methods",
+  "section_name": "평가방법",
+  "hwpx_path": "Contents/section4.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "eval_methods_body",
+      "heading_text": "3. 평가방법",
+      "paragraph_index": 235,
+      "source_text": "ㅇ 조사방법(문헌, 면담, 초점그룹면담, 설문조사, 현지실사 등)과 분석방법(통계분석, 문헌분석 등) 제시",
+      "replacement_type": "body_after_heading",
+      "description": "평가방법 본문 작성 영역"
+    },
+    {
+      "key": "remove_eval_methods_guide_1",
+      "paragraph_index": 236,
+      "replacement_type": "remove_paragraph",
+      "source_text": "ㅇ 이해관계자 분석결과 기반으로, 면담, 초점그룹 면담, 설문조사 수행 대상 기술"
+    },
+    {
+      "key": "remove_eval_methods_guide_2",
+      "paragraph_index": 237,
+      "replacement_type": "remove_paragraph",
+      "source_text": "ㅇ 수혜자 인터뷰 또는 설문조사 수행 시, 평가윤리 준수사항 기술"
+    },
+    {
+      "key": "remove_eval_methods_guide_3",
+      "paragraph_index": 238,
+      "replacement_type": "remove_paragraph",
+      "source_text": "- 평가/설문조사의 목적 상세 안내, 참여 동의 서면으로 확보"
+    },
+    {
+      "key": "remove_eval_methods_guide_4",
+      "paragraph_index": 239,
+      "replacement_type": "remove_paragraph",
+      "source_text": "- 미성년자 대상의 경우, 보호자 동의 서면으로 확보"
+    },
+    {
+      "key": "remove_eval_methods_guide_5",
+      "paragraph_index": 240,
+      "replacement_type": "remove_paragraph",
+      "source_text": "- 민감한 이슈 또는 해당 지역 문화에 따라, 여성 면담자가 면담 실시 등"
+    }
+  ]
+}

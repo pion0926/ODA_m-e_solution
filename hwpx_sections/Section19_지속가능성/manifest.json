@@ -1,0 +1,17 @@
+{
+  "section_number": 19,
+  "section_id": "criteria-sustainability",
+  "section_name": "지속가능성",
+  "hwpx_path": "Contents/section7.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "criteria_sustainability_body",
+      "heading_text": "5. 지속가능성",
+      "paragraph_index": 91,
+      "source_text": "",
+      "replacement_type": "body_after_heading",
+      "description": "지속가능성 본문 작성 영역"
+    }
+  ]
+}

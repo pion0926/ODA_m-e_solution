@@ -1,0 +1,18 @@
+{
+  "section_number": 9,
+  "section_id": "eval-purpose",
+  "section_name": "평가의 목적과 범위",
+  "hwpx_path": "Contents/section4.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "evaluation_purpose_scope_body",
+      "heading_text": "1. 평가의 목적과 범위",
+      "paragraph_index": 39,
+      "source_text": "9Clickhere:set:66:Direction:wstring:23:이곳을 마우스로 누르고 내용을 입력하세요.",
+      "replacement_type": "body_after_heading",
+      "description": "평가 목적과 범위 본문 작성 영역"
+    },
+    {"key": "remove_eval_purpose_guide", "paragraph_index": 40, "replacement_type": "remove_paragraph", "source_text": "- “평가결과와 교훈을 누가 활용하는가?” 또한 “평가의 책무성 대상은 누구인가?” 고려"}
+  ]
+}

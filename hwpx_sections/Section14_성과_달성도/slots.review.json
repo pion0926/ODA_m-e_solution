@@ -1,0 +1,78 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 14,
+    "section_id": "achievement",
+    "section_name": "성과 달성도",
+    "hwpx_path": "Contents/section5.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "3a0d146e7b036c983c0c30e95db630ace3c4470786985598f87a83c7ea5bec71"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_slots",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "achievement.achievement_body",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "achievement",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section5.xml",
+        "value_key": "achievement_body",
+        "source_text": "(작성 예시) 보고서 작성시 삭제",
+        "type": "body_after_heading",
+        "paragraph_index": 1,
+        "heading_text": "IV. 성과 달성도"
+      },
+      "review_note": "성과 달성도 본문 작성 영역"
+    },
+    {
+      "slot_id": "achievement.remove_achievement_example_table",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "achievement",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section5.xml",
+        "value_key": "remove_achievement_example_table",
+        "source_text": "보고서 작성시 삭제",
+        "type": "remove_reference_block",
+        "paragraph_index": 2,
+        "required_parts": [
+          "보고서 작성시 삭제"
+        ],
+        "value_group": "remove_reference_blocks"
+      },
+      "review_note": ""
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section14_achievement_slots_v1",
+    "apply_order": [
+      "achievement.achievement_body",
+      "achievement.remove_achievement_example_table"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

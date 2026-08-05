@@ -1,0 +1,26 @@
+{
+  "section_number": 14,
+  "section_id": "achievement",
+  "section_name": "성과 달성도",
+  "hwpx_path": "Contents/section5.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "achievement_body",
+      "heading_text": "IV. 성과 달성도",
+      "paragraph_index": 1,
+      "source_text": "(작성 예시) 보고서 작성시 삭제",
+      "replacement_type": "body_after_heading",
+      "description": "성과 달성도 본문 작성 영역"
+    },
+    {
+      "key": "remove_achievement_example_table",
+      "paragraph_index": 2,
+      "replacement_type": "remove_reference_block",
+      "source_text": "보고서 작성시 삭제",
+      "required_parts": [
+        "보고서 작성시 삭제"
+      ]
+    }
+  ]
+}

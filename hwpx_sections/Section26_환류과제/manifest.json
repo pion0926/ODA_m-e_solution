@@ -1,0 +1,17 @@
+{
+  "section_number": 26,
+  "section_id": "feedback",
+  "section_name": "환류과제",
+  "hwpx_path": "Contents/section8.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "feedback_body",
+      "heading_text": "(1) 환류과제",
+      "paragraph_index": 15,
+      "source_text": "",
+      "replacement_type": "body_paragraph",
+      "description": "환류과제 본문 작성 영역"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+.git
+__pycache__/
+*.pyc
+.pytest_cache/
+output/
+.agents/
+data/uploads/
+data/extracted_text/
+data/evaluations/
+data/reports/

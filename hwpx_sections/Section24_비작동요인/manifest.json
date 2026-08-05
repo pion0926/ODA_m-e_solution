@@ -1,0 +1,27 @@
+{
+  "section_number": 24,
+  "section_id": "nonworking-factors",
+  "section_name": "비작동요인",
+  "hwpx_path": "Contents/section7.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "nonworking_factors_body",
+      "heading_text": "(2) 비작동요인",
+      "paragraph_index": 142,
+      "source_text": "평가결과를 기반으로, 사업의 성과 달성을 저해했거나, 의도치 않은 부정적 변화를 초래한 요인과 그 원인",
+      "replacement_type": "body_after_heading",
+      "description": "비작동요인 본문 작성 영역"
+    },
+    {
+      "key": "remove_nonworking_factor_example",
+      "paragraph_index": 144,
+      "replacement_type": "remove_reference_block",
+      "source_text": "비작동요인 작성 예시 (보고서 작성시 삭제)",
+      "required_parts": [
+        "비작동요인 작성 예시",
+        "보고서 작성시 삭제"
+      ]
+    }
+  ]
+}

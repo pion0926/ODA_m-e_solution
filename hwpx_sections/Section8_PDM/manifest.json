@@ -1,0 +1,24 @@
+{
+  "section_number": 8,
+  "section_id": "pdm",
+  "section_name": "사업설계매트릭스(PDM)",
+  "hwpx_path": "Contents/section4.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {"key": "impact_summary", "replacement_type": "table_cell", "cell_index": 5, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "영향 - 프로그램 요약"},
+    {"key": "impact_indicator", "replacement_type": "table_cell", "cell_index": 6, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "영향 - 객관적 검증지표"},
+    {"key": "impact_mov", "replacement_type": "table_cell", "cell_index": 7, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "영향 - 검증수단"},
+    {"key": "impact_assumption", "replacement_type": "table_cell", "cell_index": 8, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "영향 - 중요가정"},
+    {"key": "outcome_summary", "replacement_type": "table_cell", "cell_index": 10, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "성과 - 프로그램 요약"},
+    {"key": "outcome_indicator", "replacement_type": "table_cell", "cell_index": 11, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "성과 - 객관적 검증지표"},
+    {"key": "outcome_mov", "replacement_type": "table_cell", "cell_index": 12, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "성과 - 검증수단"},
+    {"key": "outcome_assumption", "replacement_type": "table_cell", "cell_index": 13, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "성과 - 중요가정"},
+    {"key": "outputs_summary", "replacement_type": "table_cell", "cell_index": 15, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "산출물 - 프로그램 요약"},
+    {"key": "outputs_indicator", "replacement_type": "table_cell", "cell_index": 16, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "산출물 - 객관적 검증지표"},
+    {"key": "outputs_mov", "replacement_type": "table_cell", "cell_index": 17, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "산출물 - 검증수단"},
+    {"key": "outputs_assumption", "replacement_type": "table_cell", "cell_index": 18, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "산출물 - 중요가정"},
+    {"key": "activities", "replacement_type": "table_cell", "cell_index": 22, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "활동"},
+    {"key": "inputs", "replacement_type": "table_cell", "cell_index": 23, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "투입"},
+    {"key": "preconditions", "replacement_type": "table_cell", "cell_index": 24, "table_required_parts": ["프로그램 요약", "객관적 검증지표", "중요가정"], "source_text": "placeholder", "description": "전제조건"}
+  ]
+}

@@ -1,0 +1,290 @@
+{
+  "section_number": 4,
+  "section_id": "grade",
+  "section_name": "평가 등급 결과표",
+  "hwpx_path": "Contents/section2.xml",
+  "original_xml": "original.xml",
+  "scope_note": "Contents/section2.xml에는 Section3 공지와 Section4 평가등급표가 함께 들어 있다. 이 manifest는 평가등급 결과표에서 실제 수정되는 텍스트/셀만 관리한다.",
+  "targets": [
+    {
+      "key": "project_label",
+      "replacement_type": "paragraph_text",
+      "source_text": "ㅇ 평가대상 사업명 : 사업명(사업기간/예산)",
+      "description": "표 상단 평가대상 사업명, 기간, 예산"
+    },
+    {
+      "key": "relevance_policy_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 6,
+      "source_text": "",
+      "format": "N점",
+      "description": "1. 적절성 - 정책/수요 부합 질문 점수"
+    },
+    {
+      "key": "relevance_policy_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 8,
+      "source_text": "",
+      "description": "1. 적절성 - 정책/수요 부합 질문 산정 이유"
+    },
+    {
+      "key": "relevance_adaptation_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 10,
+      "source_text": "",
+      "format": "N점",
+      "description": "1. 적절성 - 내외부 상황변화 대응 질문 점수"
+    },
+    {
+      "key": "relevance_adaptation_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 12,
+      "source_text": "",
+      "description": "1. 적절성 - 내외부 상황변화 대응 질문 산정 이유"
+    },
+    {
+      "key": "relevance_total_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 14,
+      "source_text": "",
+      "format": "N점",
+      "description": "1. 적절성 평점(a)"
+    },
+    {
+      "key": "relevance_total_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 16,
+      "source_text": "",
+      "description": "1. 적절성 종합 판정"
+    },
+    {
+      "key": "coherence_internal_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 19,
+      "source_text": "",
+      "format": "N점",
+      "description": "2. 일관성 - 내적 일관성 질문 점수"
+    },
+    {
+      "key": "coherence_internal_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 21,
+      "source_text": "",
+      "description": "2. 일관성 - 내적 일관성 질문 산정 이유"
+    },
+    {
+      "key": "coherence_external_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 23,
+      "source_text": "",
+      "format": "N점",
+      "description": "2. 일관성 - 외적 일관성 질문 점수"
+    },
+    {
+      "key": "coherence_external_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 25,
+      "source_text": "",
+      "description": "2. 일관성 - 외적 일관성 질문 산정 이유"
+    },
+    {
+      "key": "coherence_total_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 27,
+      "source_text": "",
+      "format": "N점",
+      "description": "2. 일관성 평점(b)"
+    },
+    {
+      "key": "coherence_total_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 29,
+      "source_text": "",
+      "description": "2. 일관성 종합 판정"
+    },
+    {
+      "key": "effectiveness_output_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 32,
+      "source_text": "",
+      "format": "N점",
+      "description": "3. 효과성 - 직접 산출물 달성 질문 점수"
+    },
+    {
+      "key": "effectiveness_output_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 34,
+      "source_text": "",
+      "description": "3. 효과성 - 직접 산출물 달성 질문 산정 이유"
+    },
+    {
+      "key": "effectiveness_outcome_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 36,
+      "source_text": "",
+      "format": "N점",
+      "description": "3. 효과성 - 중장기 성과/목표 달성 질문 점수"
+    },
+    {
+      "key": "effectiveness_outcome_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 38,
+      "source_text": "",
+      "description": "3. 효과성 - 중장기 성과/목표 달성 질문 산정 이유"
+    },
+    {
+      "key": "effectiveness_equity_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 40,
+      "source_text": "",
+      "format": "N점",
+      "description": "3. 효과성 - 사회적 소외계층 포용 질문 점수"
+    },
+    {
+      "key": "effectiveness_equity_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 42,
+      "source_text": "",
+      "description": "3. 효과성 - 사회적 소외계층 포용 질문 산정 이유"
+    },
+    {
+      "key": "effectiveness_total_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 44,
+      "source_text": "",
+      "format": "N점",
+      "description": "3. 효과성 평점(c)"
+    },
+    {
+      "key": "effectiveness_total_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 46,
+      "source_text": "",
+      "description": "3. 효과성 종합 판정"
+    },
+    {
+      "key": "efficiency_timeliness_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 49,
+      "source_text": "",
+      "format": "N점",
+      "description": "4. 효율성 - 경제성/시의적절성 질문 점수"
+    },
+    {
+      "key": "efficiency_timeliness_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 51,
+      "source_text": "",
+      "description": "4. 효율성 - 경제성/시의적절성 질문 산정 이유"
+    },
+    {
+      "key": "efficiency_balance_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 53,
+      "source_text": "",
+      "format": "N점",
+      "description": "4. 효율성 - 투입/활동 균형 질문 점수"
+    },
+    {
+      "key": "efficiency_balance_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 55,
+      "source_text": "",
+      "description": "4. 효율성 - 투입/활동 균형 질문 산정 이유"
+    },
+    {
+      "key": "efficiency_total_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 57,
+      "source_text": "",
+      "format": "N점",
+      "description": "4. 효율성 평점(d)"
+    },
+    {
+      "key": "efficiency_total_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 59,
+      "source_text": "",
+      "description": "4. 효율성 종합 판정"
+    },
+    {
+      "key": "sustainability_capacity_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 62,
+      "source_text": "",
+      "format": "N점",
+      "description": "5. 지속가능성 - 재정/경제/위기대응 역량 질문 점수"
+    },
+    {
+      "key": "sustainability_capacity_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 64,
+      "source_text": "",
+      "description": "5. 지속가능성 - 재정/경제/위기대응 역량 질문 산정 이유"
+    },
+    {
+      "key": "sustainability_environment_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 66,
+      "source_text": "",
+      "format": "N점",
+      "description": "5. 지속가능성 - 제도/사회적 환경 질문 점수"
+    },
+    {
+      "key": "sustainability_environment_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 68,
+      "source_text": "",
+      "description": "5. 지속가능성 - 제도/사회적 환경 질문 산정 이유"
+    },
+    {
+      "key": "sustainability_total_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 70,
+      "source_text": "",
+      "format": "N점",
+      "description": "5. 지속가능성 준비도 평점(e)"
+    },
+    {
+      "key": "sustainability_total_reason",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 72,
+      "source_text": "",
+      "description": "5. 지속가능성 종합 판정"
+    },
+    {
+      "key": "overall_score",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 74,
+      "source_text": "",
+      "format": "N/20점",
+      "description": "종합 점수(a+b+c+d+e)"
+    },
+    {
+      "key": "government_grade",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 76,
+      "source_text": "택1(매우 성공적, 성공적, 부분 성공적, 미흡)",
+      "description": "종합 평가 등급"
+    },
+    {
+      "key": "koica_grade",
+      "replacement_type": "grade_table_cell",
+      "cell_index": 78,
+      "source_text": "택1(A,B,C,D,E,F,G)",
+      "description": "KOICA 평가등급"
+    },
+    {
+      "key": "remove_grade_notice_1",
+      "replacement_type": "remove_text",
+      "source_text": "※ 평가자는 주어진 평가표에 의거하여 종합 평가 등급과 점수를 모두 제시해야 함.",
+      "description": "작성 안내문 제거"
+    },
+    {
+      "key": "remove_grade_notice_2",
+      "replacement_type": "remove_text",
+      "source_text": "※ 구간별 점수 산정 참고 사항은 별도 엑셀파일 참조 요망.",
+      "description": "작성 안내문 제거"
+    }
+  ]
+}

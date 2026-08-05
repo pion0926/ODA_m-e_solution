@@ -1,0 +1,410 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 8,
+    "section_id": "pdm",
+    "section_name": "사업설계매트릭스(PDM)",
+    "hwpx_path": "Contents/section4.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "c2e0f239af5a8ee4c8cad471fd1b66e1a654d94e547d71711b2d15a5c3c88353"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_table_cells",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor",
+      "insert_text_outside_original_pdm_table"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "pdm.impact_summary",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "impact_summary",
+        "type": "table_cell",
+        "cell_index": 5,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "영향 - 프로그램 요약"
+    },
+    {
+      "slot_id": "pdm.impact_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "impact_indicator",
+        "type": "table_cell",
+        "cell_index": 6,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "영향 - 객관적 검증지표"
+    },
+    {
+      "slot_id": "pdm.impact_mov",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "impact_mov",
+        "type": "table_cell",
+        "cell_index": 7,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "영향 - 검증수단"
+    },
+    {
+      "slot_id": "pdm.impact_assumption",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "impact_assumption",
+        "type": "table_cell",
+        "cell_index": 8,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "영향 - 중요가정"
+    },
+    {
+      "slot_id": "pdm.outcome_summary",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "outcome_summary",
+        "type": "table_cell",
+        "cell_index": 10,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "성과 - 프로그램 요약"
+    },
+    {
+      "slot_id": "pdm.outcome_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "outcome_indicator",
+        "type": "table_cell",
+        "cell_index": 11,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "성과 - 객관적 검증지표"
+    },
+    {
+      "slot_id": "pdm.outcome_mov",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "outcome_mov",
+        "type": "table_cell",
+        "cell_index": 12,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "성과 - 검증수단"
+    },
+    {
+      "slot_id": "pdm.outcome_assumption",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "outcome_assumption",
+        "type": "table_cell",
+        "cell_index": 13,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "성과 - 중요가정"
+    },
+    {
+      "slot_id": "pdm.outputs_summary",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "outputs_summary",
+        "type": "table_cell",
+        "cell_index": 15,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "산출물 - 프로그램 요약"
+    },
+    {
+      "slot_id": "pdm.outputs_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "outputs_indicator",
+        "type": "table_cell",
+        "cell_index": 16,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "산출물 - 객관적 검증지표"
+    },
+    {
+      "slot_id": "pdm.outputs_mov",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "outputs_mov",
+        "type": "table_cell",
+        "cell_index": 17,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "산출물 - 검증수단"
+    },
+    {
+      "slot_id": "pdm.outputs_assumption",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "outputs_assumption",
+        "type": "table_cell",
+        "cell_index": 18,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "산출물 - 중요가정"
+    },
+    {
+      "slot_id": "pdm.activities",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "activities",
+        "type": "table_cell",
+        "cell_index": 22,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "활동"
+    },
+    {
+      "slot_id": "pdm.inputs",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "inputs",
+        "type": "table_cell",
+        "cell_index": 23,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "투입"
+    },
+    {
+      "slot_id": "pdm.preconditions",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "pdm",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_xml": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "preconditions",
+        "type": "table_cell",
+        "cell_index": 24,
+        "table_required_parts": [
+          "프로그램 요약",
+          "객관적 검증지표",
+          "중요가정"
+        ]
+      },
+      "review_note": "전제조건"
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section8_pdm_slots_v1",
+    "apply_order": [
+      "pdm.impact_summary",
+      "pdm.impact_indicator",
+      "pdm.impact_mov",
+      "pdm.impact_assumption",
+      "pdm.outcome_summary",
+      "pdm.outcome_indicator",
+      "pdm.outcome_mov",
+      "pdm.outcome_assumption",
+      "pdm.outputs_summary",
+      "pdm.outputs_indicator",
+      "pdm.outputs_mov",
+      "pdm.outputs_assumption",
+      "pdm.activities",
+      "pdm.inputs",
+      "pdm.preconditions"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_table_cells_changed",
+      "no_text_inserted_outside_original_pdm_table"
+    ]
+  }
+}

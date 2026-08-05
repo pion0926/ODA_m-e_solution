@@ -1,0 +1,41 @@
+{
+  "section_number": 1,
+  "section_id": "title",
+  "section_name": "표지",
+  "hwpx_path": "Contents/section0.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "report_title",
+      "paragraph_index": 1,
+      "source_text": "ㅇㅇ사업 종료평가 결과보고서",
+      "replacement_type": "paragraph_lines",
+      "output_field": "report_title_lines",
+      "description": "사업명과 보고서명을 표지 제목 영역에 두 줄로 배치"
+    },
+    {
+      "key": "date",
+      "paragraph_index": 5,
+      "source_text": "2023. 12",
+      "replacement_type": "text",
+      "output_field": "date",
+      "description": "표지 작성 기준 연월"
+    },
+    {
+      "key": "manager",
+      "paragraph_index": 15,
+      "source_text": "평가책임자 OOO",
+      "replacement_type": "text",
+      "output_field": "manager",
+      "description": "평가책임자 표기"
+    },
+    {
+      "key": "institution",
+      "paragraph_index": 16,
+      "source_text": "평가수행기관 OOO(혹은 로고)",
+      "replacement_type": "text",
+      "output_field": "institution",
+      "description": "평가수행기관 표기"
+    }
+  ]
+}

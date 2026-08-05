@@ -1,0 +1,79 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 27,
+    "section_id": "lessons",
+    "section_name": "교훈",
+    "hwpx_path": "Contents/section8.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "26bca065773303ceece1c11da1cdaed9152ab37bc01969b6f0e710e7aa6d07b2"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_slots",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "lessons.lessons_body",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "lessons",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section8.xml",
+        "value_key": "lessons_body",
+        "source_text": "",
+        "type": "body_paragraph",
+        "paragraph_index": 59,
+        "heading_text": "(2) 교훈"
+      },
+      "review_note": "교훈 본문 작성 영역"
+    },
+    {
+      "slot_id": "lessons.remove_conclusion_tip",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "lessons",
+        "output_constraints": {
+          "no_markdown": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section8.xml",
+        "value_key": "remove_conclusion_tip",
+        "source_text": "보고서 작성 시 TIP (보고서 작성시 삭제)",
+        "type": "remove_reference_block",
+        "paragraph_index": 102,
+        "required_parts": [
+          "보고서 작성 시 TIP",
+          "결론에 해당하는 평가 품질검토"
+        ],
+        "value_group": "remove_reference_blocks"
+      },
+      "review_note": ""
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section27_lessons_slots_v1",
+    "apply_order": [
+      "lessons.lessons_body",
+      "lessons.remove_conclusion_tip"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

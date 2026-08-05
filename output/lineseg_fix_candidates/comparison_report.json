@@ -1,0 +1,225 @@
+{
+  "full": {
+    "path": "output\\lineseg_fix_candidates\\90_lineseg_fix_metadata.hwpx",
+    "zipbad": null,
+    "bytes": 1252753,
+    "changedSlots": 187,
+    "staleLinesegs": [
+      {
+        "entry": "Contents/section2.xml",
+        "para": 24,
+        "textLen": 156,
+        "maxTextpos": 161,
+        "positions": [
+          0,
+          58,
+          112,
+          161
+        ],
+        "text": "본 보고서의 평가결과, 해석 및 결론은 한국국제협력단 사업수행 관계자의 의견과 일치하지 않을 수 있습니다. 동 보고서의 사실관계에 대한 평가팀과"
+      },
+      {
+        "entry": "Contents/section2.xml",
+        "para": 26,
+        "textLen": 52,
+        "maxTextpos": 58,
+        "positions": [
+          0,
+          58
+        ],
+        "text": "본 연구보고서의 내용은 출처와 집필자 명시 하에 인용이 가능하며, 아래와 같이 표기 바랍니다."
+      }
+    ]
+  },
+  "section5": [
+    {
+      "toSlot": 1,
+      "value_key": "project_name_line",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_01_project_name_line.hwpx",
+      "bytes": 1252138,
+      "zipbad": null
+    },
+    {
+      "toSlot": 2,
+      "value_key": "business_background",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_02_business_background.hwpx",
+      "bytes": 1252122,
+      "zipbad": null
+    },
+    {
+      "toSlot": 3,
+      "value_key": "business_overview",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_03_business_overview.hwpx",
+      "bytes": 1252081,
+      "zipbad": null
+    },
+    {
+      "toSlot": 4,
+      "value_key": "evaluation_purpose",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_04_evaluation_purpose.hwpx",
+      "bytes": 1252002,
+      "zipbad": null
+    },
+    {
+      "toSlot": 5,
+      "value_key": "evaluation_scope",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_05_evaluation_scope.hwpx",
+      "bytes": 1252042,
+      "zipbad": null
+    },
+    {
+      "toSlot": 6,
+      "value_key": "evaluation_method_overview",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_06_evaluation_method_overview.hwpx",
+      "bytes": 1252055,
+      "zipbad": null
+    },
+    {
+      "toSlot": 7,
+      "value_key": "document_review_method",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_07_document_review_method.hwpx",
+      "bytes": 1252060,
+      "zipbad": null
+    },
+    {
+      "toSlot": 8,
+      "value_key": "stakeholder_interview_method",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_08_stakeholder_interview_method.hwpx",
+      "bytes": 1252017,
+      "zipbad": null
+    },
+    {
+      "toSlot": 9,
+      "value_key": "field_survey_method",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_09_field_survey_method.hwpx",
+      "bytes": 1252011,
+      "zipbad": null
+    },
+    {
+      "toSlot": 10,
+      "value_key": "evaluation_limitations",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_10_evaluation_limitations.hwpx",
+      "bytes": 1252065,
+      "zipbad": null
+    },
+    {
+      "toSlot": 11,
+      "value_key": "achievement_summary",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_11_achievement_summary.hwpx",
+      "bytes": 1252021,
+      "zipbad": null
+    },
+    {
+      "toSlot": 12,
+      "value_key": "relevance_summary",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_12_relevance_summary.hwpx",
+      "bytes": 1251824,
+      "zipbad": null
+    },
+    {
+      "toSlot": 13,
+      "value_key": "coherence_summary",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_13_coherence_summary.hwpx",
+      "bytes": 1251661,
+      "zipbad": null
+    },
+    {
+      "toSlot": 14,
+      "value_key": "effectiveness_summary",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_14_effectiveness_summary.hwpx",
+      "bytes": 1251613,
+      "zipbad": null
+    },
+    {
+      "toSlot": 15,
+      "value_key": "efficiency_summary",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_15_efficiency_summary.hwpx",
+      "bytes": 1251412,
+      "zipbad": null
+    },
+    {
+      "toSlot": 16,
+      "value_key": "sustainability_summary",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_16_sustainability_summary.hwpx",
+      "bytes": 1251336,
+      "zipbad": null
+    },
+    {
+      "toSlot": 17,
+      "value_key": "crosscutting_human_rights_gender",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_17_crosscutting_human_rights_gender.hwpx",
+      "bytes": 1251301,
+      "zipbad": null
+    },
+    {
+      "toSlot": 18,
+      "value_key": "crosscutting_environment",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_18_crosscutting_environment.hwpx",
+      "bytes": 1251156,
+      "zipbad": null
+    },
+    {
+      "toSlot": 19,
+      "value_key": "conclusion_goal_achievement",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_19_conclusion_goal_achievement.hwpx",
+      "bytes": 1251077,
+      "zipbad": null
+    },
+    {
+      "toSlot": 20,
+      "value_key": "conclusion_dac_results",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_20_conclusion_dac_results.hwpx",
+      "bytes": 1251017,
+      "zipbad": null
+    },
+    {
+      "toSlot": 21,
+      "value_key": "conclusion_crosscutting_results",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_21_conclusion_crosscutting_results.hwpx",
+      "bytes": 1250902,
+      "zipbad": null
+    },
+    {
+      "toSlot": 22,
+      "value_key": "lesson_working_factors",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_22_lesson_working_factors.hwpx",
+      "bytes": 1250878,
+      "zipbad": null
+    },
+    {
+      "toSlot": 23,
+      "value_key": "lesson_nonworking_factors",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_23_lesson_nonworking_factors.hwpx",
+      "bytes": 1250652,
+      "zipbad": null
+    },
+    {
+      "toSlot": 24,
+      "value_key": "recommendation_project_model",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_24_recommendation_project_model.hwpx",
+      "bytes": 1250508,
+      "zipbad": null
+    },
+    {
+      "toSlot": 25,
+      "value_key": "recommendation_project_management",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_25_recommendation_project_management.hwpx",
+      "bytes": 1250468,
+      "zipbad": null
+    },
+    {
+      "toSlot": 26,
+      "value_key": "recommendation_structural_limits",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_26_recommendation_structural_limits.hwpx",
+      "bytes": 1250300,
+      "zipbad": null
+    },
+    {
+      "toSlot": 27,
+      "value_key": "recommendation_other",
+      "path": "output\\lineseg_fix_candidates\\section5_slot_cumulative\\01_to_27_recommendation_other.hwpx",
+      "bytes": 1250142,
+      "zipbad": null
+    }
+  ]
+}

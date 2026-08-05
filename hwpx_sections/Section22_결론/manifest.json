@@ -1,0 +1,23 @@
+{
+  "section_number": 22,
+  "section_id": "conclusion",
+  "section_name": "결론",
+  "hwpx_path": "Contents/section7.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "conclusion_body",
+      "heading_text": "1. 결론",
+      "paragraph_index": 124,
+      "source_text": "9Clickhere:set:66:Direction:wstring:23:이곳을 마우스로 누르고 내용을 입력하세요.",
+      "replacement_type": "body_after_heading",
+      "description": "결론 본문 작성 영역"
+    },
+    {
+      "key": "remove_conclusion_guide_1",
+      "paragraph_index": 125,
+      "replacement_type": "remove_paragraph",
+      "source_text": ""
+    }
+  ]
+}

@@ -1,0 +1,834 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 4,
+    "section_id": "grade",
+    "section_name": "평가 등급 결과표",
+    "hwpx_path": "Contents/section2.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "4e3ec0fd8a2e5be1754103f9a59fc2b451e5fa47ff37bb83177d17ea79438775"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only",
+    "forbidden_operations": [
+      "add_or_remove_xml_elements",
+      "add_or_remove_paragraphs",
+      "add_or_remove_runs",
+      "modify_linesegarray",
+      "modify_section_properties"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "grade.project_label",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "project_label",
+        "source_text": "ㅇ 평가대상 사업명 : 사업명(사업기간/예산)",
+        "type": "paragraph_containing_lines",
+        "paragraph_index": null
+      },
+      "review_note": "표 상단 평가대상 사업명, 기간, 예산"
+    },
+    {
+      "slot_id": "grade.relevance_policy_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "relevance_policy_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 6
+      },
+      "review_note": "1. 적절성 - 정책/수요 부합 질문 점수"
+    },
+    {
+      "slot_id": "grade.relevance_policy_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "relevance_policy_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 8
+      },
+      "review_note": "1. 적절성 - 정책/수요 부합 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.relevance_adaptation_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "relevance_adaptation_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 10
+      },
+      "review_note": "1. 적절성 - 내외부 상황변화 대응 질문 점수"
+    },
+    {
+      "slot_id": "grade.relevance_adaptation_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "relevance_adaptation_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 12
+      },
+      "review_note": "1. 적절성 - 내외부 상황변화 대응 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.relevance_total_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "relevance_total_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 14
+      },
+      "review_note": "1. 적절성 평점(a)"
+    },
+    {
+      "slot_id": "grade.relevance_total_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "relevance_total_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 16
+      },
+      "review_note": "1. 적절성 종합 판정"
+    },
+    {
+      "slot_id": "grade.coherence_internal_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "coherence_internal_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 19
+      },
+      "review_note": "2. 일관성 - 내적 일관성 질문 점수"
+    },
+    {
+      "slot_id": "grade.coherence_internal_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "coherence_internal_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 21
+      },
+      "review_note": "2. 일관성 - 내적 일관성 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.coherence_external_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "coherence_external_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 23
+      },
+      "review_note": "2. 일관성 - 외적 일관성 질문 점수"
+    },
+    {
+      "slot_id": "grade.coherence_external_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "coherence_external_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 25
+      },
+      "review_note": "2. 일관성 - 외적 일관성 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.coherence_total_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "coherence_total_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 27
+      },
+      "review_note": "2. 일관성 평점(b)"
+    },
+    {
+      "slot_id": "grade.coherence_total_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "coherence_total_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 29
+      },
+      "review_note": "2. 일관성 종합 판정"
+    },
+    {
+      "slot_id": "grade.effectiveness_output_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "effectiveness_output_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 32
+      },
+      "review_note": "3. 효과성 - 직접 산출물 달성 질문 점수"
+    },
+    {
+      "slot_id": "grade.effectiveness_output_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "effectiveness_output_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 34
+      },
+      "review_note": "3. 효과성 - 직접 산출물 달성 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.effectiveness_outcome_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "effectiveness_outcome_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 36
+      },
+      "review_note": "3. 효과성 - 중장기 성과/목표 달성 질문 점수"
+    },
+    {
+      "slot_id": "grade.effectiveness_outcome_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "effectiveness_outcome_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 38
+      },
+      "review_note": "3. 효과성 - 중장기 성과/목표 달성 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.effectiveness_equity_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "effectiveness_equity_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 40
+      },
+      "review_note": "3. 효과성 - 사회적 소외계층 포용 질문 점수"
+    },
+    {
+      "slot_id": "grade.effectiveness_equity_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "effectiveness_equity_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 42
+      },
+      "review_note": "3. 효과성 - 사회적 소외계층 포용 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.effectiveness_total_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "effectiveness_total_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 44
+      },
+      "review_note": "3. 효과성 평점(c)"
+    },
+    {
+      "slot_id": "grade.effectiveness_total_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "effectiveness_total_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 46
+      },
+      "review_note": "3. 효과성 종합 판정"
+    },
+    {
+      "slot_id": "grade.efficiency_timeliness_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "efficiency_timeliness_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 49
+      },
+      "review_note": "4. 효율성 - 경제성/시의적절성 질문 점수"
+    },
+    {
+      "slot_id": "grade.efficiency_timeliness_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "efficiency_timeliness_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 51
+      },
+      "review_note": "4. 효율성 - 경제성/시의적절성 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.efficiency_balance_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "efficiency_balance_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 53
+      },
+      "review_note": "4. 효율성 - 투입/활동 균형 질문 점수"
+    },
+    {
+      "slot_id": "grade.efficiency_balance_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "efficiency_balance_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 55
+      },
+      "review_note": "4. 효율성 - 투입/활동 균형 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.efficiency_total_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "efficiency_total_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 57
+      },
+      "review_note": "4. 효율성 평점(d)"
+    },
+    {
+      "slot_id": "grade.efficiency_total_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "efficiency_total_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 59
+      },
+      "review_note": "4. 효율성 종합 판정"
+    },
+    {
+      "slot_id": "grade.sustainability_capacity_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "sustainability_capacity_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 62
+      },
+      "review_note": "5. 지속가능성 - 재정/경제/위기대응 역량 질문 점수"
+    },
+    {
+      "slot_id": "grade.sustainability_capacity_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "sustainability_capacity_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 64
+      },
+      "review_note": "5. 지속가능성 - 재정/경제/위기대응 역량 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.sustainability_environment_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "sustainability_environment_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 66
+      },
+      "review_note": "5. 지속가능성 - 제도/사회적 환경 질문 점수"
+    },
+    {
+      "slot_id": "grade.sustainability_environment_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "sustainability_environment_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 68
+      },
+      "review_note": "5. 지속가능성 - 제도/사회적 환경 질문 산정 이유"
+    },
+    {
+      "slot_id": "grade.sustainability_total_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "sustainability_total_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 70
+      },
+      "review_note": "5. 지속가능성 준비도 평점(e)"
+    },
+    {
+      "slot_id": "grade.sustainability_total_reason",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "sustainability_total_reason",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 72
+      },
+      "review_note": "5. 지속가능성 종합 판정"
+    },
+    {
+      "slot_id": "grade.overall_score",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "overall_score",
+        "source_text": "",
+        "type": "grade_table_cell",
+        "cell_index": 74
+      },
+      "review_note": "종합 점수(a+b+c+d+e)"
+    },
+    {
+      "slot_id": "grade.government_grade",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "government_grade",
+        "source_text": "택1(매우 성공적, 성공적, 부분 성공적, 미흡)",
+        "type": "grade_table_cell",
+        "cell_index": 76
+      },
+      "review_note": "종합 평가 등급"
+    },
+    {
+      "slot_id": "grade.koica_grade",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "koica_grade",
+        "source_text": "택1(A,B,C,D,E,F,G)",
+        "type": "grade_table_cell",
+        "cell_index": 78
+      },
+      "review_note": "KOICA 평가등급"
+    },
+    {
+      "slot_id": "grade.remove_grade_notice_1",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "remove_grade_notice_1",
+        "source_text": "※ 평가자는 주어진 평가표에 의거하여 종합 평가 등급과 점수를 모두 제시해야 함.",
+        "type": "remove_paragraph_containing",
+        "paragraph_index": null,
+        "value_group": "remove_texts"
+      },
+      "review_note": "작성 안내문 제거"
+    },
+    {
+      "slot_id": "grade.remove_grade_notice_2",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "grade",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section2.xml",
+        "value_key": "remove_grade_notice_2",
+        "source_text": "※ 구간별 점수 산정 참고 사항은 별도 엑셀파일 참조 요망.",
+        "type": "remove_paragraph_containing",
+        "paragraph_index": null,
+        "value_group": "remove_texts"
+      },
+      "review_note": "작성 안내문 제거"
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section4_grade_slots_v1",
+    "apply_order": [
+      "grade.project_label",
+      "grade.relevance_policy_score",
+      "grade.relevance_policy_reason",
+      "grade.relevance_adaptation_score",
+      "grade.relevance_adaptation_reason",
+      "grade.relevance_total_score",
+      "grade.relevance_total_reason",
+      "grade.coherence_internal_score",
+      "grade.coherence_internal_reason",
+      "grade.coherence_external_score",
+      "grade.coherence_external_reason",
+      "grade.coherence_total_score",
+      "grade.coherence_total_reason",
+      "grade.effectiveness_output_score",
+      "grade.effectiveness_output_reason",
+      "grade.effectiveness_outcome_score",
+      "grade.effectiveness_outcome_reason",
+      "grade.effectiveness_equity_score",
+      "grade.effectiveness_equity_reason",
+      "grade.effectiveness_total_score",
+      "grade.effectiveness_total_reason",
+      "grade.efficiency_timeliness_score",
+      "grade.efficiency_timeliness_reason",
+      "grade.efficiency_balance_score",
+      "grade.efficiency_balance_reason",
+      "grade.efficiency_total_score",
+      "grade.efficiency_total_reason",
+      "grade.sustainability_capacity_score",
+      "grade.sustainability_capacity_reason",
+      "grade.sustainability_environment_score",
+      "grade.sustainability_environment_reason",
+      "grade.sustainability_total_score",
+      "grade.sustainability_total_reason",
+      "grade.overall_score",
+      "grade.government_grade",
+      "grade.koica_grade",
+      "grade.remove_grade_notice_1",
+      "grade.remove_grade_notice_2"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

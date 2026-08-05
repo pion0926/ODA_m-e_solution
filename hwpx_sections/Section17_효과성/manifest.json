@@ -1,0 +1,17 @@
+{
+  "section_number": 17,
+  "section_id": "criteria-effectiveness",
+  "section_name": "효과성",
+  "hwpx_path": "Contents/section6.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "criteria_effectiveness_body",
+      "heading_text": "3. 효과성",
+      "paragraph_index": 15,
+      "source_text": "",
+      "replacement_type": "body_after_heading",
+      "description": "효과성 본문 작성 영역"
+    }
+  ]
+}

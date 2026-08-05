@@ -1,0 +1,17 @@
+services:
+  oda-me-solution:
+    build:
+      context: .
+    container_name: oda-me-solution
+    ports:
+      - "8001:8001"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8001
+      # 운영 환경에서는 .env 또는 배포 플랫폼의 secret으로만 주입합니다.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-3.1-flash-lite}
+    volumes:
+      - ./data:/app/data
+      - ./samples:/app/samples:ro
+    restart: unless-stopped

@@ -1,0 +1,139 @@
+{
+  "section_number": 3,
+  "section_id": "notice",
+  "section_name": "평가보고서 관련 공지",
+  "hwpx_path": "Contents/section2.xml",
+  "original_xml": "original.xml",
+  "scope_note": "Contents/section2.xml에는 공지 뒤에 평가등급표도 이어서 포함되어 있으므로, 이 manifest는 공지 영역의 파란색 placeholder run만 대상으로 한다.",
+  "target_color": "#0000FF",
+  "targets": [
+    {
+      "key": "responsible_evaluator_name_first",
+      "paragraph_index": 4,
+      "run_index": 1,
+      "source_text": "ㅇㅇㅇ",
+      "replacement_type": "partial_text",
+      "description": "첫 문장 책임 평가자 이름"
+    },
+    {
+      "key": "country_name",
+      "paragraph_index": 4,
+      "run_index": 3,
+      "source_text": "ㅇㅇ(나라명) ",
+      "replacement_type": "partial_text",
+      "description": "KOICA 사무소 국가명"
+    },
+    {
+      "key": "evaluated_project_name",
+      "paragraph_index": 4,
+      "run_index": 7,
+      "source_text": "ㅇㅇ(사업명) 종료 평가",
+      "replacement_type": "partial_text",
+      "description": "공지문 내 평가 대상 사업명"
+    },
+    {
+      "key": "responsible_evaluator_name_second",
+      "paragraph_index": 4,
+      "run_index": 11,
+      "source_text": "ㅇㅇㅇ",
+      "replacement_type": "partial_text",
+      "description": "두 번째 책임 평가자 이름"
+    },
+    {
+      "key": "completion_date_value",
+      "paragraph_index": 6,
+      "run_index": 2,
+      "source_text": "20xx년 xx월 xx일",
+      "replacement_type": "partial_text",
+      "description": "평가 완료일 날짜 값"
+    },
+    {
+      "key": "lead_evaluator_line",
+      "paragraph_index": 9,
+      "run_index": 1,
+      "source_text": " 책 임 평 가 자 : ㅇㅇㅇ (소속)",
+      "replacement_type": "partial_text",
+      "description": "책임평가자 행"
+    },
+    {
+      "key": "evaluation_expert_line",
+      "paragraph_index": 10,
+      "run_index": 0,
+      "source_text": "  평 가 전 문 가 : ㅇㅇㅇ (소속)",
+      "replacement_type": "partial_text",
+      "description": "평가전문가 행"
+    },
+    {
+      "key": "sector_expert_line",
+      "paragraph_index": 11,
+      "run_index": 0,
+      "source_text": "  분 야 전 문 가 : ㅇㅇㅇ (소속)",
+      "replacement_type": "partial_text",
+      "description": "분야전문가 행"
+    },
+    {
+      "key": "assistant_evaluator_line",
+      "paragraph_index": 12,
+      "run_index": 0,
+      "source_text": "  평 가 보 조 원 : ㅇㅇㅇ (소속)",
+      "replacement_type": "partial_text",
+      "description": "평가보조원 행"
+    },
+    {
+      "key": "quality_review_date_value",
+      "paragraph_index": 14,
+      "run_index": 2,
+      "source_text": "20xx년 xx월 xx일",
+      "replacement_type": "partial_text",
+      "description": "평가 품질심의 완료일 날짜 값"
+    },
+    {
+      "key": "quality_grade_value",
+      "paragraph_index": 16,
+      "run_index": 2,
+      "source_text": "(A,B,C,D)",
+      "replacement_type": "partial_text",
+      "description": "평가품질 등급 값"
+    },
+    {
+      "key": "review_chair_name",
+      "paragraph_index": 20,
+      "run_index": 2,
+      "source_text": "ㅇㅇㅇ (소속)",
+      "replacement_type": "partial_text",
+      "description": "검토위원장 이름 및 소속"
+    },
+    {
+      "key": "review_member_1_name",
+      "paragraph_index": 21,
+      "run_index": 1,
+      "source_text": "ㅇㅇㅇ (소속)",
+      "replacement_type": "partial_text",
+      "description": "외부위원 1 이름 및 소속"
+    },
+    {
+      "key": "review_member_2_name",
+      "paragraph_index": 22,
+      "run_index": 1,
+      "source_text": "ㅇㅇㅇ (소속)",
+      "replacement_type": "partial_text",
+      "description": "외부위원 2 이름 및 소속"
+    },
+    {
+      "key": "review_member_3_name",
+      "paragraph_index": 23,
+      "run_index": 1,
+      "source_text": "ㅇㅇㅇ (소속)",
+      "replacement_type": "partial_text",
+      "description": "외부위원 3 이름 및 소속"
+    },
+    {
+      "key": "citation_lead",
+      "paragraph_index": 30,
+      "run_index": 0,
+      "source_text": "홍길동(평가책임자 이름). 2023. KOICA OO사업 평가보고서. ",
+      "replacement_type": "partial_text",
+      "description": "인용 표기 중 파란색 placeholder 영역"
+    }
+  ]
+}

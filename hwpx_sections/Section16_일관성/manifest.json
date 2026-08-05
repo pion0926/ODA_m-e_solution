@@ -1,0 +1,17 @@
+{
+  "section_number": 16,
+  "section_id": "criteria-coherence",
+  "section_name": "일관성",
+  "hwpx_path": "Contents/section6.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "criteria_coherence_body",
+      "heading_text": "2. 일관성",
+      "paragraph_index": 14,
+      "source_text": "",
+      "replacement_type": "body_after_heading",
+      "description": "일관성 본문 작성 영역"
+    }
+  ]
+}

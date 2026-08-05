@@ -1,0 +1,27 @@
+{
+  "section_number": 27,
+  "section_id": "lessons",
+  "section_name": "교훈",
+  "hwpx_path": "Contents/section8.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "lessons_body",
+      "heading_text": "(2) 교훈",
+      "paragraph_index": 59,
+      "source_text": "",
+      "replacement_type": "body_paragraph",
+      "description": "교훈 본문 작성 영역"
+    },
+    {
+      "key": "remove_conclusion_tip",
+      "paragraph_index": 102,
+      "replacement_type": "remove_reference_block",
+      "source_text": "보고서 작성 시 TIP (보고서 작성시 삭제)",
+      "required_parts": [
+        "보고서 작성 시 TIP",
+        "결론에 해당하는 평가 품질검토"
+      ]
+    }
+  ]
+}

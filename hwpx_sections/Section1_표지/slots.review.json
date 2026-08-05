@@ -1,0 +1,163 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 1,
+    "section_id": "cover",
+    "section_name": "표지",
+    "hwpx_path": "Contents/section0.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "b57d95d7eda25e92736542227afc91f4b87050479df0d7c6de556e7c0d89ff5b"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_hp_t_text_only",
+    "forbidden_operations": [
+      "add_or_remove_xml_elements",
+      "add_or_remove_paragraphs",
+      "add_or_remove_runs",
+      "modify_linesegarray",
+      "modify_tables",
+      "modify_section_properties",
+      "cleanup_or_delete_placeholder_blocks"
+    ],
+    "preflight_checks": {
+      "paragraph_count": 20,
+      "table_count": 0,
+      "hp_t_count": 6,
+      "hp_lineseg_count": 20
+    }
+  },
+  "slots": [
+    {
+      "slot_id": "cover.project_title",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "cover",
+        "task": "uploaded evidence and project metadata를 바탕으로 표지에 표시할 공식 사업명을 한 줄로 작성한다.",
+        "output_constraints": {
+          "language": "ko",
+          "max_chars": 80,
+          "no_markdown": true,
+          "no_line_breaks": true,
+          "fallback": "사업명 추가 정보 필요"
+        }
+      },
+      "replacement": {
+        "type": "hp_t_text",
+        "hwpx_path": "Contents/section0.xml",
+        "paragraph_index": 1,
+        "text_node_index_in_paragraph": 0,
+        "source_text": "{사업이름} ",
+        "value_key": "project_title",
+        "transform": "append_single_space_if_missing"
+      },
+      "keep_text_nodes": [
+        {
+          "paragraph_index": 2,
+          "text_node_index_in_paragraph": 0,
+          "text": "종료평가 결과보고서",
+          "reason": "보고서 종류명은 원본 양식의 별도 고정 문단으로 유지"
+        }
+      ],
+      "review_note": "기존 문단과 런 구조를 유지하기 위해 제목 전체 문단을 줄 단위로 재작성하지 않고, 첫 번째 텍스트 노드의 사업명만 교체한다."
+    },
+    {
+      "slot_id": "cover.report_date",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "source": "system_date_or_project_completion_date",
+        "output_constraints": {
+          "format": "YYYY. MM",
+          "fallback": "작성연월 추가 정보 필요"
+        }
+      },
+      "replacement": {
+        "type": "hp_t_text",
+        "hwpx_path": "Contents/section0.xml",
+        "paragraph_index": 5,
+        "text_node_index_in_paragraph": 0,
+        "source_text": "2023. 12",
+        "value_key": "report_date"
+      },
+      "review_note": "날짜는 LLM 생성보다 규칙 기반 값이 안전하다. 프로젝트 완료월이 확인되면 그 값을 쓰고, 없으면 생성 시점 연월을 쓴다."
+    },
+    {
+      "slot_id": "cover.evaluation_manager",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "cover",
+        "task": "근거 문서에서 평가책임자 이름 또는 역할 정보를 찾고, 표지 표기 형식으로 작성한다.",
+        "output_constraints": {
+          "language": "ko",
+          "max_chars": 40,
+          "no_markdown": true,
+          "no_line_breaks": true,
+          "required_prefix": "평가책임자 ",
+          "fallback": "평가책임자 확인 대상"
+        }
+      },
+      "replacement": {
+        "type": "hp_t_text",
+        "hwpx_path": "Contents/section0.xml",
+        "paragraph_index": 15,
+        "text_node_index_in_paragraph": 0,
+        "source_text": "평가책임자 OOO",
+        "value_key": "evaluation_manager"
+      },
+      "review_note": "명확한 근거가 없으면 사람 검수 대상으로 남겨야 한다."
+    },
+    {
+      "slot_id": "cover.evaluation_institution",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "cover",
+        "task": "근거 문서에서 평가수행기관 이름을 찾고, 표지 표기 형식으로 작성한다.",
+        "output_constraints": {
+          "language": "ko",
+          "max_chars": 60,
+          "no_markdown": true,
+          "no_line_breaks": true,
+          "required_prefix": "평가수행기관 ",
+          "fallback": "평가수행기관 확인 대상"
+        }
+      },
+      "replacement": {
+        "type": "hp_t_text",
+        "hwpx_path": "Contents/section0.xml",
+        "paragraph_index": 16,
+        "text_node_index_in_paragraph": 0,
+        "source_text": "평가수행기관 OOO(혹은 로고)",
+        "value_key": "evaluation_institution"
+      },
+      "review_note": "로고 자체는 XML 구조/이미지 영역을 건드려야 하므로 이번 안전 치환 범위에서는 텍스트 표기만 대상으로 한다."
+    }
+  ],
+  "algorithm_contract": {
+    "input_values_example": {
+      "project_title": "예시 사업",
+      "report_date": "2026. 06",
+      "evaluation_manager": "평가책임자 홍길동",
+      "evaluation_institution": "평가수행기관 ODA 평가컨설팅"
+    },
+    "apply_order": [
+      "cover.project_title",
+      "cover.report_date",
+      "cover.evaluation_manager",
+      "cover.evaluation_institution"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "section_xml_paths_unchanged",
+      "section0_paragraph_count_equals_20",
+      "section0_table_count_equals_0",
+      "section0_hp_t_count_equals_6",
+      "section0_hp_lineseg_count_equals_20",
+      "only_selected_hp_t_text_content_changed"
+    ]
+  }
+}

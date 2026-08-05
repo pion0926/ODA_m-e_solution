@@ -1,0 +1,1000 @@
+{
+  "schema_version": "text-slot-review-v1",
+  "status": "draft_for_human_review",
+  "section": {
+    "section_number": 10,
+    "section_id": "eval-matrix",
+    "section_name": "평가매트릭스",
+    "hwpx_path": "Contents/section4.xml",
+    "original_xml": "original.xml",
+    "original_xml_sha256": "c2e0f239af5a8ee4c8cad471fd1b66e1a654d94e547d71711b2d15a5c3c88353"
+  },
+  "structure_policy": {
+    "base_template": "samples/5-1. 종료평가 결과보고서 placeholder.hwpx",
+    "allowed_operation": "replace_existing_text_only_in_reviewed_slots",
+    "forbidden_operations": [
+      "modify_unreviewed_xml",
+      "modify_section_properties",
+      "modify_styles_or_fonts",
+      "rewrite_full_hwpx_from_editor"
+    ]
+  },
+  "slots": [
+    {
+      "slot_id": "eval-matrix.relevance_question",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "relevance_question",
+        "source_text": "1.1. 질문 작성",
+        "type": "table_cell",
+        "cell_index": 6,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "적절성 평가질문"
+    },
+    {
+      "slot_id": "eval-matrix.relevance_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "relevance_indicator",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 7,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "적절성 측정지표"
+    },
+    {
+      "slot_id": "eval-matrix.relevance_source",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "relevance_source",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 8,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "적절성 자료출처"
+    },
+    {
+      "slot_id": "eval-matrix.relevance_method",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "relevance_method",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 9,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "적절성 분석방법"
+    },
+    {
+      "slot_id": "eval-matrix.coherence_question",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "coherence_question",
+        "source_text": "2.1. 질문 작성",
+        "type": "table_cell",
+        "cell_index": 11,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "일관성 평가질문"
+    },
+    {
+      "slot_id": "eval-matrix.coherence_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "coherence_indicator",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 12,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "일관성 측정지표"
+    },
+    {
+      "slot_id": "eval-matrix.coherence_source",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "coherence_source",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 13,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "일관성 자료출처"
+    },
+    {
+      "slot_id": "eval-matrix.coherence_method",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "coherence_method",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 14,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "일관성 분석방법"
+    },
+    {
+      "slot_id": "eval-matrix.effectiveness_question",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "effectiveness_question",
+        "source_text": "3.1. 질문 작성",
+        "type": "table_cell",
+        "cell_index": 16,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "효과성 평가질문"
+    },
+    {
+      "slot_id": "eval-matrix.effectiveness_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "effectiveness_indicator",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 17,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "효과성 측정지표"
+    },
+    {
+      "slot_id": "eval-matrix.effectiveness_source",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "effectiveness_source",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 18,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "효과성 자료출처"
+    },
+    {
+      "slot_id": "eval-matrix.effectiveness_method",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "effectiveness_method",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 19,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "효과성 분석방법"
+    },
+    {
+      "slot_id": "eval-matrix.efficiency_question",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "efficiency_question",
+        "source_text": "4.1. 질문 작성",
+        "type": "table_cell",
+        "cell_index": 21,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "효율성 평가질문"
+    },
+    {
+      "slot_id": "eval-matrix.efficiency_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "efficiency_indicator",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 22,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "효율성 측정지표"
+    },
+    {
+      "slot_id": "eval-matrix.efficiency_source",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "efficiency_source",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 23,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "효율성 자료출처"
+    },
+    {
+      "slot_id": "eval-matrix.efficiency_method",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "efficiency_method",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 24,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "효율성 분석방법"
+    },
+    {
+      "slot_id": "eval-matrix.sustainability_question",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "sustainability_question",
+        "source_text": "5.1. 질문 작성",
+        "type": "table_cell",
+        "cell_index": 26,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "지속가능성 평가질문"
+    },
+    {
+      "slot_id": "eval-matrix.sustainability_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "sustainability_indicator",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 27,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "지속가능성 측정지표"
+    },
+    {
+      "slot_id": "eval-matrix.sustainability_source",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "sustainability_source",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 28,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "지속가능성 자료출처"
+    },
+    {
+      "slot_id": "eval-matrix.sustainability_method",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "sustainability_method",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 29,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "지속가능성 분석방법"
+    },
+    {
+      "slot_id": "eval-matrix.human_rights_question",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "human_rights_question",
+        "source_text": "6.1. 질문 작성",
+        "type": "table_cell",
+        "cell_index": 31,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "인권/취약계층주류화 평가질문"
+    },
+    {
+      "slot_id": "eval-matrix.human_rights_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "human_rights_indicator",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 32,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "인권/취약계층주류화 측정지표"
+    },
+    {
+      "slot_id": "eval-matrix.human_rights_source",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "human_rights_source",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 33,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "인권/취약계층주류화 자료출처"
+    },
+    {
+      "slot_id": "eval-matrix.human_rights_method",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "human_rights_method",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 34,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "인권/취약계층주류화 분석방법"
+    },
+    {
+      "slot_id": "eval-matrix.gender_question",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "gender_question",
+        "source_text": "7.1. 질문 작성",
+        "type": "table_cell",
+        "cell_index": 36,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "성주류화 평가질문"
+    },
+    {
+      "slot_id": "eval-matrix.gender_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "gender_indicator",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 37,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "성주류화 측정지표"
+    },
+    {
+      "slot_id": "eval-matrix.gender_source",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "gender_source",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 38,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "성주류화 자료출처"
+    },
+    {
+      "slot_id": "eval-matrix.gender_method",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "gender_method",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 39,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "성주류화 분석방법"
+    },
+    {
+      "slot_id": "eval-matrix.environment_question",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "environment_question",
+        "source_text": "8.1. 질문 작성",
+        "type": "table_cell",
+        "cell_index": 41,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "환경주류화 평가질문"
+    },
+    {
+      "slot_id": "eval-matrix.environment_indicator",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "environment_indicator",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 42,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "환경주류화 측정지표"
+    },
+    {
+      "slot_id": "eval-matrix.environment_source",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "environment_source",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 43,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "환경주류화 자료출처"
+    },
+    {
+      "slot_id": "eval-matrix.environment_method",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": true,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "environment_method",
+        "source_text": "평가자 작성",
+        "type": "table_cell",
+        "cell_index": 44,
+        "table_required_parts": [
+          "평가기준",
+          "평가질문",
+          "분석방법"
+        ]
+      },
+      "review_note": "환경주류화 분석방법"
+    },
+    {
+      "slot_id": "eval-matrix.remove_eval_matrix_guide_1",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_matrix_guide_1",
+        "source_text": "ㅇ 직·간접 정책마커 해당 사업은 젠더, 인권(소외계층 포용), 환경 등 범분야이슈 평가기준에 따른 평가질문 활용 필수",
+        "type": "remove_paragraph",
+        "paragraph_index": 45,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-matrix.remove_eval_matrix_guide_2",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_matrix_guide_2",
+        "source_text": "- 단, 예시 평가질문 중 평가 대상 사업 특성에 따라 선택해서 활용",
+        "type": "remove_paragraph",
+        "paragraph_index": 46,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-matrix.remove_eval_matrix_guide_3",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_matrix_guide_3",
+        "source_text": "ㅇ 예시와 같이 평가질문별로 연번을 부여, “III 평가결과”에 해당 평가질문과 평가결과 제시",
+        "type": "remove_paragraph",
+        "paragraph_index": 47,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-matrix.remove_eval_matrix_guide_4",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_matrix_guide_4",
+        "source_text": "- 평가 매트릭스 상 제시된 평가질문은 평가결과에 필수 포함",
+        "type": "remove_paragraph",
+        "paragraph_index": 48,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-matrix.remove_eval_matrix_guide_5",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_eval_matrix_guide_5",
+        "source_text": "ㅇ 해당 분야 관련 평가기준 또는 분석틀 추가 활용 시, 평가 매트릭스에 앞서 해당 분석틀에 대한 설명 후, 이에 따른 평가질문은 매트릭스에 추가",
+        "type": "remove_paragraph",
+        "paragraph_index": 49,
+        "value_group": "remove_texts"
+      },
+      "review_note": ""
+    },
+    {
+      "slot_id": "eval-matrix.remove_oecd_dac_reference_table",
+      "review_decision": "candidate",
+      "llm_generation": {
+        "enabled": false,
+        "section_prompt_id": "eval-matrix",
+        "output_constraints": {
+          "no_markdown": true,
+          "no_line_breaks": true
+        }
+      },
+      "replacement": {
+        "hwpx_path": "Contents/section4.xml",
+        "value_key": "remove_oecd_dac_reference_table",
+        "source_text": "[참고] OECD DAC 6대 평가범주 정의 및 유의사항 ※ 보고서 작성 시 삭제",
+        "type": "remove_reference_block",
+        "paragraph_index": 52,
+        "value_group": "remove_reference_blocks",
+        "required_parts": [
+          "[참고] OECD DAC 6대 평가범주 정의 및 유의사항 ※ 보고서 작성 시 삭제"
+        ]
+      },
+      "review_note": ""
+    }
+  ],
+  "algorithm_contract": {
+    "input_schema": "section10_eval_matrix_slots_v1",
+    "apply_order": [
+      "eval-matrix.relevance_question",
+      "eval-matrix.relevance_indicator",
+      "eval-matrix.relevance_source",
+      "eval-matrix.relevance_method",
+      "eval-matrix.coherence_question",
+      "eval-matrix.coherence_indicator",
+      "eval-matrix.coherence_source",
+      "eval-matrix.coherence_method",
+      "eval-matrix.effectiveness_question",
+      "eval-matrix.effectiveness_indicator",
+      "eval-matrix.effectiveness_source",
+      "eval-matrix.effectiveness_method",
+      "eval-matrix.efficiency_question",
+      "eval-matrix.efficiency_indicator",
+      "eval-matrix.efficiency_source",
+      "eval-matrix.efficiency_method",
+      "eval-matrix.sustainability_question",
+      "eval-matrix.sustainability_indicator",
+      "eval-matrix.sustainability_source",
+      "eval-matrix.sustainability_method",
+      "eval-matrix.human_rights_question",
+      "eval-matrix.human_rights_indicator",
+      "eval-matrix.human_rights_source",
+      "eval-matrix.human_rights_method",
+      "eval-matrix.gender_question",
+      "eval-matrix.gender_indicator",
+      "eval-matrix.gender_source",
+      "eval-matrix.gender_method",
+      "eval-matrix.environment_question",
+      "eval-matrix.environment_indicator",
+      "eval-matrix.environment_source",
+      "eval-matrix.environment_method",
+      "eval-matrix.remove_eval_matrix_guide_1",
+      "eval-matrix.remove_eval_matrix_guide_2",
+      "eval-matrix.remove_eval_matrix_guide_3",
+      "eval-matrix.remove_eval_matrix_guide_4",
+      "eval-matrix.remove_eval_matrix_guide_5",
+      "eval-matrix.remove_oecd_dac_reference_table"
+    ],
+    "validation_after_apply": [
+      "zip_entry_list_unchanged",
+      "only_reviewed_slots_changed"
+    ]
+  }
+}

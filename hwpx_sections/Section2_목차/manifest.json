@@ -1,0 +1,232 @@
+{
+  "section_number": 2,
+  "section_id": "toc",
+  "section_name": "목차",
+  "hwpx_path": "Contents/section1.xml",
+  "original_xml": "original.xml",
+  "targets": [
+    {
+      "key": "remove_page_notice",
+      "paragraph_index": 3,
+      "source_text": "※ 보고서 작성완료 후 쪽수 수정 ※",
+      "replacement_type": "remove_text",
+      "description": "목차 상단의 빨간 안내문 삭제"
+    },
+    {
+      "key": "summary_ko_page",
+      "paragraph_index": 5,
+      "label_text": "1. 국문 요약",
+      "source_text": "0",
+      "paragraph_text": "1. 국문 요약 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "project_background_page",
+      "paragraph_index": 8,
+      "label_text": "1. 사업 추진배경",
+      "source_text": "0",
+      "paragraph_text": "1. 사업 추진배경 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "project_overview_page",
+      "paragraph_index": 9,
+      "label_text": "2. 사업개요",
+      "source_text": "0",
+      "paragraph_text": "2. 사업개요0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "pdm_page",
+      "paragraph_index": 10,
+      "label_text": "3. 사업설계매트릭스(PDM)",
+      "source_text": "0",
+      "paragraph_text": "3. 사업설계매트릭스(PDM)0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "evaluation_purpose_page",
+      "paragraph_index": 13,
+      "label_text": "1. 평가의 목적과 범위",
+      "source_text": "0",
+      "paragraph_text": "1. 평가의 목적과 범위 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "evaluation_matrix_page",
+      "paragraph_index": 14,
+      "label_text": "1. 평가매트릭스(Evaluation Matrix)",
+      "source_text": "0",
+      "paragraph_text": "1. 평가매트릭스(Evaluation Matrix) 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "evaluation_methods_page",
+      "paragraph_index": 15,
+      "label_text": "3. 평가 방법",
+      "source_text": "0",
+      "paragraph_text": "3. 평가 방법0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "evaluation_limitations_page",
+      "paragraph_index": 16,
+      "label_text": "4. 평가의 한계",
+      "source_text": "0",
+      "paragraph_text": "4. 평가의 한계 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "evaluation_team_page",
+      "paragraph_index": 17,
+      "label_text": "5. 평가팀 구성 및 시행체계",
+      "source_text": "0",
+      "paragraph_text": "5. 평가팀 구성 및 시행체계 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "achievement_page",
+      "paragraph_index": 20,
+      "label_text": "Ⅳ. 성과달성도",
+      "source_text": "0",
+      "paragraph_text": "0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "criteria_relevance_page",
+      "paragraph_index": 23,
+      "label_text": "1. 적절성",
+      "source_text": "0",
+      "paragraph_text": "1. 적절성 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "criteria_coherence_page",
+      "paragraph_index": 24,
+      "label_text": "2. 일관성",
+      "source_text": "0",
+      "paragraph_text": "2. 일관성 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "criteria_effectiveness_page",
+      "paragraph_index": 25,
+      "label_text": "3. 효과성",
+      "source_text": "0",
+      "paragraph_text": "3. 효과성 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "criteria_efficiency_page",
+      "paragraph_index": 26,
+      "label_text": "4. 효율성",
+      "source_text": "0",
+      "paragraph_text": "4. 효율성 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "criteria_sustainability_page",
+      "paragraph_index": 27,
+      "label_text": "5. 지속가능성(준비도)",
+      "source_text": "0",
+      "paragraph_text": "5. 지속가능성(준비도) 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "criteria_crosscutting_page",
+      "paragraph_index": 28,
+      "label_text": "6. 범분야 이슈(선택)",
+      "source_text": "0",
+      "paragraph_text": "6. 범분야 이슈(선택) 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "criteria_other_page",
+      "paragraph_index": 29,
+      "label_text": "7. 그 외 평가기준(선택)",
+      "source_text": "0",
+      "paragraph_text": "7. 그 외 평가기준(선택) 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "conclusion_page",
+      "paragraph_index": 32,
+      "label_text": "1. 결론",
+      "source_text": "0",
+      "paragraph_text": "1. 결론 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "factors_page",
+      "paragraph_index": 33,
+      "label_text": "2. 작동요인 및 비작동요인",
+      "source_text": "0",
+      "paragraph_text": "2. 작동요인 및 비작동요인 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "feedback_lessons_page",
+      "paragraph_index": 34,
+      "label_text": "3. 환류과제 및 교훈",
+      "source_text": "0",
+      "paragraph_text": "3. 환류과제 및 교훈 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "appendix_summary_en_page",
+      "paragraph_index": 37,
+      "label_text": "1. 평가결과 영문 요약",
+      "source_text": "0",
+      "paragraph_text": "1. 평가결과 영문 요약 0 ",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "appendix_fieldwork_page",
+      "paragraph_index": 38,
+      "label_text": "2. 현지(원격)조사 개요(출장자·출장일정·출장지)",
+      "source_text": "0",
+      "paragraph_text": "2. 현지(원격)조사 개요(출장자·출장일정·출장지) 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "appendix_daily_activities_page",
+      "paragraph_index": 39,
+      "label_text": "3. 일별활동내역(주요협의내용 및 평가활동 정리 서술)",
+      "source_text": "0",
+      "paragraph_text": "3. 일별활동내역(주요협의내용 및 평가활동 정리 서술) 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "appendix_interviewees_page",
+      "paragraph_index": 40,
+      "label_text": "4. 면담자 목록 및 주요 면담 질문",
+      "source_text": "0",
+      "paragraph_text": "4. 면담자 목록 및 주요 면담 질문 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "appendix_survey_page",
+      "paragraph_index": 41,
+      "label_text": "5. 설문조사지 및 설문조사 결과",
+      "source_text": "0",
+      "paragraph_text": "5. 설문조사지 및 설문조사 결과 0 ",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "appendix_references_page",
+      "paragraph_index": 42,
+      "label_text": "6. 참고문헌 목록",
+      "source_text": "0",
+      "paragraph_text": "6. 참고문헌 목록 0",
+      "replacement_type": "page_number"
+    },
+    {
+      "key": "appendix_other_page",
+      "paragraph_index": 43,
+      "label_text": "7. 그 외 첨부자료",
+      "source_text": "0",
+      "paragraph_text": "7. 그 외 첨부자료 0",
+      "replacement_type": "page_number"
+    }
+  ]
+}
