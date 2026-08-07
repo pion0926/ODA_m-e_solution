@@ -1,24 +1,21 @@
 services:
-  oda-me-solution:
-    build:
-      context: .
-    container_name: oda-me-solution
+  oda-impactops:
+    image: ${ODA_IMAGE:-oda-impactops-flightbase:1.0.0}
+    container_name: oda-impactops
     ports:
-      - "8001:8001"
+      - "${ODA_PORT:-8001}:8001"
     environment:
       HOST: 0.0.0.0
       PORT: 8001
       DATA_DIR: /app/data
       MAX_REQUEST_BYTES: ${MAX_REQUEST_BYTES:-134217728}
-      # 운영 환경에서는 .env 또는 배포 플랫폼의 Secret 기능으로만 주입합니다.
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-3.1-flash-lite}
       OPENROUTER_REFERER: ${OPENROUTER_REFERER:-http://127.0.0.1:8001}
-      APP_BASIC_AUTH_USER: ${APP_BASIC_AUTH_USER:-}
-      APP_BASIC_AUTH_PASSWORD: ${APP_BASIC_AUTH_PASSWORD:-}
+      APP_BASIC_AUTH_USER: ${APP_BASIC_AUTH_USER:?APP_BASIC_AUTH_USER is required}
+      APP_BASIC_AUTH_PASSWORD: ${APP_BASIC_AUTH_PASSWORD:?APP_BASIC_AUTH_PASSWORD is required}
     volumes:
-      - ./data:/app/data
-      - ./samples:/app/samples:ro
+      - oda-impactops-data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/healthz', timeout=3)"]
@@ -26,3 +23,6 @@ services:
       timeout: 5s
       start_period: 20s
       retries: 3
+
+volumes:
+  oda-impactops-data:

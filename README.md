@@ -65,3 +65,11 @@ HWP 원본 양식 기반 보고서 생성은 Windows 한컴오피스 COM 자동�
 - `POST /api/references/batch-confirm`
 - `GET /api/reports/evaluation-package`
 - `GET /api/ai/openrouter/status`
+
+## Flightbase / 클라우드 배포
+
+운영용 Docker 이미지 생성, Flightbase TAR/Pull 등록, 환경변수, 영속 볼륨, 외부 테스트와 일반 VM 대안은 [Flightbase 배포 가이드](docs/flightbase_deployment.md)를 참고하세요.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\build_flightbase_image.ps1
+```

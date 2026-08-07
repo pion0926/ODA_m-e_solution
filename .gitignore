@@ -16,5 +16,8 @@ Thumbs.db
 .env
 .env.*
 
+# Locally built deployment artifacts
+output/docker/
+
 # Local ngrok tunnel config and binary
 tools/ngrok/

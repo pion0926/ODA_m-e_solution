@@ -4,6 +4,13 @@ __pycache__/
 .pytest_cache/
 output/
 .agents/
+tmp/
+tools/ngrok/
+.env
+.env.*
+*.tar
+*.tar.gz
+*.zip
 data/uploads/
 data/extracted_text/
 data/evaluations/

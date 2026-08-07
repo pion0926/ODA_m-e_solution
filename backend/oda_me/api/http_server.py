@@ -20,9 +20,64 @@ from .dashboard import dashboard_payload, project_overview_preview
 class OdaHandler(BaseHTTPRequestHandler):
     server_version = "ODAImpactOps/0.4"
 
+    def require_authorization(self, path: str) -> bool:
+        if path == "/healthz" or not (APP_BASIC_AUTH_USER and APP_BASIC_AUTH_PASSWORD):
+            return True
+        header = self.headers.get("authorization", "")
+        if header.startswith("Basic "):
+            try:
+                decoded = base64.b64decode(header[6:], validate=True).decode("utf-8")
+                username, password = decoded.split(":", 1)
+            except (ValueError, UnicodeDecodeError):
+                username, password = "", ""
+            if hmac.compare_digest(username, APP_BASIC_AUTH_USER) and hmac.compare_digest(
+                password, APP_BASIC_AUTH_PASSWORD
+            ):
+                return True
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="ODA ImpactOps", charset="UTF-8"')
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return False
+
+    def read_request_json(self) -> dict | None:
+        try:
+            length = int(self.headers.get("content-length", "0"))
+        except ValueError:
+            self.send_json({"ok": False, "error": "Invalid Content-Length"}, status=400)
+            return None
+        if length > MAX_REQUEST_BYTES:
+            self.send_json(
+                {
+                    "ok": False,
+                    "error": "Request body is too large",
+                    "maxRequestBytes": MAX_REQUEST_BYTES,
+                },
+                status=413,
+            )
+            return None
+        try:
+            return read_json(self)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self.send_json({"ok": False, "error": "Invalid JSON request body"}, status=400)
+            return None
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
+        if not self.require_authorization(path):
+            return
+        if path == "/healthz":
+            self.send_json(
+                {
+                    "ok": True,
+                    "service": "oda-impactops",
+                    "version": self.server_version,
+                    "dataDirectoryReady": DATA_DIR.exists() and os.access(DATA_DIR, os.W_OK),
+                }
+            )
+            return
         if path == "/api/dashboard":
             self.send_json(dashboard_payload())
             return
@@ -106,7 +161,11 @@ class OdaHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
-        body = read_json(self)
+        if not self.require_authorization(path):
+            return
+        body = self.read_request_json()
+        if body is None:
+            return
         if path == "/api/project/overview-file":
             self.send_json(save_project_overview(body))
             return
@@ -256,6 +315,8 @@ class OdaHandler(BaseHTTPRequestHandler):
     def do_DELETE(self) -> None:
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
+        if not self.require_authorization(path):
+            return
         if path.startswith("/api/criteria/") and "/documents/" in path:
             parts = path.strip("/").split("/")
             if len(parts) == 5 and parts[0] == "api" and parts[1] == "criteria" and parts[3] == "documents":
@@ -358,6 +419,10 @@ class OdaHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    if bool(APP_BASIC_AUTH_USER) != bool(APP_BASIC_AUTH_PASSWORD):
+        raise RuntimeError("APP_BASIC_AUTH_USER and APP_BASIC_AUTH_PASSWORD must be configured together")
+    for directory in (DATA_DIR, UPLOAD_DIR, TEXT_DIR, EVALUATION_DIR, REPORT_DIR, PROJECT_OVERVIEW_UPLOAD_DIR):
+        directory.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer((HOST, PORT), OdaHandler)
     print(f"ODA ImpactOps Python backend running at http://{HOST}:{PORT}")
     server.serve_forever()

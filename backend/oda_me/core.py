@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import hmac
 import json
 import mimetypes
 import os
@@ -33,7 +34,10 @@ HWPX_NS = {"hp": HP_NS, "hs": HS_NS}
 ROOT = Path(__file__).resolve().parents[2]
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "8001"))
-DATA_DIR = ROOT / "data"
+DATA_DIR = Path(os.getenv("DATA_DIR", str(ROOT / "data"))).expanduser().resolve()
+MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(128 * 1024 * 1024)))
+APP_BASIC_AUTH_USER = os.getenv("APP_BASIC_AUTH_USER", "").strip()
+APP_BASIC_AUTH_PASSWORD = os.getenv("APP_BASIC_AUTH_PASSWORD", "")
 UPLOAD_DIR = DATA_DIR / "uploads"
 TEXT_DIR = DATA_DIR / "extracted_text"
 EVALUATION_DIR = DATA_DIR / "evaluations"
