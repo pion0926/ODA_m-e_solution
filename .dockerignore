@@ -15,3 +15,13 @@ data/uploads/
 data/extracted_text/
 data/evaluations/
 data/reports/
+/data/
+/assets/
+/backend/
+/deploy/
+/docs/
+/hwpx_sections/
+/prompts/
+/samples/
+/tools/
+*.xlsx
