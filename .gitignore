@@ -1,6 +1,17 @@
 # Local runtime data and uploaded documents
 data/*
 !data/.gitkeep
+data-redesign/
+
+# Removed legacy application retained only in local recovery copies
+/assets/
+/backend/
+/deploy/
+/Dockerfile
+/docker-compose.production.yml
+/index.html
+/requirements.txt
+/docs/flightbase_deployment.md
 
 # Python cache
 __pycache__/
