@@ -42,7 +42,7 @@ services:
     restart: unless-stopped
     logging: *logging
     healthcheck:
-      test: [CMD-SHELL, pg_isready -U kodame -d kodame]
+      test: [CMD-SHELL, "pg_isready -U kodame -d kodame && psql -U kodame -d kodame -Atc \"SELECT 1 FROM pg_roles WHERE rolname='kodame_app'\" | grep -qx 1"]
       interval: 5s
       timeout: 3s
       retries: 20

@@ -39,7 +39,7 @@ try {
     $locks = @("# $Version commit $commit - content-addressed local images")
     $images = [ordered]@{}
     foreach ($component in $components.Keys) {
-        $tag = "odame-release/${component}:$($Version.Substring(1))"
+        $tag = "odame-release/${component}:$($Version.Substring(1))-$($commit.Substring(0,12))"
         $existing = & docker image ls --quiet $tag
         if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect Docker images.' }
         if ($existing) {

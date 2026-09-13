@@ -7,7 +7,7 @@
 | 접속 | http://127.0.0.1:8000/ | http://127.0.0.1:8002/ |
 | Compose 프로젝트 | `odame-prod` | `odame` (기존 이름 보존) |
 | 소스 | `V1.0.0` 커밋의 Git archive | 현재 작업 디렉터리 |
-| 이미지 | `odame-release/*:1.0.0` + 실제 `sha256` ID 고정 | `odame-dev/*:latest` |
+| 이미지 | `odame-release/*:1.0.0-<커밋>` + 실제 `sha256` ID 고정 | `odame-dev/*:latest` |
 | DB | `odame-prod_postgres-data` 신규 볼륨 | `odame_kodame-postgres-data` 기존 볼륨 |
 | 문서/보고서 | `odame-prod_app-data` 신규 볼륨 | 기존 `data-redesign/` |
 | 세션 쿠키 | `kodame_production_session` | `kodame_session` |
