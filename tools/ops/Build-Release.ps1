@@ -15,7 +15,7 @@ try {
     if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[a-f0-9]{40}$') { throw 'Release ref must resolve to a committed revision.' }
     $runtimeDir = Join-Path $opsRoot '.runtime'
     $sourceDir = Join-Path $runtimeDir "releases/$Version-$($commit.Substring(0,12))"
-    $archivePath = Join-Path $runtimeDir "releases/$Version-$($commit.Substring(0,12)).tar"
+    $archivePath = Join-Path $runtimeDir "releases/$Version-$($commit.Substring(0,12)).zip"
     $sourceMarker = Join-Path $sourceDir '.source-commit'
     if (Test-Path -LiteralPath $sourceDir) {
         if (-not (Test-Path -LiteralPath $sourceMarker) -or ([IO.File]::ReadAllText($sourceMarker)).Trim() -ne $commit) {
@@ -23,8 +23,11 @@ try {
         }
     } else {
         New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-        Invoke-Checked git @('archive', '--format=tar', "--output=$archivePath", $commit)
-        Invoke-Checked tar @('-xf', $archivePath, '-C', $sourceDir)
+        Invoke-Checked git @('archive', '--format=zip', "--output=$archivePath", $commit)
+        # Windows tar interprets Korean entry names through the local code page.
+        # Git ZIP + explicit UTF-8 preserves every template/prompt filename.
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory($archivePath, $sourceDir, [Text.Encoding]::UTF8)
         [IO.File]::WriteAllText($sourceMarker, $commit, (New-Object Text.UTF8Encoding($false)))
     }
     $components = [ordered]@{
