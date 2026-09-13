@@ -1,0 +1,32 @@
+{
+  "description": "고정 양식 조판 후 논리 섹션의 시작/끝 제목. null은 해당 물리 구역의 시작/끝. 본문 길이와 쪽수에 의존하지 않음.",
+  "boundaries": {
+    "cover": [null, null],
+    "toc": [null, null],
+    "notice": [null, "평가 등급 결과표"],
+    "grade": ["평가 등급 결과표", null],
+    "summary-ko": [null, "II. 대상사업개요"],
+    "project-background": ["II. 대상사업개요", "2. 사업개요"],
+    "project-overview": ["2. 사업개요", null],
+    "pdm": [null, "III. 평가개요"],
+    "eval-purpose": ["III. 평가개요", "2. 평가매트릭스(Evaluation Matrix)"],
+    "eval-matrix": ["2. 평가매트릭스(Evaluation Matrix)", "3. 평가방법"],
+    "eval-methods": ["3. 평가방법", "4. 평가의 한계"],
+    "eval-limitations": ["4. 평가의 한계", "5. 평가팀 구성 및 시행체계"],
+    "eval-team": ["5. 평가팀 구성 및 시행체계", null],
+    "achievement": [null, null],
+    "criteria-relevance": [null, "2. 일관성"],
+    "criteria-coherence": ["2. 일관성", "3. 효과성"],
+    "criteria-effectiveness": ["3. 효과성", null],
+    "criteria-efficiency": [null, "5. 지속가능성"],
+    "criteria-sustainability": ["5. 지속가능성", "6. 범분야 이슈"],
+    "criteria-crosscutting": ["6. 범분야 이슈", "7. 그 외 평가기준"],
+    "criteria-other": ["7. 그 외 평가기준", "VI. 결론"],
+    "conclusion": ["VI. 결론", "2. 작동요인 및 비작동요인"],
+    "working-factors": ["2. 작동요인 및 비작동요인", "(2) 비작동요인"],
+    "nonworking-factors": ["(2) 비작동요인", null],
+    "theory": [null, "3. 환류과제 및 교훈"],
+    "feedback": ["3. 환류과제 및 교훈", "(2) 교훈"],
+    "lessons": ["(2) 교훈", null]
+  }
+}

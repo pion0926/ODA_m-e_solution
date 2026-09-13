@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const context = { window: {} }; vm.createContext(context);
+vm.runInContext(fs.readFileSync('assets/dac-scoring-ui.js', 'utf8'), context);
+const esc = text => String(text ?? '').replaceAll('<','&lt;').replaceAll('>','&gt;');
+const render = question => context.window.DacScoringUI.render(question, esc);
+assert(render({score:3, levels:{1:'하위',3:'상위'}}).includes('재평가 후'));
+const html = render({score:3,scoring_trace:{selected_score:3,status:'provisional',selected_level_reason:'<script>reason</script>',next_level_gap:'다음 등급 근거',levels:{3:'3점 요건'},checks:[{criterion:'수요 검토',status:'unverified',finding:'확인 필요'}]}});
+assert(html.includes('미확인 항목 포함'));
+assert(html.includes('상위 점수를 부여하지 않은 이유'));
+assert(html.includes('&lt;script&gt;'));
+assert(!html.includes('<script>'));
+assert(!fs.readFileSync('assets/odaon-v1-live.js','utf8').includes('판단 근거 원문 보기'));
+console.log('PASS DAC trace rendering, legacy honesty, escaping, no raw quote control');

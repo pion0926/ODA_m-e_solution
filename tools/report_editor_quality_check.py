@@ -13,6 +13,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from oda_me import runtime as app  # noqa: E402
+from oda_me.hwpx.patchers import (  # noqa: E402
+    apply_text_slot_review_manifest_xml,
+    find_hwpx_all_tag_spans,
+    get_hwpx_xml_scope_text,
+    hwpx_report_body_lines,
+    load_text_slot_review_manifest,
+    normalize_hwpx_manifest_value,
+    replace_hwpx_heading_block_xml,
+)
 
 
 def hwpx_section_text(hwpx_bytes: bytes, section_name: str) -> str:
@@ -97,11 +106,60 @@ def assert_generated_hwpx_uses_current_context() -> None:
     assert "적절성 근거 미흡 보완 필요" not in grade_text, "generated HWPX grade page is still using fallback grade reasons"
 
 
+def assert_hwpx_outline_hierarchy() -> None:
+    lines = hwpx_report_body_lines(
+        "ㅇ 추진배경\n- (추진배경) 중복 없이 남아야 하는 본문\n"
+        "ㅇ 평가의 목적과 범위\n- (평가목적) 서로 다른 하위 라벨은 유지"
+    )
+    assert lines[1] == "- 중복 없이 남아야 하는 본문", "repeated parent label was not removed"
+    assert lines[3].startswith("- (평가목적)"), "meaningful child label was removed"
+    assert normalize_hwpx_manifest_value(5, "business_background", "- (추진배경) 본문") == "- 본문"
+    assert normalize_hwpx_manifest_value(5, "business_overview", "(사업개요) 본문") == "- 본문"
+    assert normalize_hwpx_manifest_value(5, "relevance_summary", "ㅇ 적절성: 판단 본문") == "- 판단 본문"
+
+    summary_xml = (ROOT / "hwpx_sections" / "Section5_국문_요약" / "original.xml").read_text(encoding="utf-8")
+    summary_manifest = load_text_slot_review_manifest(5)
+    summary_xml, changed = apply_text_slot_review_manifest_xml(
+        summary_xml,
+        summary_manifest,
+        {
+            "business_background": "- (추진배경) 배경 본문",
+            "business_overview": "- (사업개요) 개요 본문",
+        },
+        "Contents/section3.xml",
+    )
+    assert changed == 2, f"expected two summary slots to change, got {changed}"
+    summary_paragraphs = find_hwpx_all_tag_spans(summary_xml, "hp:p")
+    for paragraph_index, expected_text in [(6, "- 배경 본문"), (9, "- 개요 본문")]:
+        start, end = summary_paragraphs[paragraph_index]
+        paragraph_xml = summary_xml[start:end]
+        assert get_hwpx_xml_scope_text(paragraph_xml).strip() == expected_text
+        assert 'paraPrIDRef="91"' in paragraph_xml, "summary child paragraph is not indented below its parent"
+
+    narrative_xml = (ROOT / "hwpx_sections" / "Section15_적절성" / "original.xml").read_text(encoding="utf-8")
+    narrative_xml, changed = replace_hwpx_heading_block_xml(
+        narrative_xml,
+        "1. 적절성",
+        "ㅇ 상위 항목\n- 하위 항목",
+        ["2. 일관성"],
+    )
+    assert changed == 1, "narrative outline test block was not replaced"
+    paragraphs = [
+        narrative_xml[start:end]
+        for start, end in find_hwpx_all_tag_spans(narrative_xml, "hp:p")
+    ]
+    bullet = next(item for item in paragraphs if get_hwpx_xml_scope_text(item).strip() == "ㅇ 상위 항목")
+    detail = next(item for item in paragraphs if get_hwpx_xml_scope_text(item).strip() == "- 하위 항목")
+    assert 'paraPrIDRef="69"' in bullet, "first-level bullet style was not applied"
+    assert 'paraPrIDRef="92"' in detail, "second-level detail style was not applied"
+
+
 def main() -> None:
     app.attach_uploaded_documents()
     app.apply_persisted_evaluations()
     assert_report_cover_title()
     assert_editor_payload_uses_current_version()
+    assert_hwpx_outline_hierarchy()
     assert_generated_hwpx_uses_current_context()
     print("report editor quality checks passed")
 

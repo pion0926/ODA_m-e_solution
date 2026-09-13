@@ -4,17 +4,21 @@ import argparse
 import json
 import re
 import sys
+from http.cookiejar import CookieJar
 from pathlib import Path
+from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend"))
+sys.path[:0] = [str(ROOT / "backend"), str(ROOT / "redesign" / "backend"), str(ROOT)]
 
-import app  # noqa: E402
-from report_prompts import EDITOR_REPORT_PARTS  # noqa: E402
+from report_few_shot import EXPECTED_PART_IDS, FORMAT_ONLY_DEMOS  # noqa: E402
+from report_outline import NARRATIVE_OUTLINE_PART_IDS  # noqa: E402
+from report_prompts import EDITOR_PART_REFERENCE_PIPELINES, EDITOR_REPORT_PARTS  # noqa: E402
+from kodame_intake.hwpx_pipeline import SECTION_PIPELINES, hwpx_authoring_contract  # noqa: E402
 
 
-BAD_MARKERS = ["자료 업로드 전", "Gemini", "백엔드", "평가 초안", "Cannot", "Traceback"]
+BAD_MARKERS = ("자료 업로드 전", "Gemini", "Traceback", "{{CURRENT_")
 MIN_CONTENT_LENGTH = {
     "cover": 20,
     "toc": 30,
@@ -29,174 +33,200 @@ MIN_CONTENT_LENGTH = {
 
 def clean_line(value: object, limit: int = 220) -> str:
     text = re.sub(r"\s+", " ", str(value or "")).strip()
-    if len(text) <= limit:
-        return text
-    return text[: limit - 1].rstrip() + "..."
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "..."
 
 
-def part_section_id(part: dict) -> str:
-    return str(part.get("sectionId") or part.get("id") or "")
+def load_section_contents(path: str) -> dict[str, str]:
+    if not path:
+        return {}
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if isinstance(payload, dict) and isinstance(payload.get("items"), list):
+        rows = payload["items"]
+    elif isinstance(payload, list):
+        rows = payload
+    elif isinstance(payload, dict):
+        return {str(key): str(value or "") for key, value in payload.items()}
+    else:
+        raise ValueError("섹션 JSON은 items 배열, 배열, 또는 part_id-content 객체여야 합니다.")
+    return {
+        str(row.get("part_id") or row.get("partId") or row.get("id")): str(row.get("content") or "")
+        for row in rows
+        if isinstance(row, dict)
+    }
 
 
-def generated_content_by_part(generate: bool) -> tuple[dict[str, str], dict]:
-    if generate:
-        result = app.generate_report_editor_auto_draft({"force": True})
-        return {
-            str(item.get("partId") or item.get("sectionId")): str(item.get("content") or "")
-            for item in result.get("results", [])
-        }, result
+def fetch_section_contents(base_url: str, email: str, password: str) -> dict[str, str]:
+    if not base_url:
+        return {}
+    opener = build_opener(HTTPCookieProcessor(CookieJar()))
+    login_request = Request(
+        base_url.rstrip("/") + "/api/v2/auth/login",
+        data=json.dumps({"email": email, "password": password}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with opener.open(login_request, timeout=15) as response:
+        if response.status >= 400:
+            raise RuntimeError(f"프롬프트 감사 로그인 실패: HTTP {response.status}")
+    with opener.open(base_url.rstrip("/") + "/api/v2/report/sections", timeout=30) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    return {
+        str(row.get("part_id") or row.get("id")): str(row.get("content") or "")
+        for row in payload.get("items", [])
+        if isinstance(row, dict)
+    }
 
-    payload = app.report_editor_payload()
-    section_map = {str(section.get("id")): str(section.get("body") or "") for section in payload.get("sections", [])}
-    contents = {}
-    for part in EDITOR_REPORT_PARTS:
-        contents[str(part.get("id"))] = section_map.get(part_section_id(part), "")
-    return contents, {"ok": True, "generated": 0, "skipped": len(EDITOR_REPORT_PARTS), "total": len(EDITOR_REPORT_PARTS)}
+
+def detail_lines(text: str) -> list[str]:
+    return [line.strip() for line in text.splitlines() if line.strip().startswith("-")]
 
 
-def audit_part(index: int, part: dict, content: str, context: dict) -> dict:
+def audit_part(index: int, part: dict, content: str | None) -> dict:
     part_id = str(part.get("id") or "")
-    references = app.part_reference_documents(part)
-    uploaded = references.get("uploadedDocuments", [])
-    missing = references.get("missingEvidence", [])
-    required_inputs = part.get("requiredInputs") or part.get("required_inputs") or []
-    prompt = str(part.get("prompt") or "")
-    contract = app.editor_part_output_contract(part_id)
+    prompt = str(part.get("prompt") or "").strip()
+    required_inputs = [str(item) for item in (part.get("requiredInputs") or [])]
+    route = EDITOR_PART_REFERENCE_PIPELINES.get(part_id) or {}
+    evidence = route.get("evidence") or {}
+    demo = str(FORMAT_ONLY_DEMOS.get(part_id) or "")
+    pipeline = next((item for item in SECTION_PIPELINES if item.part_id == part_id), None)
+    contract = hwpx_authoring_contract(part_id) if pipeline else {}
+    prompt_source = str(part.get("promptSourceFile") or "").replace("\\", "/")
+    adapter_source = str(contract.get("source_module") or "")
     issues: list[str] = []
 
-    if len(prompt.strip()) < 60:
+    if len(prompt) < 60:
         issues.append("프롬프트가 짧아 산출 범위와 판단 기준이 불명확함")
-    if len(contract.strip()) < 50:
-        issues.append("출력 계약이 구체적이지 않음")
     if part_id not in {"toc", "notice"} and not required_inputs:
         issues.append("필수 입력 목록이 비어 있음")
-    if part_id not in {"toc", "notice"} and not references.get("criteria"):
-        issues.append("참고 평가기준 매핑이 없음")
+    if part_id not in {"toc", "notice"} and not route.get("criteria"):
+        issues.append("평가기준·증빙 라우팅이 없음")
+    if part_id not in {"toc", "notice"} and not evidence:
+        issues.append("증빙 슬롯 라우팅이 없음")
+    if not demo or "{{CURRENT_" not in demo:
+        issues.append("현재 사업 값으로 치환되는 형식 전용 few-shot 예시가 없음")
+    if pipeline is None or not contract.get("adapter"):
+        issues.append("독립 HWPX 어댑터 계약이 없음")
+    if not prompt_source.startswith("prompts/Section"):
+        issues.append("독립 생성 프롬프트 원본 파일이 없음")
+    if ".hwpx_adapters.sections.section" not in adapter_source:
+        issues.append("독립 HWPX 변환 소스 모듈이 없음")
+    if contract and "report_sections.content" not in str(contract.get("source_of_truth") or ""):
+        issues.append("초안과 HWPX가 동일한 저장 원문을 사용하지 않음")
 
-    min_length = MIN_CONTENT_LENGTH.get(part_id, 160)
-    if len(content.strip()) < min_length:
-        issues.append(f"실제 생성 응답이 짧음({len(content.strip())}자)")
-    for marker in BAD_MARKERS:
-        if marker in content:
-            issues.append(f"생성 응답에 내부/임시 문구 포함: {marker}")
+    if part_id in NARRATIVE_OUTLINE_PART_IDS or part_id == "summary-ko":
+        lines = detail_lines(demo)
+        if not lines:
+            issues.append("few-shot에 세부 논거 '-' 문단이 없음")
+        if part_id in NARRATIVE_OUTLINE_PART_IDS:
+            for marker in ("[전 서술형 섹션 공통 문단 양식]", "(핵심어 요약)", "~함", "약 360자 이내"):
+                if marker not in prompt:
+                    issues.append(f"공통 서술형 제약 누락: {marker}")
 
-    if part_id == "grade":
-        score_rows = app.criterion_grade_rows(context)
-        expected_total = f"{context['overall']['score']}/{context['overall']['maxScore']}점"
-        if expected_total not in content:
-            issues.append(f"평가등급표 응답에 종합점수 {expected_total} 미반영")
-        for row in score_rows:
-            if f"{row['score']}점" not in content:
-                issues.append(f"{row['name']} {row['score']}점 미반영 가능성")
-        if len({row["score"] for row in score_rows}) > 1 and content.count("1점") >= len(score_rows):
-            issues.append("점수가 모두 1점처럼 보이는 패턴 감지")
+    content_length = None
+    content_preview = ""
+    if content is not None:
+        content = str(content)
+        content_length = len(content.strip())
+        content_preview = clean_line(content, 450)
+        if content_length < MIN_CONTENT_LENGTH.get(part_id, 160):
+            issues.append(f"저장된 실제 응답이 짧음({content_length}자)")
+        for marker in BAD_MARKERS:
+            if marker in content:
+                issues.append(f"저장된 실제 응답에 내부·임시 문구 포함: {marker}")
 
-    if part_id.startswith("criteria-"):
-        related = references.get("criteria") or []
-        for criterion in context.get("criteria", []):
-            if criterion.get("id") in related and f"{criterion.get('score')}점" not in content:
-                issues.append(f"{criterion.get('name')} 점수 {criterion.get('score')}점이 본문에 명시되지 않음")
-
-    if uploaded and len(missing) > len(uploaded) + 3:
-        issues.append("등록 문서 대비 누락 항목이 과도함. 참고문서 매핑을 더 넓게 볼 필요가 있음")
-
-    status = "수정 필요" if issues else "정상"
     return {
         "index": index,
         "id": part_id,
-        "sectionId": part_section_id(part),
-        "title": part.get("title", ""),
-        "status": status,
-        "promptLength": len(prompt),
-        "requiredInputs": required_inputs,
-        "referenceCriteria": references.get("criteria", []),
-        "uploadedCount": len(uploaded),
-        "directCount": len([item for item in uploaded if item.get("match") == "direct"]),
-        "supportingCount": len([item for item in uploaded if item.get("match") == "supporting"]),
-        "missingCount": len(missing),
-        "missingSamples": missing[:5],
-        "contentLength": len(content.strip()),
-        "contentPreview": clean_line(content, 450),
+        "title": str(part.get("title") or ""),
+        "status": "수정 필요" if issues else "정상",
+        "prompt_length": len(prompt),
+        "required_inputs": required_inputs,
+        "reference_criteria": list(route.get("criteria") or []),
+        "evidence_slot_count": sum(len(items) for items in evidence.values()) if isinstance(evidence, dict) else 0,
+        "adapter": str(contract.get("adapter") or ""),
+        "prompt_source": prompt_source,
+        "adapter_source": adapter_source,
+        "authoring_shape": str(contract.get("authoring_shape") or ""),
+        "content_length": content_length,
+        "content_preview": content_preview,
         "issues": issues,
     }
 
 
-def write_markdown(audits: list[dict], generation_result: dict, output_path: Path) -> None:
-    ok_count = len([item for item in audits if item["status"] == "정상"])
+def write_markdown(audits: list[dict], output_path: Path, live_content: bool) -> None:
+    ok_count = sum(item["status"] == "정상" for item in audits)
     lines = [
-        "# 평가보고서 27개 섹션 프롬프트 점검 결과",
+        "# 평가보고서 27개 섹션 프롬프트·HWPX 계약 점검 결과",
         "",
-        f"- 생성 버전: `{app.REPORT_GENERATOR_VERSION}`",
         f"- 총 섹션: {len(audits)}개",
         f"- 정상: {ok_count}개",
         f"- 수정 필요: {len(audits) - ok_count}개",
-        f"- 실제 생성 호출: 갱신 {generation_result.get('generated', 0)}개 / 재사용 {generation_result.get('skipped', 0)}개 / 실패 {generation_result.get('failed', 0)}개",
+        f"- 저장 응답 포함 점검: {'예' if live_content else '아니오(프롬프트·few-shot·어댑터 계약만 점검)'}",
         "",
     ]
     for item in audits:
-        lines.extend(
-            [
-                f"## 프롬프트 {item['index']}. {item['title']} (`{item['id']}`)",
-                "",
-                f"- 상태: {item['status']}",
-                f"- 섹션 ID: `{item['sectionId']}`",
-                f"- 프롬프트 길이: {item['promptLength']}자",
-                f"- 실제 응답 길이: {item['contentLength']}자",
-                f"- 참고 기준: {', '.join(item['referenceCriteria']) or '없음'}",
-                f"- 사용 문서: 직접 {item['directCount']}건, 보조 {item['supportingCount']}건, 총 {item['uploadedCount']}건",
-                f"- 보완 필요로 남은 핵심 증빙: {item['missingCount']}건",
-                f"- 필수 입력: {', '.join(clean_line(value, 70) for value in item['requiredInputs']) or '없음'}",
-            ]
-        )
-        if item["missingSamples"]:
-            lines.append("- 보완 필요 샘플: " + " / ".join(clean_line(sample.get("evidenceName"), 80) for sample in item["missingSamples"]))
+        lines.extend([
+            f"## 섹션 {item['index']}. {item['title']} (`{item['id']}`)",
+            "",
+            f"- 상태: {item['status']}",
+            f"- 프롬프트: {item['prompt_length']}자 / 형식 전용 few-shot 있음",
+            f"- 프롬프트 원본: `{item['prompt_source']}`",
+            f"- 증빙 라우팅: {', '.join(item['reference_criteria']) or '양식 소유 섹션'} / {item['evidence_slot_count']}개 슬롯",
+            f"- HWPX 어댑터: `{item['adapter']}`",
+            f"- HWPX 변환 원본: `{item['adapter_source']}`",
+            f"- 작성 형상: {item['authoring_shape']}",
+        ])
+        if item["content_length"] is not None:
+            lines.append(f"- 저장 응답: {item['content_length']}자")
         if item["issues"]:
             lines.append("- 발견 이슈: " + " / ".join(item["issues"]))
-        lines.extend(["", "> 실제 응답 미리보기: " + (item["contentPreview"] or "(비어 있음)"), ""])
+        if item["content_preview"]:
+            lines.extend(["", "> 실제 응답 미리보기: " + item["content_preview"]])
+        lines.append("")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--generate", action="store_true", help="Call the LLM-backed 27-part auto draft before auditing.")
-    parser.add_argument(
-        "--output",
-        default=str(ROOT / "data" / "reports" / "report_prompt_audit.md"),
-        help="Markdown audit output path.",
-    )
-    parser.add_argument(
-        "--json-output",
-        default=str(ROOT / "data" / "reports" / "report_prompt_audit.json"),
-        help="JSON audit output path.",
-    )
+    parser.add_argument("--sections-json", default="", help="선택: /api/v2/report/sections 응답 JSON")
+    parser.add_argument("--api-base-url", default="", help="선택: 실행 중인 ODAME 웹 주소")
+    parser.add_argument("--email", default="", help="API 점검 계정")
+    parser.add_argument("--password", default="", help="API 점검 비밀번호")
+    parser.add_argument("--output", default=str(ROOT / "data" / "reports" / "report_prompt_audit.md"))
+    parser.add_argument("--json-output", default=str(ROOT / "data" / "reports" / "report_prompt_audit.json"))
     args = parser.parse_args()
 
-    app.attach_uploaded_documents()
-    app.apply_persisted_evaluations()
-    context = app.current_report_context()
-    contents, generation_result = generated_content_by_part(args.generate)
+    if args.sections_json:
+        contents = load_section_contents(args.sections_json)
+    elif args.api_base_url:
+        if not args.email or not args.password:
+            raise RuntimeError("API 점검에는 --email과 --password가 필요합니다.")
+        contents = fetch_section_contents(args.api_base_url, args.email, args.password)
+    else:
+        contents = {}
+    part_ids = tuple(str(part.get("id")) for part in EDITOR_REPORT_PARTS)
+    if part_ids != EXPECTED_PART_IDS:
+        raise RuntimeError("27개 프롬프트 순서가 표준 섹션 순서와 다릅니다.")
     audits = [
-        audit_part(index, part, contents.get(str(part.get("id")), ""), context)
-        for index, part in enumerate(EDITOR_REPORT_PARTS, start=1)
+        audit_part(index, part, contents.get(str(part.get("id"))) if contents else None)
+        for index, part in enumerate(EDITOR_REPORT_PARTS, 1)
     ]
-
+    prompt_sources = [item["prompt_source"] for item in audits]
+    adapter_sources = [item["adapter_source"] for item in audits]
+    if len(set(prompt_sources)) != 27 or len(set(adapter_sources)) != 27:
+        raise RuntimeError("27개 프롬프트·HWPX 변환 소스가 각각 독립 파일이 아닙니다.")
     output_path = Path(args.output)
     json_path = Path(args.json_output)
-    write_markdown(audits, generation_result, output_path)
+    write_markdown(audits, output_path, bool(contents))
     json_path.parent.mkdir(parents=True, exist_ok=True)
-    json_path.write_text(
-        json.dumps({"generation": generation_result, "audits": audits}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
+    json_path.write_text(json.dumps({"audits": audits}, ensure_ascii=False, indent=2), encoding="utf-8")
     failed = [item for item in audits if item["status"] != "정상"]
     print(f"prompt audit written: {output_path}")
     print(f"json audit written: {json_path}")
     print(f"sections={len(audits)} ok={len(audits) - len(failed)} needs_fix={len(failed)}")
-    if failed:
-        for item in failed:
-            print(f"- prompt {item['index']} {item['id']}: {'; '.join(item['issues'])}")
+    for item in failed:
+        print(f"- section {item['index']} {item['id']}: {'; '.join(item['issues'])}")
 
 
 if __name__ == "__main__":

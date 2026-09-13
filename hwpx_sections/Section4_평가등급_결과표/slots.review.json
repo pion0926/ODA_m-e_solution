@@ -145,7 +145,7 @@
       "slot_id": "grade.relevance_total_reason",
       "review_decision": "candidate",
       "llm_generation": {
-        "enabled": true,
+        "enabled": false,
         "section_prompt_id": "grade",
         "output_constraints": {
           "no_markdown": true,
@@ -159,7 +159,7 @@
         "type": "grade_table_cell",
         "cell_index": 16
       },
-      "review_note": "1. 적절성 종합 판정"
+      "review_note": "1. 적절성 평점 행 산정 이유는 비움"
     },
     {
       "slot_id": "grade.coherence_internal_score",
@@ -265,7 +265,7 @@
       "slot_id": "grade.coherence_total_reason",
       "review_decision": "candidate",
       "llm_generation": {
-        "enabled": true,
+        "enabled": false,
         "section_prompt_id": "grade",
         "output_constraints": {
           "no_markdown": true,
@@ -279,7 +279,7 @@
         "type": "grade_table_cell",
         "cell_index": 29
       },
-      "review_note": "2. 일관성 종합 판정"
+      "review_note": "2. 일관성 평점 행 산정 이유는 비움"
     },
     {
       "slot_id": "grade.effectiveness_output_score",
@@ -425,7 +425,7 @@
       "slot_id": "grade.effectiveness_total_reason",
       "review_decision": "candidate",
       "llm_generation": {
-        "enabled": true,
+        "enabled": false,
         "section_prompt_id": "grade",
         "output_constraints": {
           "no_markdown": true,
@@ -439,7 +439,7 @@
         "type": "grade_table_cell",
         "cell_index": 46
       },
-      "review_note": "3. 효과성 종합 판정"
+      "review_note": "3. 효과성 평점 행 산정 이유는 비움"
     },
     {
       "slot_id": "grade.efficiency_timeliness_score",
@@ -545,7 +545,7 @@
       "slot_id": "grade.efficiency_total_reason",
       "review_decision": "candidate",
       "llm_generation": {
-        "enabled": true,
+        "enabled": false,
         "section_prompt_id": "grade",
         "output_constraints": {
           "no_markdown": true,
@@ -559,7 +559,7 @@
         "type": "grade_table_cell",
         "cell_index": 59
       },
-      "review_note": "4. 효율성 종합 판정"
+      "review_note": "4. 효율성 평점 행 산정 이유는 비움"
     },
     {
       "slot_id": "grade.sustainability_capacity_score",
@@ -665,7 +665,7 @@
       "slot_id": "grade.sustainability_total_reason",
       "review_decision": "candidate",
       "llm_generation": {
-        "enabled": true,
+        "enabled": false,
         "section_prompt_id": "grade",
         "output_constraints": {
           "no_markdown": true,
@@ -679,7 +679,7 @@
         "type": "grade_table_cell",
         "cell_index": 72
       },
-      "review_note": "5. 지속가능성 종합 판정"
+      "review_note": "5. 지속가능성 평점 행 산정 이유는 비움"
     },
     {
       "slot_id": "grade.overall_score",

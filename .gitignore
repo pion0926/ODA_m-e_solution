@@ -4,12 +4,28 @@ data/*
 data-redesign/
 
 # Removed legacy application retained only in local recovery copies
-/assets/
+/assets/*
+!/assets/odaon-api.js
+!/assets/odaon-v1-live.js
+!/assets/report-section-flow.js
+!/assets/report-section-preview.js
+!/assets/report-section-preview.css
+!/assets/service-admin-ui.js
+!/assets/dac-scoring-ui.js
+!/assets/service-job-tray.js
+!/assets/rhwp/
 /backend/
+!/backend/
+/backend/*
+!/backend/report_prompts.py
+!/backend/report_few_shot.py
+!/backend/report_outline.py
+!/backend/report_writing_policy.py
+!/backend/evaluation_specs.py
+!/backend/oda_me/
 /deploy/
 /Dockerfile
 /docker-compose.production.yml
-/index.html
 /requirements.txt
 /docs/flightbase_deployment.md
 
@@ -26,6 +42,21 @@ Thumbs.db
 # Environment/secrets
 .env
 .env.*
+!.env.example
+
+# Release/deployment secrets, backups, customer uploads and generated QA outputs
+/.runtime/
+/output/
+/tmp/
+/.agents/
+/.codex/
+/docs/qa/reports/
+/samples/교통대_종료평가_자료요청_업로드폴더/
+/K-ODAME_User_Manual_20260906.pdf
+/assets/rhwp/*.hwpx
+/assets/rhwp/*.hwp
+/assets/rhwp/*.pdf
+*.log
 
 # Locally built deployment artifacts
 output/docker/

@@ -1,16 +1,65 @@
+# Development only. Keep the existing project/volume names to preserve data.
+name: odame
+
 services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: kodame-postgres
+    environment:
+      POSTGRES_DB: kodame
+      POSTGRES_USER: kodame
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kodame-local-only}
+    volumes:
+      - kodame-postgres-data:/var/lib/postgresql/data
+      - ./redesign/postgres/001-create-app-role.sh:/docker-entrypoint-initdb.d/001-create-app-role.sh:ro
+    ports:
+      - "127.0.0.1:5433:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kodame -d kodame"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   kodame-redesign-api:
+    image: odame-dev/api:latest
     build:
       context: .
       dockerfile: redesign/backend/Dockerfile
     container_name: kodame-redesign-api
     environment:
-      HOST: 0.0.0.0
-      PORT: 8100
       DATA_DIR: /app/data
+      DATABASE_URL: postgresql://kodame_app:${POSTGRES_PASSWORD:-kodame-local-only}@postgres:5432/kodame
+      ADMIN_DATABASE_URL: postgresql://kodame:${POSTGRES_PASSWORD:-kodame-local-only}@postgres:5432/kodame
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-3.5-flash-lite}
+      OPENROUTER_PRESENTATION_MODEL: ${OPENROUTER_PRESENTATION_MODEL:-anthropic/claude-opus-5}
+      PRESENTATION_REFERENCE_PROFILE_PATH: ${PRESENTATION_REFERENCE_PROFILE_PATH:-/app/config/presentation_reference_profile.json}
+      PRESENTATION_MIN_QUALITY_SCORE: ${PRESENTATION_MIN_QUALITY_SCORE:-90}
+      PRESENTATION_MAX_GENERATION_ATTEMPTS: ${PRESENTATION_MAX_GENERATION_ATTEMPTS:-3}
+      OPENROUTER_REFERER: ${OPENROUTER_REFERER:-http://127.0.0.1:8002}
+      MAX_FILE_BYTES: ${MAX_FILE_BYTES:-134217728}
+      KODAME_BOOTSTRAP_EMAIL: ${KODAME_BOOTSTRAP_EMAIL:-admin@kodame.local}
+      KODAME_BOOTSTRAP_PASSWORD: ${KODAME_BOOTSTRAP_PASSWORD:-admin}
+      KODAME_BOOTSTRAP_NAME: ${KODAME_BOOTSTRAP_NAME:-KODAME 관리자}
+      KODAME_BOOTSTRAP_PROJECT_NAME: ${KODAME_BOOTSTRAP_PROJECT_NAME:-운영자 기본 프로젝트}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-24}
+      SESSION_COOKIE_NAME: kodame_session
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      ALLOW_REGISTRATION: "false"
+      KODAME_SEED_DEMO_ACCOUNTS: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kodame-kordoc:
+        condition: service_healthy
     volumes:
       - ./data-redesign:/app/data
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/healthz', timeout=3)"]
       interval: 30s
@@ -18,7 +67,62 @@ services:
       start_period: 5s
       retries: 3
 
+  kodame-kordoc:
+    image: odame-dev/kordoc:latest
+    build:
+      context: .
+      dockerfile: redesign/kordoc/Dockerfile
+    container_name: kodame-kordoc
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8200/healthz"]
+      interval: 20s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  kodame-intake-worker:
+    image: odame-dev/api:latest
+    build:
+      context: .
+      dockerfile: redesign/backend/Dockerfile
+    container_name: kodame-intake-worker
+    command: ["python", "-m", "kodame_intake.worker"]
+    environment:
+      DATA_DIR: /app/data
+      DATABASE_URL: postgresql://kodame_app:${POSTGRES_PASSWORD:-kodame-local-only}@postgres:5432/kodame
+      ADMIN_DATABASE_URL: postgresql://kodame:${POSTGRES_PASSWORD:-kodame-local-only}@postgres:5432/kodame
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-3.5-flash-lite}
+      OPENROUTER_PRESENTATION_MODEL: ${OPENROUTER_PRESENTATION_MODEL:-anthropic/claude-opus-5}
+      PRESENTATION_REFERENCE_PROFILE_PATH: ${PRESENTATION_REFERENCE_PROFILE_PATH:-/app/config/presentation_reference_profile.json}
+      PRESENTATION_MIN_QUALITY_SCORE: ${PRESENTATION_MIN_QUALITY_SCORE:-90}
+      PRESENTATION_MAX_GENERATION_ATTEMPTS: ${PRESENTATION_MAX_GENERATION_ATTEMPTS:-3}
+      OPENROUTER_REFERER: ${OPENROUTER_REFERER:-http://127.0.0.1:8002}
+      WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-3}
+      WORKER_STEP_DELAY_SECONDS: ${WORKER_STEP_DELAY_SECONDS:-1}
+      KODAME_BOOTSTRAP_EMAIL: ${KODAME_BOOTSTRAP_EMAIL:-admin@kodame.local}
+      KODAME_BOOTSTRAP_PASSWORD: ${KODAME_BOOTSTRAP_PASSWORD:-admin}
+      KODAME_BOOTSTRAP_NAME: ${KODAME_BOOTSTRAP_NAME:-KODAME 관리자}
+      KODAME_BOOTSTRAP_PROJECT_NAME: ${KODAME_BOOTSTRAP_PROJECT_NAME:-운영자 기본 프로젝트}
+      KODAME_SEED_DEMO_ACCOUNTS: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./data-redesign:/app/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      disable: true
+
   kodame-redesign-web:
+    image: odame-dev/web:latest
     build:
       context: .
       dockerfile: redesign/frontend/Dockerfile
@@ -27,11 +131,16 @@ services:
       kodame-redesign-api:
         condition: service_healthy
     ports:
-      - "8002:80"
+      - "${DEV_BIND_IP:-127.0.0.1}:${DEV_PORT:-8002}:80"
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 5s
       start_period: 5s
       retries: 3
+
+volumes:
+  kodame-postgres-data:

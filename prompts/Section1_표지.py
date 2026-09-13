@@ -22,11 +22,12 @@ EDITOR_PROMPT = """[작성 대상]
    - evaluation_manager
    - evaluation_institution
 2. project_title은 content_inputs.project.title을 우선 사용한다.
-3. report_title은 반드시 "종료평가 결과보고서"로 고정한다.
+3. report_title은 report_context의 검증된 사업상태를 따른다. 종료 사업은 "종료평가 결과보고서", 진행 중 사업은 "현시점 평가보고서"로 쓴다.
 4. report_date는 YYYY. MM 형식으로 쓴다.
-5. evaluation_manager는 "평가책임자 "로 시작한다. 확인되지 않으면 "평가책임자 확인 중"로 쓴다.
-6. evaluation_institution은 "평가수행기관 "으로 시작한다. 확인되지 않으면 "평가수행기관 확인 중"로 쓴다.
-7. 모든 슬롯 값은 한 줄 문자열이어야 한다. 줄바꿈, markdown, XML, 설명, 근거, 파일명은 쓰지 않는다.
+5. evaluation_manager는 서명된 평가·자체평가 보고서의 확인자/평가총괄을 우선 근거로 삼아 "평가책임자 "로 시작한다. 사업 수행기관명만으로 사람을 추정하지 않는다.
+6. evaluation_institution은 같은 평가 보고서의 제출기관·발간기관을 우선 근거로 삼아 "평가수행기관 "으로 시작한다. 일반 사업개요의 수행기관만으로 추정하지 않는다.
+7. verified_execution_scope에 평가책임자·평가수행기관이 확인되면 그 값을 그대로 사용한다. 확인되지 않은 값을 창작하지 않는다.
+8. 모든 슬롯 값은 한 줄 문자열이어야 한다. 줄바꿈, markdown, XML, 설명, 근거, 파일명은 쓰지 않는다.
 
 [출력 형식]
 아래 JSON 객체 하나만 반환한다. 코드블록(```), 설명문, 주석, 추가 키는 절대 쓰지 않는다.
@@ -35,7 +36,7 @@ EDITOR_PROMPT = """[작성 대상]
   "schema": "section1_cover_slots_v1",
   "slots": {
     "project_title": "사업명",
-    "report_title": "종료평가 결과보고서",
+    "report_title": "검증된 평가유형 평가보고서",
     "report_date": "YYYY. MM",
     "evaluation_manager": "평가책임자 확인 중",
     "evaluation_institution": "평가수행기관 확인 중"

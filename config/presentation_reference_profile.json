@@ -1,0 +1,79 @@
+{
+  "profile_version": "2026-09-02.1",
+  "reference_folder": {
+    "url": "https://drive.google.com/drive/folders/13UG78hLEcJMfWNQo0D5Nc5vMZbtvZahr?usp=drive_link",
+    "purpose": "ODA 평가 발표자료의 양식, 정보 위계, 장표 흐름 참고",
+    "content_policy": "reference_format_only",
+    "access_status": "authentication_required_during_2026-09-02_audit"
+  },
+  "local_reference_decks": [
+    {
+      "path": "/app/samples/5-3. 분야별 평가 교훈 리포트 양식.pptx",
+      "role": "section_hierarchy_and_lessons_flow",
+      "content_policy": "reference_format_only"
+    }
+  ],
+  "local_reference_globs": [
+    "/app/samples/presentation_references/drive/*.pptx",
+    "/app/samples/presentation_references/drive/**/*.pptx"
+  ],
+  "content_firewall": {
+    "allowed": [
+      "슬라이드 역할과 전개 순서",
+      "제목, 본문, 근거, 결론의 정보 위계",
+      "여백, 정렬, 색상 대비, 섹션 구분 방식",
+      "비교, 흐름, 지표, 체크리스트에 맞는 시각 문법"
+    ],
+    "forbidden": [
+      "샘플 사업의 국가, 기관, 사업명, 인명",
+      "샘플 사업의 수치, 성과, 평가결과, 권고",
+      "샘플의 문장 또는 표 내용을 재사용하거나 변형해 사용",
+      "샘플 슬라이드의 좌표와 장식을 그대로 복제"
+    ]
+  },
+  "narrative_patterns": [
+    "표지에서 목적과 대상 사업을 즉시 식별",
+    "종합판단을 먼저 제시한 뒤 문제와 사업 설계로 근거를 확장",
+    "성과와 DAC 판단을 구분하고 작동요인, 교훈, 실행 권고로 연결",
+    "마지막 장에서 승인 또는 후속 확인이 필요한 결정을 명확히 정리"
+  ],
+  "visual_patterns": [
+    "기관 보고서에 맞는 높은 명도 대비와 단정한 그리드",
+    "한 장에 하나의 핵심 주장과 2단계 이하 정보 위계",
+    "섹션 전환은 색상 면 또는 축선 중 하나만 사용",
+    "근거와 참고자료는 본문을 방해하지 않게 발표자 노트로 이동",
+    "장표별 실루엣은 달리하되 글꼴, 여백, 정렬 기준은 고정"
+  ],
+  "variant_families": [
+    {
+      "id": "editorial_axis",
+      "palette": "ocean",
+      "composition": "좌측 축선과 넓은 여백을 사용하는 편집형",
+      "title_treatment": "짧은 판단형 제목과 얇은 구분선",
+      "surface_treatment": "평면 중심, 핵심 지표에만 제한적으로 면 사용"
+    },
+    {
+      "id": "field_brief",
+      "palette": "forest",
+      "composition": "현장 맥락과 평가 판단을 좌우 비대칭으로 배치",
+      "title_treatment": "작은 섹션명과 강한 단문 제목",
+      "surface_treatment": "연한 배경 면과 진한 텍스트 대비"
+    },
+    {
+      "id": "evidence_signal",
+      "palette": "ink",
+      "composition": "근거, 의미, 조치가 순차적으로 읽히는 신호형",
+      "title_treatment": "상단 축선과 우측 페이지 마커",
+      "surface_treatment": "선과 색상 막대를 우선하고 카드 사용을 최소화"
+    },
+    {
+      "id": "cobalt_report",
+      "palette": "cobalt",
+      "composition": "기관 브리핑의 안정감과 절제된 비대칭을 결합",
+      "title_treatment": "청색 섹션 키와 한 줄 결론형 제목",
+      "surface_treatment": "백색 바탕과 단일 강조색, 낮은 장식 밀도"
+    }
+  ],
+  "quality_target": 90,
+  "max_generation_attempts": 3
+}

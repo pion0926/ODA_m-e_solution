@@ -1,0 +1,8 @@
+{
+  "name": "kodame-kordoc-validator",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "kordoc": "4.3.1"
+  }
+}

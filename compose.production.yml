@@ -1,0 +1,100 @@
+# Frozen release images only: there is deliberately no build or source bind mount.
+name: odame-prod
+
+x-app-environment: &app-environment
+  DATA_DIR: /app/data
+  DATABASE_URL: postgresql://kodame_app:${PROD_POSTGRES_PASSWORD:?Initialize production environment first}@postgres:5432/kodame
+  ADMIN_DATABASE_URL: postgresql://kodame:${PROD_POSTGRES_PASSWORD:?Initialize production environment first}@postgres:5432/kodame
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-3.5-flash-lite}
+  OPENROUTER_PRESENTATION_MODEL: ${OPENROUTER_PRESENTATION_MODEL:-anthropic/claude-opus-5}
+  OPENROUTER_REFERER: ${PROD_PUBLIC_URL:-http://127.0.0.1:8000}
+  PRESENTATION_REFERENCE_PROFILE_PATH: /app/config/presentation_reference_profile.json
+  PRESENTATION_MIN_QUALITY_SCORE: "90"
+  PRESENTATION_MAX_GENERATION_ATTEMPTS: "3"
+  MAX_FILE_BYTES: "134217728"
+  KODAME_BOOTSTRAP_PASSWORD: ${PROD_BOOTSTRAP_PASSWORD:?Initialize production environment first}
+  KODAME_BOOTSTRAP_NAME: K-ODAME 운영 관리자
+  KODAME_BOOTSTRAP_PROJECT_NAME: 운영자 기본 프로젝트
+  KODAME_SEED_DEMO_ACCOUNTS: "false"
+  ALLOW_REGISTRATION: "false"
+  SESSION_COOKIE_NAME: kodame_production_session
+  SESSION_TTL_HOURS: "12"
+  AUTH_COOKIE_SECURE: ${PROD_COOKIE_SECURE:-false}
+  WORKER_POLL_SECONDS: "3"
+  WORKER_STEP_DELAY_SECONDS: "1"
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: ${PROD_POSTGRES_IMAGE:?Release lock required}
+    environment:
+      POSTGRES_DB: kodame
+      POSTGRES_USER: kodame
+      POSTGRES_PASSWORD: ${PROD_POSTGRES_PASSWORD:?Initialize production environment first}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U kodame -d kodame]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  kodame-kordoc:
+    image: ${PROD_KORDOC_IMAGE:?Release lock required}
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+
+  kodame-redesign-api:
+    image: ${PROD_API_IMAGE:?Release lock required}
+    environment: *app-environment
+    volumes:
+      - app-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kodame-kordoc:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+
+  kodame-intake-worker:
+    image: ${PROD_API_IMAGE:?Release lock required}
+    command: [python, -m, kodame_intake.worker]
+    environment: *app-environment
+    volumes:
+      - app-data:/app/data
+    depends_on:
+      kodame-redesign-api:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+    healthcheck:
+      disable: true
+
+  kodame-redesign-web:
+    image: ${PROD_WEB_IMAGE:?Release lock required}
+    depends_on:
+      kodame-redesign-api:
+        condition: service_healthy
+    ports:
+      - "${PROD_BIND_IP:-127.0.0.1}:${PROD_PORT:-8000}:80"
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+
+volumes:
+  postgres-data:
+  app-data:

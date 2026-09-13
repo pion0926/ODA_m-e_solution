@@ -1,0 +1,18 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const elements = {trayJobs: {innerHTML:''}, trayLive: {classList:{toggle(_name,value){this.active=value;}}}};
+const sandbox = {window:{}, document:{getElementById:id=>elements[id]}};
+vm.runInNewContext(fs.readFileSync('assets/service-job-tray.js','utf8'), sandbox);
+const tray = sandbox.window.ServiceJobTray;
+tray.render(); assert.match(elements.trayJobs.innerHTML,/진행 중인 AI 작업이 없습니다/);
+tray.update('dac',{name:'DAC',active:true,completed:2,total:6,detail:'<source>'});
+assert.equal(elements.trayLive.classList.active,true);
+assert.match(elements.trayJobs.innerHTML,/33%/);
+assert.match(elements.trayJobs.innerHTML,/&lt;source&gt;/);
+tray.update('dac',{name:'DAC',active:false,failed:true,detail:'검증 실패'});
+assert.equal(elements.trayLive.classList.active,false);
+assert.match(elements.trayJobs.innerHTML,/실패/);
+assert.doesNotMatch(elements.trayJobs.innerHTML,/>완료</);
+tray.clear(); assert.match(elements.trayJobs.innerHTML,/작업이 없습니다/);
+console.log('PASS actual job progress, failed state, escaping and clear');
