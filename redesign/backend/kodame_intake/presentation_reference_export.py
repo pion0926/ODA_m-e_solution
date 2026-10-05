@@ -13,14 +13,30 @@ from psycopg.types.json import Jsonb
 
 from .db import connection, tenant_context
 from .presentation_profiles import get_profile
-from .presentation_reference_prompt import SYSTEM, batch_prompt, validate_batch
+from .presentation_reference_prompt import SYSTEM, batch_prompt, validate_batch, bind_page_sources
 from .presentation_reference_renderer import build_reference_deck
 from .presentation_photos import collect_project_photos
 from .presentation_source import collect_presentation_source
 from .presentation_quality import render_and_validate_presentation
-from .settings import (OPENROUTER_API_KEY, OPENROUTER_BASE_URL, OPENROUTER_PRESENTATION_MODEL,
+from .llm_models import current_llm_model
+from .model_catalog import prepare_model_payload
+from .settings import (OPENROUTER_API_KEY, OPENROUTER_BASE_URL,
                        OPENROUTER_REFERER, DATA_DIR, PRESENTATION_MAX_GENERATION_ATTEMPTS)
 from .usage import record_token_usage
+from .ai.request_limits import request_slot
+
+
+def checkpoint_key(profile, source, photos, model):
+    payload = {'contract': 1, 'profile': profile, 'source': source, 'model': model,
+               'photos': {k: hashlib.sha256(v['data']).hexdigest() for k,v in photos.items()}}
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+
+
+def save_checkpoint(path, slides, history):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix('.tmp')
+    temporary.write_text(json.dumps({'slides':slides,'history':history},ensure_ascii=False),encoding='utf-8')
+    temporary.replace(path)
 
 
 def request_batch(profile, pages, source, photos, feedback):
@@ -41,22 +57,27 @@ def request_batch(profile, pages, source, photos, feedback):
     else:
         # Do not allow selecting a photograph that the model did not see.
         photos = {}
-    with httpx.Client(timeout=httpx.Timeout(300, connect=20)) as client:
+    payload={"model": current_llm_model(), "messages": [
+        {"role":"system", "content":SYSTEM}, {"role":"user", "content":content}],
+        "response_format":{"type":"json_object"},"temperature":.2,
+        "reasoning":{"effort":"high","exclude":True},"max_completion_tokens":14000}
+    with request_slot(payload) as reservation, httpx.Client(timeout=httpx.Timeout(300, connect=20)) as client:
         response = client.post(f"{OPENROUTER_BASE_URL}/chat/completions", headers={
             "Authorization": f"Bearer {OPENROUTER_API_KEY}", "HTTP-Referer": OPENROUTER_REFERER,
             "X-Title": "ODAME reference presentation",
-        }, json={"model": OPENROUTER_PRESENTATION_MODEL, "messages": [
-            {"role": "system", "content": SYSTEM}, {"role": "user", "content": content}],
-            "response_format": {"type": "json_object"}, "temperature": .2,
-            "reasoning": {"effort": "high", "exclude": True}, "max_completion_tokens": 14000})
+        }, json=prepare_model_payload(payload))
+        from .ai.global_budget import settle
+        settle(reservation, response.json())
+        if response.status_code == 402:
+            raise RuntimeError('OpenRouter 잔액 또는 결제 한도로 요청이 거절되었습니다. 완료된 장표는 보존되며, 충전 후 같은 보고서로 다시 생성하면 이어서 진행합니다.')
         response.raise_for_status()
         result = response.json()
-        record_token_usage(result, OPENROUTER_PRESENTATION_MODEL)
+        record_token_usage(result, current_llm_model())
         message = result["choices"][0]["message"]["content"]
         if isinstance(message, list):
             message = "".join(v.get("text", "") for v in message)
         raw = json.loads(re.sub(r"^```(?:json)?\s*|\s*```$", "", message.strip()))
-    generated = validate_batch(raw, generated_pages, source, photos)
+    generated = validate_batch(bind_page_sources(raw, generated_pages, source), generated_pages, source, photos)
     combined = {**automatic, **{p['slide_number']: p for p in generated}}
     return [combined[p['slide_number']] for p in pages]
 
@@ -75,7 +96,17 @@ def run_reference_export(export_id, project_id, slide_count=15):
             context, source, flags = collect_presentation_source()
             photos = collect_project_photos(context.get("presentation_photo_document_ids", []))
             slides, history = [], []
-            for start in range(0, slide_count, 3):
+            checkpoint = DATA_DIR / 'presentation_exports' / 'checkpoints' / str(project_id or 'system') / (checkpoint_key(profile,source,photos,current_llm_model())+'.json')
+            if checkpoint.is_file():
+                cached = json.loads(checkpoint.read_text(encoding='utf-8'))
+                slides, history = cached['slides'], cached['history']
+                if len(slides) > slide_count or len(slides) % 3:
+                    raise ValueError('저장된 발표자료 진행 정보가 올바르지 않습니다.')
+                if slides:
+                    validate_batch({'slides':slides},profile['pages'][:len(slides)],source,photos)
+                    build_reference_deck(profile,slides,source,photos,partial=True)
+                    history.append({'reused_pages':len(slides)})
+            for start in range(len(slides), slide_count, 3):
                 pages = profile["pages"][start:start+3]
                 feedback = ""
                 for attempt in range(1, PRESENTATION_MAX_GENERATION_ATTEMPTS+1):
@@ -98,9 +129,11 @@ def run_reference_export(export_id, project_id, slide_count=15):
                         build_reference_deck(profile, slides+batch, source, photos, partial=True)
                         slides.extend(batch)
                         history.append({"pages": [p["slide_number"] for p in pages], "attempt": attempt})
+                        save_checkpoint(checkpoint, slides, history)
                         break
                     except (ValueError, KeyError, TypeError, httpx.HTTPError) as exc:
                         feedback = str(exc)[:800]
+                        history.append({"pages": [p["slide_number"] for p in pages], "attempt": attempt, "error": feedback})
                         if attempt == PRESENTATION_MAX_GENERATION_ATTEMPTS:
                             raise RuntimeError(f"{start+1}페이지 묶음 검증 실패: {feedback}") from exc
             _update(export_id, 85, "rendering", f"전체 {slide_count}페이지를 원본 비율의 편집 가능한 PPTX로 변환하는 중")
@@ -143,4 +176,5 @@ def run_reference_export(export_id, project_id, slide_count=15):
         except Exception as exc:
             with connection() as conn, conn.transaction():
                 conn.execute("""UPDATE presentation_exports SET status='failed',stage='failed',message='발표자료 생성 실패',
-                    error_message=%s,completed_at=now(),updated_at=now() WHERE id=%s""", (str(exc)[:1800], export_id))
+                    error_message=%s,validation=%s,completed_at=now(),updated_at=now() WHERE id=%s""",
+                    (str(exc)[:1800],Jsonb({"attempts":locals().get('history',[])}),export_id))

@@ -146,15 +146,17 @@ EVALUATION_CRITERIA = {
 }
 
 
+# 평가 업무수행 길라잡이 v2.2, 표3 종합평가등급 (본문 7쪽).
+GRADE_BANDS = (
+    (18, 'A', '매우 성공적'), (16, 'B', '성공적'), (14, 'C', '성공적'),
+    (12, 'D', '부분 성공적'), (10, 'E', '부분 성공적'),
+    (float('-inf'), 'F', '미흡'),
+)
+KOICA_GRADES = tuple(band[1] for band in GRADE_BANDS)
+
+
 def grade(total: float) -> tuple[str, str]:
-    if total >= 18:
-        return "A", "매우 성공적"
-    if total >= 16:
-        return "B", "성공적"
-    if total >= 14:
-        return "C", "성공적"
-    if total >= 12:
-        return "D", "부분 성공적"
-    if total >= 10:
-        return "E", "부분 성공적"
-    return "F", "미흡"
+    for minimum, koica, government in GRADE_BANDS:
+        if total >= minimum:
+            return koica, government
+    return GRADE_BANDS[-1][1:]

@@ -37,6 +37,15 @@ class ProjectLifecycleTests(unittest.TestCase):
         self.assertTrue(state["evaluation_current"])
         self.assertTrue(state["report_current"])
 
+    def test_failed_document_requires_action_not_endless_wait(self):
+        for status in ("failed", "waiting_llm"):
+            with self.subTest(status=status):
+                state = self.state(docs=[{**self.docs[0], "status": status}])
+                self.assertEqual(state["phase"], "documents_need_attention")
+                self.assertIn("재시도", state["message"])
+                self.assertFalse(state["can_evaluate"])
+                self.assertFalse(state["can_generate_report"])
+
     def test_new_upload_requires_re_evaluation_and_retains_drafts(self):
         before = copy.deepcopy(self.sections)
         uploaded = self.docs + [{"id": "doc-2", "sha256": "second", "status": "queued", "updated_at": self.now}]
@@ -46,6 +55,25 @@ class ProjectLifecycleTests(unittest.TestCase):
         self.assertEqual(state["phase"], "evaluation_required")
         self.assertFalse(state["can_generate_report"])
         self.assertEqual(self.sections, before)
+
+    def test_optional_failure_and_cancellation_do_not_block_completed_documents(self):
+        docs = self.docs + [{**self.docs[0], 'id':'failed','status':'failed'},
+                            {**self.docs[0], 'id':'cancelled','status':'cancelled'}]
+        snapshot = input_snapshot_from_rows(docs, self.run)
+        run = {**self.run, 'input_snapshot':snapshot}
+        state = evaluate_freshness(snapshot, run, [])
+        self.assertTrue(state['can_evaluate'])
+        self.assertTrue(state['can_generate_report'])
+        self.assertEqual(state['pending_document_count'],0)
+        self.assertEqual(state['excluded_document_count'],2)
+
+    def test_failed_foundation_still_blocks_workflow(self):
+        for role in ('project_plan','pdm'):
+            docs = self.docs + [{**self.docs[0], 'id':'foundation','status':'failed','upload_role':role}]
+            self.assertFalse(self.state(docs=docs)['can_evaluate'])
+
+    def test_only_cancelled_documents_never_allow_evaluation(self):
+        self.assertFalse(self.state(docs=[{**self.docs[0],'status':'cancelled'}])['can_evaluate'])
 
     def test_same_count_replacement_is_not_mistaken_for_current(self):
         replaced = [{**self.docs[0], "sha256": "replacement"}]

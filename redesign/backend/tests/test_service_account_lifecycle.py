@@ -23,7 +23,7 @@ class BootstrapSafetyTests(unittest.TestCase):
 
     def test_first_start_only_creates_one_admin_and_empty_project(self):
         conn = MagicMock()
-        conn.execute.return_value.fetchone.side_effect = [None, None]
+        conn.execute.return_value.fetchone.side_effect = [None, None, None]
         with patch.object(db, "SEED_DEMO_ACCOUNTS", False), patch.object(db, "hash_password", return_value="hash"):
             db._ensure_bootstrap(conn)
         sql = [call.args[0] for call in conn.execute.call_args_list]
@@ -90,7 +90,7 @@ class ServiceAccountTests(unittest.TestCase):
 
     def test_project_membership_removal_clears_only_that_selection(self):
         owner, target = uuid.uuid4(), uuid.uuid4()
-        self.conn.execute.return_value.fetchone.side_effect = [{"owner_account_id": owner, "default_locale": "ko"}, {"id": target}]
+        self.conn.execute.return_value.fetchone.side_effect = [{"id": target, "is_active": False, "is_admin": False}, {"owner_account_id": owner, "default_locale": "ko"}]
         result = admin.assign_project_member(str(uuid.uuid4()), str(target), remove=True)
         self.assertFalse(result["assigned"])
         queries = [call.args[0] for call in self.conn.execute.call_args_list]

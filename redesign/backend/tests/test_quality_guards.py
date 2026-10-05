@@ -46,6 +46,11 @@ class QualityGuardTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "미치환 독자표시"):
             _local_validate(self._minimal_hwpx("평가책임자 OOO"), {"title": "현재 사업"})
 
+    def test_hwpx_validation_rejects_visible_structured_response_envelopes(self) -> None:
+        for schema in ('section3_notice_slots_v1', 'section3 notice slots v1'):
+            with self.subTest(schema=schema), self.assertRaisesRegex(RuntimeError, 'JSON'):
+                _local_validate(self._minimal_hwpx('{"schema": "'+schema+'", "slots": {}}'), {'title':'현재 사업'})
+
     def test_reader_text_scrub_removes_markdown_authoring_markers(self) -> None:
         xml = '<hp:p><hp:run><hp:t>**달성**<hp:lineBreak/>__검토__</hp:t></hp:run></hp:p>'
         cleaned = _scrub_xml_reader_text(xml, {"title": "현재 사업"})
@@ -169,7 +174,7 @@ class QualityGuardTests(unittest.TestCase):
         self.assertFalse(any(len(line.split()) == 1 for line in lines))
         self.assertLessEqual(max(map(len, lines)) - min(map(len, lines)), 8)
 
-    def test_reader_minimum_is_a_hard_threshold(self) -> None:
+    def test_reader_minimum_is_quality_warning_not_generation_failure(self) -> None:
         content = "현재 사업 근거를 분석한다. " * 20
         issues = _validate_reader_content(
             "criteria-other",
@@ -177,7 +182,12 @@ class QualityGuardTests(unittest.TestCase):
             "우즈베키스탄",
             {"project_status": "ongoing", "commissioning_agency": "교육부"},
         )
-        self.assertTrue(any("목표 최소 분량 미달" in issue for issue in issues))
+        self.assertFalse(any("목표 최소 분량 미달" in issue for issue in issues))
+        from kodame_intake.report_generator import _deterministic_quality_cap
+        cap, warnings = _deterministic_quality_cap('criteria-other',content,{},False)
+        self.assertLess(cap,69)
+        self.assertTrue(any("목표 최소 분량 미달" in issue for issue in warnings))
+        self.assertIn('본문이 비어 있음',_validate_reader_content('criteria-other','','',{}))
 
     def test_reader_normalization_applies_dac_acronym_and_tone_policy(self) -> None:
         source = (

@@ -5,30 +5,9 @@ import httpx
 from backend.oda_me.hwpx.patchers import toc_page_map_from_page_texts
 
 
-REQUIRED_TOC_KEYS = frozenset(
-    {
-        "summary_ko_page",
-        "project_background_page",
-        "project_overview_page",
-        "pdm_page",
-        "evaluation_purpose_page",
-        "evaluation_matrix_page",
-        "evaluation_methods_page",
-        "evaluation_limitations_page",
-        "evaluation_team_page",
-        "achievement_page",
-        "criteria_relevance_page",
-        "criteria_coherence_page",
-        "criteria_effectiveness_page",
-        "criteria_efficiency_page",
-        "criteria_sustainability_page",
-        "criteria_crosscutting_page",
-        "criteria_other_page",
-        "conclusion_page",
-        "factors_page",
-        "feedback_lessons_page",
-    }
-)
+from backend.oda_me.hwpx.toc_registry import TOC_LABELS
+
+REQUIRED_TOC_KEYS = frozenset(TOC_LABELS)
 EVALUATION_HEADING_TOC_KEYS = {
     "1. 적절성": "criteria_relevance_page",
     "2. 일관성": "criteria_coherence_page",

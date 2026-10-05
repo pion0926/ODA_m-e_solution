@@ -11,28 +11,9 @@ from .db import connection
 from .hwpx_layout.toc import patch_toc_page_numbers, validate_toc_page_numbers
 from .report_exporter import EXPORT_DIR
 
-DESTINATIONS = (
-    ('summary_ko_page', '1.국문요약'),
-    ('project_background_page', '1.사업추진배경'),
-    ('project_overview_page', '2.사업개요'),
-    ('pdm_page', '3.사업설계매트릭스(PDM)'),
-    ('evaluation_purpose_page', '1.평가의목적과범위'),
-    ('evaluation_matrix_page', '2.평가매트릭스'),
-    ('evaluation_methods_page', '3.평가방법'),
-    ('evaluation_limitations_page', '4.평가의한계'),
-    ('evaluation_team_page', '5.평가팀구성및시행체계'),
-    ('achievement_page', 'IV.성과달성도'),
-    ('criteria_relevance_page', '1.적절성'),
-    ('criteria_coherence_page', '2.일관성'),
-    ('criteria_effectiveness_page', '3.효과성'),
-    ('criteria_efficiency_page', '4.효율성'),
-    ('criteria_sustainability_page', '5.지속가능성'),
-    ('criteria_crosscutting_page', '6.범분야이슈'),
-    ('criteria_other_page', '7.그외평가기준'),
-    ('conclusion_page', '1.결론'),
-    ('factors_page', '2.작동요인및비작동요인'),
-    ('feedback_lessons_page', '3.환류과제및교훈'),
-)
+from backend.oda_me.hwpx.toc_registry import TOC_ROWS, destination_title, normalized_title
+
+DESTINATIONS = tuple((key, destination_title(key, label)) for key, label, _ in TOC_ROWS)
 
 
 def rhwp_page_map(payload: dict) -> dict[str, str]:
@@ -44,10 +25,10 @@ def rhwp_page_map(payload: dict) -> dict[str, str]:
         raise ValueError('rHWP 페이지 순서 또는 누락을 확인해야 합니다.')
     if any(not isinstance(row.get('text'), str) or len(row['text']) > 100000 for row in pages):
         raise ValueError('rHWP 페이지 텍스트 형식이 올바르지 않습니다.')
-    compact = [(row['page_number'], re.sub(r'\s+', '', row['text']).replace('Ⅳ', 'IV')) for row in pages[2:]]
+    compact = [(row['page_number'], normalized_title(row['text'])) for row in pages[2:]]
     result, minimum = {}, 3
     for key, title in DESTINATIONS:
-        found = next((page for page, text in compact if page >= minimum and title.lower() in text.lower()), None)
+        found = next((page for page, text in compact if page >= minimum and normalized_title(title) in text), None)
         if found is None:
             raise ValueError(f'rHWP 목차 목적지를 찾을 수 없습니다: {title}')
         result[key], minimum = str(found), found

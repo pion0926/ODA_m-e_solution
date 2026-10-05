@@ -1,13 +1,13 @@
 /* AI revision requests on the left; actual rHWP rendering on the right. */
-body.report-mode main{padding:0 200px 12px;min-width:0}
+body.report-mode main{padding:0 24px 12px;min-width:0}
 body.report-mode main>.inner{width:100%;max-width:none;margin:0}
 #v-eval-report .repdoc{padding:12px 0 0;min-width:0;overflow:visible}
 #v-eval-report .rolehint{margin:8px 0;border-radius:0}
 #v-eval-report #reportLifecycle{max-width:none;margin:0 0 12px;padding:10px 16px}
-.repwrap{grid-template-columns:220px minmax(0,1fr);gap:12px}
+.repwrap{grid-template-columns:190px minmax(0,1fr);gap:12px}
 /* Cap only the reading pane at A4 width. All additional width belongs to AI.
    On narrower desktops the reading pane scales down, avoiding page overflow. */
-.report-workbench{display:grid;grid-template-columns:minmax(0,1fr) min(210mm,52%);gap:12px;align-items:start;width:100%;max-width:none;margin:0}
+.report-workbench{display:grid;grid-template-columns:minmax(260px,0.65fr) minmax(0,1fr);gap:12px;align-items:start;width:100%;max-width:none;margin:0}
 .report-edit-panel{min-width:0;position:sticky;top:64px;max-height:calc(100dvh - 76px);overflow-y:auto;scrollbar-gutter:stable}
 .report-edit-panel .repai{width:100%;max-width:none;margin:0;padding:22px;border-radius:10px}
 .report-edit-panel .repai .at{font-size:21px;line-height:1.45}
@@ -31,7 +31,7 @@ body.report-mode main>.inner{width:100%;max-width:none;margin:0}
 #reportPreviewPages{font-size:11px;color:#52657a;margin-left:auto}
 #reportPreviewStatus{font-size:12px;line-height:1.6;margin:10px 0 0;color:#335479;overflow-wrap:anywhere}
 #reportPreviewStatus[data-state=failed]{color:#a23224}
-.report-preview-paper{position:relative;height:max(720px,calc(100dvh - 220px));min-height:720px}
+.report-preview-paper{position:relative;height:calc(100dvh - 250px);min-height:360px}
 #reportSectionFrame{height:100%;width:100%;border:0;display:block;background:#e7ebef}
 #reportPreviewEmpty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;padding:30px;color:#52657a;font-size:14px;line-height:1.7}
 #reportPreviewEmpty[hidden]{display:none}
@@ -49,6 +49,9 @@ body.report-mode main>.inner{width:100%;max-width:none;margin:0}
 .seclist button.it.active{background:var(--brand-tint);color:var(--brand-text)}
 .seclist button.it:hover{background:var(--bg)}
 .seclist button.it:focus-visible{outline:2px solid #315F9C;outline-offset:-2px}
-@media(max-width:1100px){.report-workbench{grid-template-columns:minmax(0,1fr)}.report-preview-panel{position:static}.report-edit-panel{position:static;max-height:none;overflow:visible}.report-preview-paper{height:850px}.report-workbench.preview-expanded .report-edit-panel{display:none}}
-@media(max-width:920px){.repwrap{grid-template-columns:minmax(0,1fr)}}
-@media(max-width:800px){.report-edit-panel{display:block}.report-edit-panel .repai{padding:18px}.report-preview-paper{height:750px;min-height:600px}.report-preview-head{padding:12px}.report-preview-head h3{font-size:16px}.report-preview-actions{gap:6px}}
+@media(max-width:1000px){.report-workbench{grid-template-columns:minmax(0,1fr)}.report-preview-panel{position:static}.report-edit-panel{position:static;max-height:none;overflow:visible}.report-preview-paper{height:70dvh}.report-workbench.preview-expanded .report-edit-panel{display:none}}
+@media(max-width:920px){body.report-mode main{padding:0 16px 24px}.repwrap{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:800px){.report-edit-panel{display:block}.report-edit-panel .repai{padding:18px}.report-preview-paper{height:65dvh;min-height:360px}.report-preview-head{padding:12px}.report-preview-head h3{font-size:16px}.report-preview-actions{gap:6px}}
+.repbar.submission-bar{position:static;height:auto;min-height:52px;flex-wrap:wrap;padding:12px 18px}
+.submission-bar #reportSubmissionStatus{min-width:0;overflow-wrap:anywhere;font-size:12px}
+@media(max-width:600px){.submission-bar>label{flex-basis:100%;white-space:normal}.submission-bar select{max-width:100%;min-width:0}.report-edit-panel .report-ai-actions #aiGen{min-width:0;white-space:normal}.report-edit-panel .filechip{max-width:100%;min-width:0}}

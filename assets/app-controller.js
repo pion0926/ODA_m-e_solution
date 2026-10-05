@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  if (!window.ReportSectionFlow?.createFlow || !window.ReportSectionPreview?.create || !window.ServiceAdminUI?.create) {
+  if (!window.ReportSectionFlow?.createFlow || !window.ReportSectionPreview?.create || !window.ServiceAdminUI?.create || !window.ServiceAuth?.create) {
     window.reportModuleUnavailable?.();
     return;
   }
@@ -30,7 +30,7 @@
     const label = localizedRoleName();
     if (byId('roleName')) byId('roleName').textContent = label;
     if (byId('roleAv')) byId('roleAv').textContent = label.charAt(0);
-    if (byId('logout')) byId('logout').textContent = ({ko:'로그아웃',en:'Log out',vi:'Đăng xuất',ru:'Выйти',uz:'Chiqish'})[window.KODAME_LOCALE || 'ko'] || 'Log out';
+    for (const id of ['logout', 'compactLogout']) if (byId(id)) byId(id).textContent = ({ko:'로그아웃',en:'Log out',vi:'Đăng xuất',ru:'Выйти',uz:'Chiqish'})[window.KODAME_LOCALE || 'ko'] || 'Log out';
   };
   let reportSections = [];
   let activeReportPart = null;
@@ -52,6 +52,7 @@
   let pdmCoverage = { filled: 0, total: 0, complete_tiers: 0, tier_total: 0 };
   let reportTimer = null;
   let generationTimer = null;
+  let generationPollRevision = 0;
   let latestGenerationStatus = null;
   let exportTimer = null;
   let presentationTimer = null;
@@ -61,16 +62,25 @@
   let fileFilter = 'all';
   let fileQuery = '';
   let fileShowAll = false;
+  let uploadBusy = false;
+  let uploadFailures = [];
+  let intakeRefreshPromise = null;
+  const foundationUpload = window.FoundationUpload.create({ request, escapeHtml: esc, refresh: refreshIntake, notify });
+  window.ServiceReview?.create({request, escapeHtml:esc, notify});
   let projectIsEmpty = true;
   let adminAccounts = [];
   let adminProjects = [];
   let adminLanguages = {};
   let selectedAdminAccountId = null;
   let accountProjectChoices = [];
+  const projectAI = window.ProjectAIUI.create({ request, escapeHtml: esc, refresh: refreshAdmin, notify });
   const serviceAdmin = window.ServiceAdminUI.create({ request, escapeHtml: esc, refresh: refreshAdmin,
     accounts: () => adminAccounts, projects: () => adminProjects,
     selected: (id) => id === undefined ? selectedAdminAccountId : (selectedAdminAccountId = id), notify });
   let currentProjectIdentity = {};
+  const serviceScope = window.ServiceScope.create(showWorkspaceChanged);
+  const sessionStartup = window.ServiceAuth.create({request, ready:enterSession, state:setAuthView});
+  window.KODAME_REQUEST = request;
   let riskDetailItems = new Map();
   let riskModalTrigger = null;
   let dashboardIndicatorsExpanded = false;
@@ -130,7 +140,7 @@
 
   async function prepareLocalizedProjectViews(locale = currentLocale(), force = false) {
     const normalized = String(locale || 'ko').toLowerCase();
-    if (!force && localizedViewsBundle?.locale === normalized) return localizedViewsBundle;
+    if (!force && localizedViewsBundle?.locale === normalized && !['queued','running'].includes(localizedViewsBundle.translation_status)) return localizedViewsBundle;
     if (localizedViewsPromise?.locale === normalized) return localizedViewsPromise.promise;
     const promise = request(`/api/v2/project/i18n/views?locale=${encodeURIComponent(normalized)}`, { timeoutMs: 180000 })
       .finally(() => { if (localizedViewsPromise?.promise === promise) localizedViewsPromise = null; });
@@ -141,6 +151,10 @@
   async function applyLocalizedProjectViews(bundle) {
     if (!bundle?.views || bundle.locale !== currentLocale()) return;
     localizedViewsBundle = bundle;
+    if (['queued','running'].includes(bundle.translation_status)) {
+      clearTimeout(localizedViewsRefreshTimer);
+      localizedViewsRefreshTimer=setTimeout(async()=>{localizedViewsRefreshTimer=null;try{await applyLocalizedProjectViews(await prepareLocalizedProjectViews(currentLocale(),true));}catch(e){notify(e.message);}},5000);
+    }
     const views = bundle.views;
     if (views.dashboard?.project?.name) currentProjectIdentity.name = views.dashboard.project.name;
     if (views.dashboard) renderDashboard(views.dashboard);
@@ -175,12 +189,14 @@
 
   async function request(path, options = {}) {
     const { timeoutMs = 0, ...fetchOptions } = options;
+    fetchOptions.headers = serviceScope.headers(path, fetchOptions.headers);
     const controller = timeoutMs > 0 && !fetchOptions.signal ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
       const response = await fetch(path, controller ? { ...fetchOptions, signal: controller.signal } : fetchOptions);
       let body = null;
       try { body = await response.json(); } catch (_) { /* empty response */ }
+      serviceScope.check(path, response, body);
       if (!response.ok) {
         const detail = Array.isArray(body?.detail) ? body.detail.map((item) => `${(item.loc || []).filter((key) => key !== 'body').join('.')}: ${item.msg || '입력값 확인 필요'}`).join(' · ') : body?.detail;
         const error = new Error(detail || body?.error || `요청 실패 (${response.status})`);
@@ -194,6 +210,21 @@
     } finally {
       if (timer) clearTimeout(timer);
     }
+  }
+
+  function showWorkspaceChanged(problem) {
+    if (byId('workspaceChangedDialog')) return;
+    const dialog = document.createElement('dialog');
+    dialog.id = 'workspaceChangedDialog'; dialog.className = 'service-account-dialog';
+    dialog.setAttribute('aria-labelledby', 'workspaceChangedTitle');
+    const retained = new Map(reportInstructions);
+    if (byId('aiPrompt')?.value) retained.set(activeReportPart || '현재 수정 요청', byId('aiPrompt').value);
+    const drafts = [...retained.entries()].filter(([, text]) => text.trim()).map(([part, text]) => `${reportSections.find(section => section.part_id === part)?.title || part}\n${text}`);
+    dialog.innerHTML = `<h2 id="workspaceChangedTitle">작업 공간 확인이 필요합니다</h2><p>${esc(problem.message)}</p><p>프로젝트: <b>${esc(currentProjectIdentity.name || '관리자')}</b></p>${drafts.length ? '<p>아직 실행하지 않은 수정 요청은 아래에서 복사해 보관할 수 있습니다.</p><textarea aria-label="보관할 수정 요청" readonly style="width:100%;min-height:140px"></textarea>' : ''}<p>서버에 저장된 문서·평가·보고서는 유지됩니다.</p><button class="btn primary" type="button">${problem.status === 401 ? '로그인 화면 열기' : '현재 작업 공간 다시 열기'}</button>`;
+    if (drafts.length) dialog.querySelector('textarea').value = drafts.join('\n\n');
+    dialog.addEventListener('cancel', event => event.preventDefault());
+    dialog.querySelector('button').onclick = () => { allowProjectReload = true; location.reload(); };
+    document.body.appendChild(dialog); dialog.showModal();
   }
 
   function notify(message) {
@@ -281,7 +312,7 @@
     }
     renderProjectChoices();
     setEvaluationProjectInfo(projectName, currentProjectIdentity.period || projectOverview?.overview?.period?.text);
-    document.title = `K-ODAME v1.0 · ${projectName}`;
+    document.title = `K-ODAME v${document.querySelector('meta[name="application-version"]')?.content || '2.3'} · ${projectName}`;
   }
 
   function renderProjectChoices() {
@@ -360,9 +391,10 @@
 
   function enterSession(data, forceDashboard = false) {
     if (!data.has_project && !data.account?.is_admin) {
-      byId('codeErr').textContent = '계정에 배정된 프로젝트가 없습니다. 관리자에게 프로젝트 배정을 요청해 주세요.';
+      setAuthView('unassigned', '로그인되어 있지만 배정된 프로젝트가 없습니다. 관리자에게 프로젝트 배정을 요청해 주세요.');
       return;
     }
+    serviceScope.bind(data);
     window.KODAME_IS_ADMIN = Boolean(data.account?.is_admin);
     window.KODAME_MENU_PERMISSIONS = data.account?.menu_permissions || {};
     currentRole = data.project?.role || 'viewer';
@@ -371,7 +403,7 @@
     byId('roleName').textContent = roleLabel;
     byId('roleAv').textContent = roleLabel.charAt(0);
     setProjectIdentity(data);
-    if (window.KODAME_IS_ADMIN) document.title = 'K-ODAME · 프로젝트·사용자 관리';
+    if (window.KODAME_IS_ADMIN) document.title = `K-ODAME v${document.querySelector('meta[name="application-version"]')?.content || '2.3'} · 프로젝트·사용자 관리`;
     byId('logout').textContent = '로그아웃';
     if (typeof window.configureProjectLanguages === 'function') {
       window.configureProjectLanguages({
@@ -416,8 +448,8 @@
     target.innerHTML = matches.length ? matches.map((project) => `
       <article class="admin-project-card"><b title="${esc(project.name)}">${esc(project.name)}</b>
       <small>${Number(project.member_count || 0)}명 · ${esc(project.default_locale.toUpperCase())} 기본</small>
-      <small>문서 ${Number(project.document_count || 0)}건 · 평가 ${Number(project.evaluation_count || 0)}회 · 작성 섹션 ${Number(project.written_sections || 0)}/27</small>
-      <div class="locale-tags">${(project.supported_locales || []).map((locale) => `<span>${esc(adminLanguages[locale]?.native_name || locale.toUpperCase())}</span>`).join('')}</div><button class="btn sm primary" data-issue-project="${esc(project.id)}">이 프로젝트 계정 발급</button><button class="btn sm" data-project-users="${esc(project.id)}">사용자 관리</button></article>`).join('')
+      <small>문서 ${Number(project.document_count || 0)}건 · 평가 ${Number(project.evaluation_count || 0)}회 · 작성 섹션 ${Number(project.written_sections || 0)}/27</small>${projectAI.card(project)}
+      <div class="locale-tags">${(project.supported_locales || []).map((locale) => `<span>${esc(adminLanguages[locale]?.native_name || locale.toUpperCase())}</span>`).join('')}</div><button class="btn sm primary" data-issue-project="${esc(project.id)}">이 프로젝트 계정 발급</button><button class="btn sm" data-project-users="${esc(project.id)}">사용자 관리</button><button class="btn sm" style="color:var(--bad-t)" data-delete-project="${esc(project.id)}">프로젝트 삭제</button></article>`).join('')
       : '<div class="empty">표시할 프로젝트가 없습니다. 새 프로젝트를 생성하거나 검색어를 확인해 주세요.</div>';
   }
 
@@ -487,7 +519,7 @@
     const checks = Object.entries(menuLabels).map(([key, label]) => `<label class="menu-check"><input type="checkbox" data-menu-key="${key}" ${account.menu_permissions?.[key] !== false ? 'checked' : ''} ${account.is_admin ? 'disabled' : ''}><span>${label}</span></label>`).join('');
     byId('adminDetail').innerHTML = `
       <div class="admin-detail-head"><span class="avatar">${esc(account.username.charAt(0).toUpperCase())}</span><div><h2>${esc(account.username)} ${account.is_admin ? '<span class="tag i">관리자</span>' : ''}</h2><p>${esc(account.email)} · ${esc(account.display_name)}</p></div></div>
-      <div class="admin-facts"><div class="admin-fact"><span>소속 프로젝트</span><b title="${esc(account.project?.name || '미배정')}">${esc(account.project?.name || '미배정')}</b></div><div class="admin-fact"><span>프로젝트 역할</span><b>${account.is_admin ? '시스템 관리자' : esc(roleNames[account.project?.role] || account.project?.role || '-')}</b></div><div class="admin-fact"><span>누적 토큰</span><b class="num">${Number(account.usage?.total_tokens || 0).toLocaleString('ko-KR')}</b></div><div class="admin-fact"><span>최근 로그인</span><b>${formatAdminDate(account.last_login_at)}</b></div></div>
+      <div class="admin-facts"><div class="admin-fact"><span>소속 프로젝트</span><b title="${esc((account.projects || []).map(project => project.name).join(' · ') || '미배정')}">${esc((account.projects || []).map(project => project.name).join(' · ') || '미배정')}</b></div><div class="admin-fact"><span>프로젝트 역할</span><b>${account.is_admin ? '시스템 관리자' : esc([...new Set((account.projects || []).map(project => roleNames[project.role] || project.role))].join(' · ') || '-')}</b></div><div class="admin-fact"><span>누적 토큰</span><b class="num">${Number(account.usage?.total_tokens || 0).toLocaleString('ko-KR')}</b></div><div class="admin-fact"><span>최근 로그인</span><b>${formatAdminDate(account.last_login_at)}</b></div></div>
       ${serviceAdmin.detail(account)}
       <div class="menu-permissions"><h3>메뉴 및 기능 권한</h3><p class="state">체크한 메뉴의 조회·작성·생성 기능을 허용합니다. 프로젝트 역할과 관계없이 이 설정이 적용됩니다.</p><div class="menu-checks">${checks}</div><div class="admin-save"><span class="state" id="adminSaveState">${account.is_admin ? '관리자 계정은 전체 메뉴와 기능이 고정 허용됩니다.' : '변경 후 저장해 주세요.'}</span>${account.is_admin ? '' : '<button class="btn primary" id="adminSaveMenus">권한 설정 저장</button>'}</div></div>
       <div class="login-history"><h3>로그인 기록</h3>${history.length ? history.map((item) => `<div class="login-row"><b>${formatAdminDate(item.logged_in_at)}</b><span class="num">${esc(item.ip_address)}</span><small title="${esc(item.user_agent)}">${esc(item.user_agent)}</small></div>`).join('') : '<div class="empty" style="padding:16px">아직 로그인 기록이 없습니다.</div>'}</div>`;
@@ -522,15 +554,41 @@
     } catch (error) { byId('adminSaveState').textContent = error.message; }
   }
 
-  async function initializeAuth() {
-    try {
-      enterSession(await request('/api/v2/auth/me'));
-    } catch (_) {
-      byId('gate').style.display = 'flex';
-      byId('app').style.display = 'none';
-      byId('codeInput').focus();
-    }
+  function setAuthView(state, message = '') {
+    byId('gate').style.display = 'flex';
+    byId('app').style.display = 'none';
+    byId('authForm').hidden = state !== 'login';
+    byId('authStatus').hidden = state === 'login';
+    byId('authStatusMessage').textContent = message || '접속 상태를 확인하고 있습니다…';
+    byId('authRetry').hidden = !['error','unassigned'].includes(state);
+    byId('authSignOut').hidden = state !== 'unassigned';
+    if (state === 'login') byId('codeInput').focus();
   }
+
+  function confirmDocumentAction(title, message, reason = null) {
+    if (byId('documentActionDialog')) return Promise.resolve(null);
+    return new Promise(resolve => {
+      const dialog = document.createElement('dialog');
+      dialog.id = 'documentActionDialog'; dialog.className = 'service-account-dialog';
+      dialog.setAttribute('aria-labelledby', 'documentActionTitle');
+      dialog.innerHTML = `<form><h2 id="documentActionTitle">${esc(title)}</h2><p style="margin:14px 0">${esc(message)}</p>${reason !== null ? '<label>변경 사유<textarea aria-label="변경 사유" required maxlength="1000" style="display:block;width:100%;min-height:90px"></textarea></label>' : ''}<div class="report-ai-actions"><button type="button" class="btn" data-action-cancel>취소</button><button type="submit" class="btn primary">확인</button></div></form>`;
+      let result = null;
+      const input = dialog.querySelector('textarea');
+      if (input) input.value = reason;
+      dialog.querySelector('[data-action-cancel]').onclick = () => dialog.close();
+      dialog.querySelector('form').onsubmit = event => {
+        event.preventDefault();
+        if (input && !input.value.trim()) { input.focus(); return; }
+        result = input ? input.value.trim() : true;
+        dialog.close();
+      };
+      dialog.addEventListener('close', () => { dialog.remove(); resolve(result); }, {once:true});
+      document.body.appendChild(dialog); dialog.showModal();
+      dialog.querySelector('[data-action-cancel]').focus();
+    });
+  }
+
+  function initializeAuth() { return sessionStartup.start(); }
 
   function formatSize(bytes) {
     const number = Number(bytes || 0);
@@ -624,7 +682,8 @@
     setProjectIdentity({ project });
     const projectName = currentProjectIdentity.name || '배정된 사업';
 
-    const isEmpty = data.is_empty === true;
+    // A delayed dashboard/translation response must not erase freshly uploaded files.
+    const isEmpty = data.is_empty === true && intake.jobs.length === 0;
     setEmptyProjectViews(isEmpty);
     byId('emptyProjectStart').hidden = !isEmpty;
     const pdmSubtitle = document.querySelector('#v-dashboard .herocard.pdm .psub');
@@ -692,24 +751,37 @@
   }
 
   function renderFiles() {
+    const summaryExpanded = new Set([...byId('fileRows').querySelectorAll('details[data-document-summary][open]')].map(el => el.dataset.documentSummary));
+    const expanded = new Set([...byId('fileRows').querySelectorAll('details[data-document-matches][open]')].map(el => el.dataset.documentMatches));
+    const triageExpanded = new Set([...byId('fileRows').querySelectorAll('details[data-triage][open]')].map(el => el.dataset.triage));
     const jobs = intake.jobs.filter((job) => {
       const linked = intake.slots.items.some((item) => item.document_id === job.id)
-        || (intake.pdm.assignments || []).some((item) => item.document_id === job.id);
-      const filterMatch = fileFilter === 'all' || (fileFilter === 'linked' ? linked : !linked);
+        || (intake.pdm.assignments || []).some((item) => item.document_id === job.id)
+        || ['pdm', 'dac_slots', 'report_sections'].some(axis => job.matches?.[axis]?.length);
+      const filterMatch = fileFilter === 'excluded' ? job.evaluation_excluded
+        : !job.evaluation_excluded && (fileFilter === 'all' || (fileFilter === 'linked' ? linked : !linked));
       return filterMatch && (!fileQuery || String(job.file_name || '').toLowerCase().includes(fileQuery));
     });
     const shown = fileShowAll ? jobs : jobs.slice(0, 8);
     byId('fileRows').innerHTML = shown.length ? shown.map((job) => {
       const dac = intake.slots.items.filter((item) => item.document_id === job.id);
-      const pdm = (intake.pdm.assignments || []).filter((item) => item.document_id === job.id);
+      const pdm = job.matches?.pdm?.length
+        ? job.matches.pdm.map(item => ({ requirement_title: item.indicator || item.indicator_id }))
+        : (intake.pdm.assignments || []).filter((item) => item.document_id === job.id);
       const slotMarkup = [
         ...dac.map((item) => `<div><span class="tag i" style="font-size:9px;padding:1px 6px">DAC</span> ${esc(item.criterion_name)} · ${esc(item.slot_title)}</div>`),
-        ...pdm.map((item) => `<div><span class="tag g" style="font-size:9px;padding:1px 6px">PDM</span> ${esc(item.requirement_title)}</div>`)
-      ].join('');
+        ...pdm.map((item) => `<div><span class="tag g" style="font-size:9px;padding:1px 6px">PDM</span> ${esc(item.requirement_title)}</div>`),
+        ...(job.matches?.report_sections || []).map(item => `<div><span class="tag n" style="font-size:9px;padding:1px 6px">보고서</span> ${esc(item.section_title || item.section_id)}</div>`)
+      ];
+      const matchingDetails = slotMarkup.length ? `<details data-document-matches="${esc(job.id)}" ${expanded.has(job.id) ? 'open' : ''}><summary style="cursor:pointer">매칭 ${slotMarkup.length}건 · 상세 보기</summary><div style="margin-top:8px;max-height:320px;overflow:auto">${slotMarkup.join('')}</div></details>` : '';
+      const modeLabel = job.intake_mode === 'artifact' ? '산출물 등록' : job.intake_mode === 'evidence' ? '일반 자료 분석' : job.status === 'awaiting_review' ? '처리 방식 선택 필요' : job.triage ? 'AI 사전 판단 완료' : job.status === 'completed' ? '일반 자료 분석 (기존)' : 'AI 사전 판단 예정';
+      const eligibility = job.evaluation_scope || {};
+      const scopeMarkup = job.upload_role === 'evidence' ? `<div style="margin-top:8px"><span class="tag ${job.evaluation_excluded ? 'w' : 'n'}">${job.evaluation_excluded ? '평가 대상에서 제외' : '평가 대상'}</span>${job.evaluation_excluded ? `<p>${esc(eligibility.reason || '')}</p>${eligibility.reference_name ? `<p>대조 문서: ${esc(eligibility.reference_name)}</p>` : ''}<small>원본은 보관하며 성과지표·DAC 평가·보고서 분석에는 사용하지 않습니다.</small>` : ''}${job.status !== 'processing' ? `<p><button class="btn sm" data-evaluation-scope="${job.evaluation_excluded ? 'include' : 'exclude'}" data-scope-document="${esc(job.id)}">${job.evaluation_excluded ? '평가 대상에 포함' : '평가 대상에서 제외'}</button></p>` : ''}</div>` : '';
+      const triageMarkup = job.upload_role === 'evidence' ? `<details data-triage="${esc(job.id)}" ${job.status==='awaiting_review'||triageExpanded.has(job.id)?'open':''} style="margin-top:8px"><summary style="cursor:pointer">${esc(modeLabel)} · 판단/변경</summary><p>${esc(job.triage?.reason || '일부 본문을 확인해 처리 방식을 추천합니다.')}</p>${job.triage ? `<p>${esc(job.triage.title || '')} · ${esc(job.triage.artifact_type || '')}${job.triage.is_excerpt==='yes'?' · 일부 발췌본':''}</p><small>사전 판단은 일부 본문만 확인합니다.</small>`:''}${job.intake_mode==='artifact'?`<p>${esc(job.registration?.limitation || '산출물 제출만 확인하며 제작·배포·효과는 별도 증빙이 필요합니다.')}</p>${(job.intake_warnings||[]).slice(1).map(w=>`<p>${esc(w)}</p>`).join('')}`:''}<p>${job.status==='processing'?'분석 중에는 작업 트레이에서 중지한 뒤 변경할 수 있습니다.':`<button class="btn sm" data-intake-mode="artifact" data-mode-document="${esc(job.id)}">산출물로 등록</button> <button class="btn sm" data-intake-mode="evidence" data-mode-document="${esc(job.id)}">일반 자료로 분석</button>`}</p></details>` : '';
       return `
       <tr>
-        <td><a class="filechip" href="${downloadUrl(job.id)}" download><span class="t">${esc(job.file_name)}</span></a></td>
-        <td>${slotMarkup || `<span class="tag ${Number(job.progress || 0) === 100 ? 'n' : 'w'}">${Number(job.progress || 0) === 100 ? '증빙 슬롯 해당 없음' : esc(job.stage || job.status)}</span>`}</td>
+        <td><a class="filechip" href="${downloadUrl(job.id)}" download><span class="t">${esc(job.file_name)}</span></a>${scopeMarkup}${job.summary ? `<details data-document-summary="${esc(job.id)}" ${summaryExpanded.has(job.id) ? 'open' : ''} style="margin-top:8px"><summary style="cursor:pointer">문서 요약${job.registration_fact_count ? ` · 등록 사실 ${Number(job.registration_fact_count)}건` : ''}</summary><p style="white-space:pre-wrap;overflow-wrap:anywhere;max-width:560px">${esc(job.summary)}</p></details>` : ''}${job.evaluation_excluded ? '' : triageMarkup}${job.status==='completed' && !job.evaluation_excluded?`<p>검토 깊이: ${job.review_depth==='sample_only'?'표본 검토':'추출 원문 전체'}${job.registration?.deeper_review_suggested?' · 성과 근거 후보가 있어 일반 자료 분석을 권장합니다.':''}</p><button class="btn sm" data-document-source="${esc(job.id)}">원문·사실 위치 보기</button>`:''}</td>
+        <td>${job.evaluation_excluded ? '<span class="tag n">보관 완료 · 평가 분석 제외</span>' : ['failed', 'waiting_llm', 'cancelled'].includes(job.status) ? `<span class="tag w">${job.status === 'failed' ? '분석 실패' : job.status === 'cancelled' ? '사용자 중지' : 'AI 연결 대기'}</span><p style="overflow-wrap:anywhere">${esc(job.error_message || '작업 상태를 확인한 뒤 필요하면 다시 요청해 주세요.')}</p><button class="btn sm" data-retry-document="${esc(job.id)}">분석 재시도</button>` : matchingDetails || `<span class="tag ${job.status === 'completed' ? 'n' : 'w'}">${job.status === 'completed' ? '미분류 · 직접 매핑 가능' : job.status === 'awaiting_review' ? '처리 방식 선택 필요' : esc(job.stage || job.status)}</span>`}</td>
         <td class="meta2 num">${formatSize(job.size_bytes)}</td>
         <td class="meta2 num">${job.uploaded_at ? new Date(job.uploaded_at).toLocaleDateString('ko-KR') : '-'}</td>
       </tr>`;
@@ -718,6 +790,13 @@
     byId('fileMore').textContent = fileShowAll ? '접기 ▴' : `전체 ${jobs.length}건 모두 보기 ▾`;
     byId('statFiles').textContent = intake.jobs.length;
     byId('cntAll').textContent = `${intake.jobs.length}건`;
+    let health = byId('intakeHealth');
+    if (!health) { health = document.createElement('div'); health.id = 'intakeHealth'; health.setAttribute('role', 'status'); byId('dropzone').after(health); }
+    const failed = intake.jobs.filter(job => ['failed', 'waiting_llm', 'cancelled'].includes(job.status));
+    const completed = intake.jobs.filter(job => job.status === 'completed').length;
+    const excludedCount = intake.jobs.filter(job => job.evaluation_excluded).length;
+    const awaitingReview = intake.jobs.filter(job => job.status === 'awaiting_review').length;
+    health.innerHTML = `<p style="margin:12px 0">전체 ${intake.jobs.length}건 · 처리 완료 ${completed}건(평가 제외 ${excludedCount}건 포함) · 처리 중 ${intake.jobs.length - completed - failed.length - awaitingReview}건 · 확인 필요 ${failed.length}건 · 처리 방식 선택 ${awaitingReview}건</p>${awaitingReview ? '<p>판단이 불확실한 문서는 아래에서 산출물 등록 또는 일반 자료 분석을 선택해 주세요.</p>' : ''}${failed.length ? '<p>실패·중지한 일반 자료는 제외하고 다음 분석을 진행할 수 있습니다. 처리 중·연결 대기 자료와 기준 문서는 먼저 완료해 주세요.</p>' : ''}`;
   }
 
   function clearManualAssignmentState() {
@@ -753,7 +832,8 @@
     };
   }
 
-  function achievementBarMarkup(rate) {
+  function achievementBarMarkup(rate, label) {
+    if (label) return `<span class="tag ${label === '충족' ? 'g' : 'b'}">${esc(label)}</span>`;
     const meta = achievementBarMeta(rate);
     const ariaLabel = tr('ui.dashboard.achievement_label', '달성도 {value}', { value: meta.label });
     return `<div class="achievement-bar${meta.unset ? ' unset' : ''}" aria-label="${esc(ariaLabel)}"><div class="pbar"><i class="${meta.css}" style="width:${meta.width}%"></i></div><span class="pv num">${esc(meta.label)}</span></div>`;
@@ -769,7 +849,7 @@
 
     target.className = 'dash-kpi-list';
     target.innerHTML = visible.length
-      ? groupPerformanceIndicators(visible).map(({ tier, items }) => `<section class="dash-kpi-group"><div class="dash-kpi-group-head"><span class="tier ${tier.css}">${esc(tier.label)}</span><span>${esc(tr('ui.dashboard.group_count', '{count}개', { count: items.length }))}</span></div>${items.map((item) => `<div class="dash-kpi-row" data-go="#/project/indicators" role="button" tabindex="0"><span class="dash-kpi-name">${esc(item.indicator)}</span><span class="dash-kpi-chart">${achievementBarMarkup(item.achievement_rate)}</span></div>`).join('')}</section>`).join('')
+      ? groupPerformanceIndicators(visible).map(({ tier, items }) => `<section class="dash-kpi-group"><div class="dash-kpi-group-head"><span class="tier ${tier.css}">${esc(tier.label)}</span><span>${esc(tr('ui.dashboard.group_count', '{count}개', { count: items.length }))}</span></div>${items.map((item) => `<div class="dash-kpi-row" data-go="#/project/indicators" role="button" tabindex="0"><span class="dash-kpi-name">${esc(item.indicator)}</span><span class="dash-kpi-chart">${achievementBarMarkup(item.achievement_rate, item.achievement_label)}</span></div>`).join('')}</section>`).join('')
       : `<div class="empty" style="border:none">${esc(tr('ui.dashboard.no_indicators', '등록된 성과지표가 없습니다.'))}</div>`;
     toggle.hidden = ordered.length <= 5;
     toggle.setAttribute('aria-expanded', String(dashboardIndicatorsExpanded));
@@ -832,7 +912,11 @@
     const documentMarkup = documents.length
       ? documents.map((document) => `<a class="filechip" href="${downloadUrl(document.id)}" download><span class="t">${esc(document.file_name)}</span></a>`).join('')
       : '<span class="miss">연결 문서 없음</span>';
-    const measurements = (item.measurement_sources || []).map((source) => `<div><b>${source.kind === 'actual' ? '실적' : '목표'} ${esc(source.value)}</b> · ${esc(source.period || '측정기간 확인 필요')}<p>${esc(source.quote)}</p><a href="${downloadUrl(source.document_id)}" download>${esc(source.file_name)}</a></div>`).join('');
+    const measurements = (item.measurement_sources || []).map((source) => {
+      const selected=item.selected_measurements?.[source.kind];
+      const applied=selected && selected.document_id===source.document_id && selected.value===source.value && selected.period===source.period;
+      return `<div><b>${source.kind === 'actual' ? '실적' : '목표'} ${esc(source.value)}</b> ${applied?'<span class="tag g">현재 반영</span>':''} · ${esc(source.period || '측정기간 확인 필요')}<p>${esc(source.quote || (source.previous_result?'이전 평가에 저장된 값':''))}</p>${source.document_id?`<a href="${downloadUrl(source.document_id)}" download>${esc(source.file_name)}</a>`:esc(source.file_name)}</div>`;
+    }).join('');
     return `<details class="evidence-fold monitor-evidence"><summary><span>${summary}</span><span class="fold-closed">펼치기</span><span class="fold-open">접기</span></summary><div class="monitor-evidence-body"><div><b>PDM 산출근거</b><p>${esc(evidence || '산출근거 미기재')}</p></div><div><b>연결문서 ${documents.length}건</b><div class="csec-foot">${documentMarkup}</div></div>${measurements}</div></details>`;
   }
 
@@ -907,16 +991,16 @@
       : riskMeta.status === 'fallback' ? ' · AI 호출 실패로 구체적 기본 권고 반영' : '';
     const matchedCount = Number(monitoring.matched_reported_metric_count || 0);
     byId('indSummaryNote').innerHTML = `목록은 최신 PDM의 객관적 검증지표 ${indicators.length}건만 사용합니다.`
-      + (source ? ` <a href="${downloadUrl(source.id)}" download><b>${esc(source.file_name)}</b></a>에서 목표·실적 ${matchedCount}건을 연결했습니다.` : ' 연결할 실적 현황 원본은 아직 찾지 못했습니다.')
-      + (monitoring.evidence_analysis ? ` 연결 증빙 ${Number(monitoring.evidence_analysis.mapped_document_count || 0)}건에서 측정값 ${Number(monitoring.evidence_analysis.observation_count || 0)}건을 분석했습니다.` : '')
+      + (source ? ` <a href="${downloadUrl(source.id)}" download><b>${esc(source.file_name)}</b></a>에서 목표·실적 ${matchedCount}건을 연결했습니다.` : monitoring.evidence_analysis ? ' 연결 문서의 원문을 기준으로 목표·실적을 검토했습니다.' : ' 성과지표 분석을 실행하면 연결 문서에서 목표·실적을 검토합니다.')
+      + (monitoring.evidence_analysis ? ` 이번 검토 문서 ${Number(monitoring.evidence_analysis.mapped_document_count || 0)}건 · 누적 측정값 ${Number(monitoring.evidence_analysis.observation_count || 0)}건.` : '')
       + (monitoring.evidence_analysis?.incomplete_indicator_count ? ` 분석 미완료 지표 ${Number(monitoring.evidence_analysis.incomplete_indicator_count)}건: 재갱신이 필요합니다.` : '')
       + riskStatus;
     const monitoringRows = groupedIndicators.map(({ tier, items }) => items.map((item, index) => {
       const meta = localizedStatusMeta[item.status] || localizedStatusMeta.unset;
       const tierCell = index === 0 ? `<td rowspan="${items.length}" class="tiercell"><div class="monitor-tier"><span class="tier ${tier.css}">${esc(tier.label)}</span><small>${items.length}개 지표</small></div></td>` : '';
-      return `<tr class="${index === 0 ? 'tier-first' : ''}">${tierCell}<td class="sum">${item.pdm_code ? `<b>${esc(item.pdm_code)}</b> ` : ''}${esc(item.indicator)}</td><td class="num">${esc(item.target || '-')}</td><td class="num">${esc(item.actual || '-')}</td><td class="achievement-cell">${achievementBarMarkup(item.achievement_rate)}</td><td>${monitoringEvidenceFold(item)}</td><td><span class="tag ${meta[0]}">${meta[1]}</span>${item.note ? `<div class="meta2">${esc(item.note)}</div>` : ''}</td></tr>`;
+      return `<tr data-tier="${esc(tier.label)}" class="${index === 0 ? 'tier-first' : ''}">${tierCell}<td class="sum">${item.pdm_code ? `<b>${esc(item.pdm_code)}</b> ` : ''}${esc(item.indicator)}</td><td class="num">${esc(item.target || '-')}</td><td class="num">${esc(item.actual || '-')}</td><td class="achievement-cell">${achievementBarMarkup(item.achievement_rate, item.achievement_label)}</td><td>${monitoringEvidenceFold(item)}</td><td><span class="tag ${meta[0]}">${meta[1]}</span>${item.note ? `<details class="monitoring-note"><summary>판단 근거 보기</summary><p>${esc(item.note)}</p></details>` : ''}</td></tr>`;
     }).join('')).join('');
-    byId('narrList').innerHTML = indicators.length ? `<div class="panel" style="padding:0;overflow:hidden"><div style="overflow-x:auto"><table class="pdmtbl"><thead><tr><th style="width:126px">성과 구분</th><th>객관적 검증지표(OVI)</th><th>목표</th><th>실적</th><th>달성도</th><th>산출근거·연결문서</th><th>상태</th></tr></thead><tbody>${monitoringRows}</tbody></table></div></div>` : '<div class="empty"><b>PDM 객관적 검증지표가 없습니다.</b><br>최신 PDM 원본을 확인해 주세요.</div>';
+    byId('narrList').innerHTML = indicators.length ? `<div class="panel" style="padding:0;overflow:hidden"><div style="overflow-x:auto"><table class="pdmtbl monitoring-table"><colgroup><col style="width:10%"><col style="width:30%"><col style="width:7%"><col style="width:7%"><col style="width:14%"><col style="width:19%"><col style="width:13%"></colgroup><thead><tr><th>성과 구분</th><th>객관적 검증지표(OVI)</th><th>목표</th><th>실적</th><th>달성도</th><th>산출근거·연결문서</th><th>상태</th></tr></thead><tbody>${monitoringRows}</tbody></table></div></div>` : '<div class="empty"><b>PDM 객관적 검증지표가 없습니다.</b><br>최신 PDM 원본을 확인해 주세요.</div>';
 
     const risks = indicators.filter((item) => item.status !== 'ok');
     riskDetailItems = new Map(risks.map((item) => [riskItemKey(item), item]));
@@ -1000,19 +1084,23 @@
     if (!view) return;
     const panel = view.querySelector('.grid.g2 .panel:first-child');
     if (!panel) return;
+    // This subtitle contains a document link; static translation must not replace it.
+    panel.querySelector('.psub').removeAttribute('data-i');
     if (!data || data.status !== 'completed' || !data.overview) {
-      panel.querySelector('.psub').textContent = tr('ui.overview.analysis_wait', '사업계획서와 PDM 분석 후 사업 기본정보가 표시됩니다.');
+      panel.querySelector('.psub').textContent = tr('ui.overview.plan_analysis_wait', '사업계획서 분석 후 사업 기본정보가 표시됩니다.');
       panel.querySelector('.fileinfo').innerHTML = `<div class="empty" style="grid-column:1/-1">${esc(tr('ui.overview.generation_wait', '사업개요 생성 대기 중입니다.'))}</div>`;
       return;
     }
     const overview = data.overview;
     const value = (key) => overview[key]?.text || tr('ui.overview.confirm_required', '확인 필요');
-    const pdmSource = data.pdm_source_document;
-    panel.querySelector('.psub').innerHTML = pdmSource
-      ? `${esc(tr('ui.overview.latest_pdm_basis', '최신 PDM 근거'))} <a href="${downloadUrl(pdmSource.id)}" download><u>${esc(pdmSource.file_name)}</u></a>`
-      : esc(tr('ui.overview.latest_pdm_missing', '최신 PDM 근거 문서를 아직 찾지 못했습니다.'));
+    const planSource = data.project_plan_source_document;
+    panel.querySelector('.psub').innerHTML = planSource
+      ? `${esc(tr('ui.overview.plan_basis', '사업계획서 근거'))} <a href="${downloadUrl(planSource.id)}" download><u>${esc(planSource.file_name)}</u></a>`
+      : esc(tr('ui.overview.plan_missing', '사업 기본정보의 근거 사업계획서를 아직 찾지 못했습니다.'));
     panel.querySelector('.fileinfo').innerHTML = [
       [tr('ui.overview.project_name', '사업명'), value('project_name')],
+      [tr('ui.overview.project_manager', '사업책임자'), value('project_manager')],
+      [tr('ui.overview.lead_implementer', '주관 수행기관'), value('lead_implementer')],
       [tr('ui.overview.country_region', '국가 · 지역'), `${value('country')} · ${value('location')}`],
       [tr('ui.overview.period_budget', '기간 · 예산'), `${value('period')} · ${value('budget')}`],
       [tr('ui.overview.donor', '지원기관'), value('donor')],
@@ -1025,7 +1113,7 @@
     ].map(([label, text]) => `<div class="k">${esc(label)}</div><div>${lineText(text)}</div>`).join('');
     const conflictCount = (data.conflicts || []).length;
     const callout = view.querySelector(':scope > .callout:last-child');
-    if (callout) callout.innerHTML = `<span class="ci">i</span><p>${esc(tr('ui.overview.source_note', '사업개요는 사업계획서와 최신 PDM만을 근거로 생성했습니다.'))}${conflictCount ? ` ${esc(tr('ui.overview.source_conflicts', '문서 간 충돌 {count}건은 원문 확인이 필요합니다.', { count: conflictCount }))}` : ''}</p>`;
+    if (callout) callout.innerHTML = `<span class="ci">i</span><p>${esc(tr('ui.overview.plan_source_note', '사업 기본정보는 사업계획서만을 근거로 작성합니다. 성과지표와 검증수단은 PDM을 기준으로 표시합니다.'))}${conflictCount ? ` ${esc(tr('ui.overview.source_conflicts', '문서 간 충돌 {count}건은 원문 확인이 필요합니다.', { count: conflictCount }))}` : ''}</p>`;
     setProjectIdentity({ project: {
       business_name: value('project_name'), period: value('period'), budget: value('budget'),
       country: value('country'), location: value('location'), donor: value('donor'),
@@ -1067,17 +1155,63 @@
 
   function renderRecentUploads() {
     const recent = intake.jobs.slice(0, 5);
-    byId('spRecent').innerHTML = recent.length ? recent.map((job) => `<div class="uprow"><span class="ext">${esc(String(job.file_name || '').split('.').pop().toUpperCase())}</span><span class="fn2">${esc(job.file_name)}</span><span class="stt">${esc(job.stage || job.status)}</span></div>`).join('') : '<div class="empty" style="padding:16px">아직 없습니다. 파일을 올리면 여기에 처리 상태가 표시됩니다.</div>';
+    byId('spRecent').innerHTML = recent.length ? recent.map((job) => `<div class="uprow"><span class="ext">${esc(String(job.file_name || '').split('.').pop().toUpperCase())}</span><span class="fn2">${esc(job.file_name)}</span><span class="stt">${job.status === 'awaiting_review' ? '처리 방식 선택 필요' : esc(job.stage || job.status)}</span></div>`).join('') : '<div class="empty" style="padding:16px">아직 없습니다. 파일을 올리면 여기에 처리 상태가 표시됩니다.</div>';
   }
 
+  const pdmRefresh = window.ServicePdmRefresh.create({
+    request, notify,
+    update: (job) => window.ServiceJobTray?.update('pdm', {...job,restored:true}),
+    button: (active) => { const el=byId('indRefresh'); el.disabled=active; el.textContent=active ? '증빙 내용·성과 분석 중…' : '✦ 성과지표 분석'; },
+    refreshViews: async () => {
+      const pdm = await request('/api/v2/pdm', {timeoutMs:15000});
+      intake.pdm = pdm;
+      renderPdmData(pdm);
+      await refreshLocalizedProjectViews(currentLocale(), true);
+    }
+  });
+
+  const performanceReview = window.PerformanceAnalysisReview.create({
+    request, start: review => pdmRefresh.start(review), refreshIntake, notify, escapeHtml: esc
+  });
+
   async function refreshIntake() {
+    if (intakeRefreshPromise) return intakeRefreshPromise;
+    intakeRefreshPromise = loadIntake();
+    try { return await intakeRefreshPromise; } finally { intakeRefreshPromise = null; }
+  }
+
+  window.ServiceJobTray?.configure(async (id, action) => {
+    if (id.startsWith('translation:')) {
+      try {
+        await request(`/api/v2/project/translations/${encodeURIComponent(id.slice(12))}/${action}`, {method:'POST'});
+        localizedViewsBundle=null;
+        notify(action==='cancel'?'화면 번역 중지를 요청했습니다.':'화면 번역을 재요청했습니다.');
+      } catch(error) { notify(error.message); }
+      return;
+    }
+    if (action === 'review') {
+      fileFilter='all'; fileQuery=''; fileShowAll=true; location.hash='#/evidence'; renderFiles();
+      const details = [...document.querySelectorAll('[data-triage]')].find(el=>el.dataset.triage===id);
+      if (details) { details.open=true; details.scrollIntoView({block:'center'}); }
+      return;
+    }
     try {
-      const [jobs, slots, pdm] = await Promise.all([
-        request('/api/v2/intake/jobs'), request('/api/v2/intake/document-slots'),
-        request('/api/v2/pdm')
+      await request(`/api/v2/intake/jobs/${encodeURIComponent(id)}/${action}`, {method:'POST'});
+      await refreshIntake();
+      notify(action === 'cancel' ? '문서 분석 중지를 요청했습니다.' : '최신 연결 모델로 분석을 재요청했습니다.');
+    } catch (error) { notify(error.message); }
+  });
+
+  async function loadIntake() {
+    try {
+      const [jobs, slots, pdm, foundation] = await Promise.all([
+        window.ServiceIntake.listAll(request).then(jobs => { window.ServiceJobTray?.syncIntake(jobs.items || []); return jobs; }), request('/api/v2/intake/document-slots'),
+        request('/api/v2/pdm'), request('/api/v2/intake/foundation')
       ]);
+      foundationUpload.render(foundation);
       const displayPdm = localizedView('pdm', pdm);
       intake = { jobs: jobs.items || [], slots, pdm: displayPdm };
+      if (intake.jobs.length) setEmptyProjectViews(false);
       clearManualAssignmentState();
       const renderers = [
         ['업로드 문서', renderFiles], ['최근 업로드', renderRecentUploads],
@@ -1088,40 +1222,42 @@
       });
     } catch (error) {
       console.error('자료 목록 조회 실패', error);
+      foundationUpload.render(null);
       console.error('자료 목록을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.');
     }
   }
 
   async function uploadFiles(files) {
     if (!files || !files.length) return;
+    if (!foundationUpload.canUpload()) return;
+    if (uploadBusy) { notify('현재 선택한 파일을 접수하고 있습니다. 완료 후 추가해 주세요.'); return; }
+    uploadBusy = true;
     const dropzone = byId('dropzone');
     dropzone.classList.add('drag');
-    let acceptedCount = 0;
-    let duplicateCount = 0;
+    let panel = byId('uploadResult');
+    if (!panel) { panel = document.createElement('section'); panel.id = 'uploadResult'; panel.className = 'panel'; panel.setAttribute('aria-live', 'polite'); panel.style.cssText = 'margin-top:12px;padding:16px;overflow-wrap:anywhere'; dropzone.after(panel); }
+    byId('uploadBtn').disabled = true;
     try {
-      for (const file of files) {
-        const form = new FormData();
-        form.append('files', file, file.name);
-        const result = await request('/api/v2/intake/uploads', { method: 'POST', body: form });
-        for (const accepted of result.accepted || []) {
-          if (accepted.deduplicated) duplicateCount += 1;
-          else acceptedCount += 1;
-        }
-      }
-      notify([acceptedCount ? `${acceptedCount}개 파일 분석을 시작했습니다.` : '', duplicateCount ? `동일한 파일 ${duplicateCount}개는 기존 문서를 유지했습니다.` : ''].filter(Boolean).join(' '));
-      await refreshIntake();
+      const result = await window.ServiceIntake.uploadBatch(request, files, (index, total, name) => { panel.textContent = `파일 접수 ${index}/${total} · ${name}`; });
+      uploadFailures = result.failed;
+      const summary = `새로 접수 ${result.accepted}건 · 기존 동일 파일 ${result.duplicates}건 · 미접수 ${result.failed.length}건`;
+      panel.innerHTML = `<b>업로드 결과</b><p>${summary}</p>${result.failed.length ? `<ul>${result.failed.map(item => `<li><b>${esc(item.file.name)}</b> — ${esc(item.error)}</li>`).join('')}</ul><button class="btn sm" data-retry-upload>미접수 파일만 다시 업로드</button>` : '<p>접수한 파일은 순서대로 분석합니다. 분석 상태는 아래 목록에서 확인할 수 있습니다.</p>'}`;
+      notify(summary);
     } catch (error) {
-      notify(`${acceptedCount ? `${acceptedCount}개 파일은 접수됐습니다. ` : ''}${error.message}`);
+      panel.textContent = error.message;
     } finally {
+      uploadBusy = false;
+      byId('uploadBtn').disabled = false;
       dropzone.classList.remove('drag');
       byId('bulkFileInput').value = '';
+      await refreshIntake();
     }
   }
 
   function drawLiveRadar(items) {
     const criteria = ['relevance', 'coherence', 'effectiveness', 'efficiency', 'sustainability'].map((id) => {
       const found = items.find((item) => item.id === id);
-      return { id, name: found?.name || criterionNames[id], score: Number(found?.score || 0) };
+      return { id, name: found?.name || criterionNames[id], score: found?.score == null ? null : Number(found.score) };
     });
     ['radar', 'radar2'].forEach((id) => {
       const svg = byId(id);
@@ -1135,8 +1271,12 @@
       let markup = '';
       for (let grid = 1; grid <= 4; grid += 1) markup += `<polygon points="${polygon(radius * grid / 4)}" fill="none" stroke="#E4EAF1"/>`;
       criteria.forEach((_, index) => { const [x, y] = point(index, radius); markup += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#E4EAF1"/>`; });
-      markup += `<polygon points="${criteria.map((item, index) => point(index, radius * item.score / 4).join(',')).join(' ')}" fill="rgba(79,179,232,.18)" stroke="#4FB3E8" stroke-width="2"/>`;
-      criteria.forEach((item, index) => { const [x, y] = point(index, radius + 21); markup += `<text x="${x}" y="${y + 4}" font-size="11.5" font-weight="600" fill="#63788C" text-anchor="${Math.abs(x - cx) < 6 ? 'middle' : x < cx ? 'end' : 'start'}">${item.name} <tspan font-weight="800" fill="#1173A8">${item.score || '-'}</tspan></text>`; });
+      if (criteria.every(item => Number.isFinite(item.score))) {
+        markup += `<polygon points="${criteria.map((item, index) => point(index, radius * item.score / 4).join(',')).join(' ')}" fill="rgba(79,179,232,.18)" stroke="#4FB3E8" stroke-width="2"/>`;
+      } else {
+        criteria.forEach((item, index) => { if (Number.isFinite(item.score)) { const [x, y] = point(index, radius * item.score / 4); markup += `<circle cx="${x}" cy="${y}" r="4" fill="#1173A8"/>`; } });
+      }
+      criteria.forEach((item, index) => { const [x, y] = point(index, radius + 21); markup += `<text x="${x}" y="${y + 4}" font-size="11.5" font-weight="600" fill="#63788C" text-anchor="${Math.abs(x - cx) < 6 ? 'middle' : x < cx ? 'end' : 'start'}">${esc(item.name)} <tspan font-weight="800" fill="#1173A8">${item.score ?? '보류'}</tspan></text>`; });
       svg.innerHTML = markup;
     });
   }
@@ -1151,6 +1291,7 @@
   }
 
   function formatDacScore(value) {
+    if (value === null || value === undefined || value === '') return '보류';
     const score = Number(value);
     if (!Number.isFinite(score)) return '-';
     return Number.isInteger(score) ? String(score) : score.toFixed(1);
@@ -1159,16 +1300,17 @@
   function syncDashboardDac(data) {
     const items = (data?.criteria || []).filter((item) => item.id !== 'impact');
     const overall = data?.overall || {};
+    const isHeld = data?.status === 'completed' && items.some(item => item.score == null);
     const hasScore = overall.score !== null && overall.score !== undefined && overall.score !== '' && Number.isFinite(Number(overall.score));
     const dacValue = document.querySelector('#v-dashboard .herocard.dac .hckpi > b');
     const dacLabel = document.querySelector('#v-dashboard .herocard.dac .hckpi .hkl');
     const dacSubtitle = document.querySelector('#v-dashboard .herocard.dac .psub');
     if (dacValue) dacValue.innerHTML = hasScore
       ? `${formatDacScore(overall.score)}<small>/20</small>`
-      : esc(tr('ui.dashboard.not_evaluated', '평가 전'));
+      : (isHeld ? '판정보류' : esc(tr('ui.dashboard.not_evaluated', '평가 전')));
     if (dacLabel) dacLabel.innerHTML = hasScore
       ? `${esc(tr('ui.dashboard.overall_score', '종합점수'))} · KOICA <span class="grade">${esc(overall.koica_grade || '-')}</span> · ${esc(tr('ui.dashboard.government_grade', '국무조정실'))} ${esc(overall.government_grade || '-')}`
-      : tr('ui.dashboard.evaluation_prompt', 'DAC 평가진단을 실행하면 종합점수가 표시됩니다');
+      : (isHeld ? '자료 보완이 필요한 항목이 있어 종합점수 판정을 보류합니다' : tr('ui.dashboard.evaluation_prompt', 'DAC 평가진단을 실행하면 종합점수가 표시됩니다'));
     if (dacSubtitle) dacSubtitle.textContent = hasScore
       ? (overall.formula || 'DAC 5개 기준의 질문별 1~4점 평균 합산')
       : tr('ui.dashboard.evaluation_source', '등록 자료를 기준으로 DAC 평가진단을 실행합니다');
@@ -1201,13 +1343,13 @@
     const average = scored.length ? (total / scored.length).toFixed(1) : '-';
     const stats = document.querySelectorAll('#v-eval-board .statrow .sv');
     const hasOverallScore = data.overall?.score !== null && data.overall?.score !== undefined && data.overall?.score !== '' && Number.isFinite(Number(data.overall?.score));
-    if (stats[0]) stats[0].innerHTML = hasOverallScore ? `${formatDacScore(data.overall.score)}<span>/20</span>` : '평가 전';
+    if (stats[0]) stats[0].innerHTML = hasOverallScore ? `${formatDacScore(data.overall.score)}<span>/20</span>` : (data.status === 'completed' ? '판정보류' : '평가 전');
     if (stats[1]) stats[1].textContent = data.overall?.koica_grade || '-';
     if (stats[2]) stats[2].textContent = data.overall?.government_grade || '-';
     const statNotes = document.querySelectorAll('#v-eval-board .statrow .ss');
-    if (statNotes[1]) statNotes[1].textContent = `5대 기준 평균 ${average}점`;
+    if (statNotes[1]) statNotes[1].textContent = scored.length === 5 ? `5대 기준 평균 ${average}점` : `점수 판정 ${scored.length}/5개 기준 · 나머지 판정보류`;
     byId('scorechips2').innerHTML = items.filter((item) => item.id !== 'impact').map((item) => `<button class="schip" data-go="#/eval/results"><div class="nm">${esc(item.name)}</div><div class="sc num">${item.score ?? '-'}<small>/4</small></div></button>`).join('');
-    byId('critSections').innerHTML = items.length ? items.map((criterion) => `<div class="csec"><div class="csec-h"><div class="nm">${esc(criterion.name)}</div><div class="hbar"><div class="pbar"><i class="${Number(criterion.score || 0) < 3 ? 'w' : 'g'}" style="width:${Math.round(Number(criterion.score || 0) / 4 * 100)}%"></i></div></div><span class="tag ${Number(criterion.score || 0) < 3 ? 'w' : 'g'}">${criterion.scored ? '평가 완료' : '정성 관리'}</span><span class="scr num">${criterion.score ?? '-'}<small> /4</small></span></div><div class="csec-b">${(criterion.question_assessments || []).map((question, index) => `<div class="qrow"><span class="qno">Q${index + 1}</span><div class="qbody"><div class="qq">${esc(question.question)}</div><div class="qa"><b>AI 판단</b> · ${esc(question.finding)}</div>${question.evidence_gaps?.length ? `<div class="qlost w">${question.evidence_gaps.map(esc).join(' · ')}</div>` : ''}${dacQuestionEvidence(question)}</div><div class="qmeta"><span class="qscore num">${question.score}<small> /4</small></span></div></div>`).join('') || `<div class="qrow"><div class="qbody">${esc(criterion.score_reason || criterion.summary || '분석 내용이 없습니다.')}${evidenceFold(criterion.evidence_documents)}</div></div>`}</div></div>`).join('') : '<div class="panel empty evaluation-empty"><b>아직 생성된 분석 결과가 없습니다.</b><br>등록 문서의 처리가 끝난 뒤 재평가를 실행하면 DAC 기준별 점수와 판단 근거가 표시됩니다.<div style="margin-top:14px"><button class="btn primary" data-go="#/eval/board">DAC 평가진단으로 이동</button></div></div>';
+    byId('critSections').innerHTML = items.length ? items.map((criterion) => `<div class="csec"><div class="csec-h"><div class="nm">${esc(criterion.name)}</div><div class="hbar"><div class="pbar"><i class="${Number(criterion.score || 0) < 3 ? 'w' : 'g'}" style="width:${Math.round(Number(criterion.score || 0) / 4 * 100)}%"></i></div></div><span class="tag ${Number(criterion.score || 0) < 3 ? 'w' : 'g'}">${criterion.scored ? '근거 평가 완료' : '자료보완 · 판정보류'}</span><span class="scr num">${criterion.score ?? '-'}<small> /4</small></span></div><div class="csec-b">${window.DacScoringUI.renderImprovements(criterion, esc)}${(criterion.question_assessments || []).map((question, index) => `<div class="qrow"><span class="qno">Q${index + 1}</span><div class="qbody"><div class="qq">${esc(question.question)}</div><div class="qa"><b>근거 판단</b> · ${esc(question.finding)}</div>${question.evidence_gaps?.length ? `<div class="qlost w">${question.evidence_gaps.map(esc).join(' · ')}</div>` : ''}${dacQuestionEvidence(question)}</div><div class="qmeta"><span class="qscore num">${question.score ?? '보류'}<small> /4</small></span></div></div>`).join('') || `<div class="qrow"><div class="qbody">${esc(criterion.score_reason || criterion.summary || '분석 내용이 없습니다.')}${evidenceFold(criterion.evidence_documents)}</div></div>`}</div></div>`).join('') : '<div class="panel empty evaluation-empty"><b>아직 생성된 분석 결과가 없습니다.</b><br>등록 문서의 처리가 끝난 뒤 재평가를 실행하면 DAC 기준별 점수와 판단 근거가 표시됩니다.<div style="margin-top:14px"><button class="btn primary" data-go="#/eval/board">DAC 평가진단으로 이동</button></div></div>';
     renderDashboardInsights();
   }
 
@@ -1221,13 +1363,14 @@
   async function refreshEvaluationStatus() {
     try {
       const status = await request('/api/v2/evaluations/status');
+      const dacStage = {overview:'사업개요 확인',evidence:'선택 원문 검토·자동 복구',questions:'질문별 근거 판정',saving:'검증 결과 저장',needs_retry:'일부 항목 재시도 필요'}[status.current_stage] || '평가 준비';
       const active = Boolean(status.active);
       window.ServiceJobTray?.update('dac', { name: 'DAC 평가', active, failed: status.status === 'failed', completed: status.completed_criteria, total: status.total_criteria,
-        detail: active ? `사업개요 및 5개 기준 분석 · ${status.completed_criteria}/${status.total_criteria}단계 · 원본 ${status.document_count}개` : status.error_message || '평가 결과 저장 완료' });
+        detail: active ? `${dacStage} · ${status.completed_criteria}/${status.total_criteria}단계 · 검증 질문 ${status.completed_questions || 0}개 · 원본 ${status.document_count}개` : status.status === 'failed' ? `${status.error_message || '평가 미완료'} · 검증 완료 질문 ${status.completed_questions || 0}개와 완료 원문 구간 보존. 같은 자료·모델·평가기준일이면 재평가 시 미완료 부분을 이어서 진행합니다.` : '평가 결과 저장 완료' });
       [byId('runBtn'), byId('runBtn2')].forEach((button) => {
         if (!button) return;
         button.disabled = active || (!active && !status.can_start && Number(status.processing_document_count || 0) === 0);
-        button.textContent = active ? `✦ 분석 단계 ${status.completed_criteria}/${status.total_criteria}` : '✦ 재평가하기';
+        button.textContent = active ? `✦ 분석 단계 ${status.completed_criteria}/${status.total_criteria}` : '✦ DAC 근거 분석·평가';
       });
       const message = active ? `${status.document_count}개 문서 분석 중` : status.status === 'failed' ? `평가 중단 · ${status.error_message || '다시 평가해 주세요.'}` : Number(status.processing_document_count || 0) > 0 ? `문서 처리 ${status.completed_document_count}/${status.document_count}` : status.completed_at ? `최근 완료 ${new Date(status.completed_at).toLocaleString('ko-KR')}` : '분석 실행 대기';
       byId('pendAnalyze').textContent = message;
@@ -1242,12 +1385,18 @@
     }
   }
 
+  let dacReviewDialog;
   async function startEvaluation() {
+    dacReviewDialog ||= window.DacAnalysisReview.create({request, start:submitEvaluation, refreshIntake:async()=>{}, notify, escapeHtml:esc});
+    await dacReviewDialog.open();
+  }
+  async function submitEvaluation(review) {
     try {
-      await request('/api/v2/evaluations', { method: 'POST' });
+      const job = await request('/api/v2/evaluations', { method: 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(review) });
       evaluationWasActive = true;
       await refreshEvaluationStatus();
-    } catch (error) { notify(error.message); }
+      return job;
+    } catch (error) { notify(error.message); return null; }
   }
 
   function renderReportList() {
@@ -1336,6 +1485,7 @@
     sectionLoadPending = null;
     const renderStarted = performance.now();
     reportFlow.observe(section);
+    window.ServiceJobTray?.update(`section:${section.part_id}`, {name:`보고서 섹션 · ${section.title}`, active:section.status==='generating', failed:section.status==='failed', detail:section.error_message || (section.status==='generating' ? 'AI가 본문을 작성·검토하고 있습니다.' : '본문 저장 완료')});
     const sectionIndex = reportSections.findIndex((item) => item.part_id === id);
     if (sectionIndex >= 0) reportSections[sectionIndex] = { ...reportSections[sectionIndex], ...section };
     const metadata = section.generation_metadata || {};
@@ -1372,6 +1522,7 @@
     try {
       const response = await request('/api/v2/report/sections');
       reportSections = response.items || [];
+      reportSections.forEach(section => window.ServiceJobTray?.update(`section:${section.part_id}`, {name:`보고서 섹션 · ${section.title}`, active:section.status==='generating', failed:section.status==='failed', detail:section.error_message || (section.status==='generating' ? 'AI가 본문을 작성·검토하고 있습니다.' : '본문 저장 완료')}));
       if (location.hash === '#/eval/report') refreshReportLifecycle();
       const selected = select || activeReportPart || reportSections[0]?.part_id;
       renderReportList();
@@ -1407,6 +1558,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instruction, current_content: currentContent }), timeoutMs: 15000
       });
       reportFlow.accepted(partId);
+      window.ServiceJobTray?.update(`section:${partId}`, {name:`보고서 섹션 · ${selected.title}`, active:true, detail:'AI가 본문을 작성·검토하고 있습니다.'});
       const section = reportSections.find((item) => item.part_id === partId);
       if (section) section.status = 'generating';
       if (activeReportPart === partId) await loadReportSection(partId, false);
@@ -1422,6 +1574,48 @@
 
   function renderGeneration(status) {
     const active = ['queued', 'running'].includes(status.status);
+    let cancel = byId('reportCancel');
+    if (!cancel) {
+      cancel = document.createElement('button');
+      cancel.id = 'reportCancel';
+      cancel.className = 'btn';
+      cancel.type = 'button';
+      byId('reportGenerationMessage').after(cancel);
+      cancel.addEventListener('click', async () => {
+        if (!latestGenerationStatus?.id) return;
+        generationPollRevision += 1;
+        clearTimeout(generationTimer);
+        cancel.disabled = true;
+        try {
+          latestGenerationStatus = await request(`/api/v2/report/generation/${encodeURIComponent(latestGenerationStatus.id)}/cancel`, {method:'POST'});
+          renderGeneration(latestGenerationStatus);
+        } catch (error) { cancel.disabled = false; notify(error.message); }
+        pollGeneration();
+      });
+    }
+    cancel.hidden = !active;
+    cancel.disabled = Boolean(status.cancel_requested);
+    cancel.textContent = status.cancel_requested ? '중단 요청됨 · AI 응답 정리 중' : '보고서 생성 중단';
+    let resume = byId('reportResume');
+    if (!resume) {
+      resume = document.createElement('button');
+      resume.id = 'reportResume';
+      resume.className = 'btn primary';
+      resume.type = 'button';
+      resume.textContent = '남은 섹션 이어서 생성';
+      cancel.after(resume);
+      resume.addEventListener('click', async () => {
+        if (!latestGenerationStatus?.id || reportBatchSubmitting) return;
+        reportBatchSubmitting = true;
+        resume.disabled = true;
+        try {
+          const result = await request(`/api/v2/report/generation/${encodeURIComponent(latestGenerationStatus.id)}/resume`, {method:'POST'});
+          notify(`저장된 ${result.preserved_sections}개 섹션을 보존하고 이어서 생성합니다.`);
+        } catch (error) { notify(error.message); }
+        finally { reportBatchSubmitting = false; resume.disabled = false; pollGeneration(); }
+      });
+    }
+    resume.hidden = active || !status.can_resume;
     const total = Number(status.total_sections || 27);
     const completed = Number(status.completed_sections || 0);
     const percent = Math.round(completed / Math.max(1, total) * 100);
@@ -1430,6 +1624,7 @@
     );
     const historicalErrorsResolved = !active && Number(status.failed_sections || 0) > 0 && currentSectionsComplete;
     window.ServiceJobTray?.update('report', {name:'보고서 전체 작성', active,
+      cancelled:status.status === 'cancelled',
       failed:!historicalErrorsResolved && ['failed','completed_with_errors'].includes(status.status),
       completed:historicalErrorsResolved ? total : completed, total,
       detail:historicalErrorsResolved ? '이전 실행의 실패 섹션을 개별 보완하여 현재 27개 섹션 작성 완료' : status.error_message || status.message || `${completed}/${total}개 섹션`});
@@ -1441,7 +1636,7 @@
     history.dataset.active = String(active);
     byId('reportGenerationHistorySummary').textContent = active
       ? `전체 보고서 작성 진행 중 · ${completed}/${total}`
-      : `이전 전체 작성 기록 · ${status.status === 'failed' ? '중단' : status.status === 'completed_with_errors' ? '일부 보완 필요' : '완료'}`;
+      : `이전 전체 작성 기록 · ${['failed','cancelled'].includes(status.status) ? '중단' : status.status === 'completed_with_errors' ? '일부 보완 필요' : '완료'}`;
     byId('reportGenerationProgress').hidden = status.status === 'not_started';
     byId('reportGenerationBar').parentElement.hidden = !active;
     byId('reportGenerationPercent').hidden = !active;
@@ -1449,7 +1644,7 @@
     byId('reportGenerationPercent').textContent = `${percent}%`;
     byId('reportGenerationStage').textContent = active
       ? `보고서 생성 ${completed}/${total}`
-      : status.status === 'failed'
+      : ['failed','cancelled'].includes(status.status)
         ? '최근 전체 작성 실행 중단'
         : historicalErrorsResolved
           ? '전체 보고서 생성 및 개별 보완 완료'
@@ -1458,29 +1653,36 @@
             : '전체 보고서 생성 완료';
     byId('reportGenerationMessage').textContent = historicalErrorsResolved
       ? '현재 27개 섹션이 모두 작성·보완되었습니다.'
-      : [status.error_message || status.message || '', !active && status.status === 'failed' && currentSectionsComplete ? '저장된 27개 섹션의 본문은 보존되어 있습니다. 최신 자료 반영 여부는 상단 안내를 확인해 주세요.' : ''].filter(Boolean).join(' ');
+      : [status.cancel_requested && active ? '중단 요청 접수 · 현재 AI 응답을 정리한 뒤 중단합니다. 저장된 본문은 보존됩니다.' : status.error_message || status.message || '', active && !status.cancel_requested ? '한 섹션의 작성·검토 동안 진행률은 유지됩니다.' : '', !active && status.status === 'failed' && currentSectionsComplete ? '저장된 27개 섹션의 본문은 보존되어 있습니다. 최신 자료 반영 여부는 상단 안내를 확인해 주세요.' : ''].filter(Boolean).join(' ');
     byId('repGenAll').disabled = active;
     renderSectionAssistant(reportSections.find((item) => item.part_id === activeReportPart));
   }
 
   async function pollGeneration() {
     clearTimeout(generationTimer);
+    const revision = ++generationPollRevision;
     try {
       const status = await request('/api/v2/report/generation/latest');
+      if (revision !== generationPollRevision) return;
       latestGenerationStatus = status;
       renderGeneration(status);
       if (['queued', 'running'].includes(status.status)) {
         await refreshReportSections(activeReportPart);
+        if (revision !== generationPollRevision) return;
         generationTimer = setTimeout(pollGeneration, 2500);
       } else {
         await refreshReportSections(activeReportPart);
       }
-    } catch (error) { byId('reportState').textContent = error.message; }
+    } catch (error) {
+      if (revision !== generationPollRevision) return;
+      byId('reportState').textContent = `진행 상태 연결을 다시 시도합니다. ${error.message}`;
+      generationTimer = setTimeout(pollGeneration, 5000);
+    }
   }
 
   async function generateAllReport() {
     if (reportBatchSubmitting || ['queued', 'running'].includes(latestGenerationStatus?.status) || reportSections.some((item) => reportFlow.busy(item.part_id) || item.status === 'generating')) return;
-    if (reportSections.some((item) => String(item.content || '').trim()) && !window.confirm('현재 사업 자료로 전체 보고서의 초안을 다시 작성합니다. 기존 본문이 바뀔 수 있습니다. 특정 부분만 수정하려면 취소 후 AI 섹션 수정 요청을 사용하세요. 전체 재작성을 진행할까요?')) return;
+    if (reportSections.some((item) => String(item.content || '').trim()) && !await confirmDocumentAction('전체 보고서 다시 작성', '현재 사업 자료로 전체 보고서의 초안을 다시 작성합니다. 기존 본문이 바뀔 수 있습니다. 특정 부분만 수정하려면 취소 후 AI 섹션 수정 요청을 사용하세요. 전체 재작성을 진행할까요?')) return;
     reportBatchSubmitting = true;
     const button = byId('repGenAll');
     button.disabled = true;
@@ -1504,46 +1706,47 @@
     byId('hwpxStage').textContent = status.status === 'completed' ? 'HWPX 생성 완료' : status.status === 'failed' ? 'HWPX 생성 실패' : status.stage || '내보내기';
     byId('hwpxMessage').textContent = status.error_message || status.message || '';
     byId('hwpxExport').disabled = ['queued', 'running'].includes(status.status);
+    byId('rhwpPreview').disabled = byId('hwpxExport').disabled;
   }
 
-  async function pollExport(id) {
+  async function pollExport(id, preview = false) {
     clearTimeout(exportTimer);
     try {
       const status = await request(`/api/v2/report/exports/${encodeURIComponent(id)}`);
       renderExport(status);
-      if (status.status === 'completed') { location.assign(status.download_url); return; }
+      if (status.status === 'completed') {
+        location.assign(preview ? `/assets/rhwp/?reportPreview=1&url=${encodeURIComponent(status.download_url)}&filename=${encodeURIComponent(status.file_name || 'KODAME.hwpx')}` : status.download_url); return;
+      }
       if (status.status === 'failed') return;
-      exportTimer = setTimeout(() => pollExport(id), 1000);
+      exportTimer = setTimeout(() => pollExport(id, preview), 1000);
     } catch (error) { renderExport({ status: 'failed', error_message: error.message }); }
   }
 
-  async function exportHwpx() {
+  async function exportHwpx(preview = false) {
+    preview = preview === true;
+    renderExport({ status: 'queued', stage: '현재 저장된 보고서 조판 요청 중' });
     try {
       const response = await request('/api/v2/report/exports', { method: 'POST' });
       exportStarted = Date.now();
-      pollExport(response.id);
+      pollExport(response.id, preview);
     } catch (error) { renderExport({ status: 'failed', error_message: error.message }); }
   }
 
   async function previewRhwp() {
-    try {
-      const latest = await request('/api/v2/report/exports/latest-completed');
-      const previewUrl = `/assets/rhwp/?url=${encodeURIComponent(latest.download_url)}&filename=${encodeURIComponent(latest.file_name || 'KODAME.hwpx')}`;
-      // Embedded browsers can silently discard named popup navigation. Use a
-      // normal navigation; Back restores the saved report/section workspace.
-      location.assign(previewUrl);
-    } catch (error) { notify(error.message); }
+    // Use the current saved sections, never silently open an older export.
+    return exportHwpx(true);
   }
 
   function renderPresentation(status) {
     const percent = Math.max(0, Math.min(100, Number(status.progress || 0)));
     const active = ['queued', 'running'].includes(status.status);
+    window.ServiceJobTray?.update('presentation', {name:'AI 발표자료 작성', active, failed:status.status==='failed', completed:percent, total:100, detail:status.error_message || status.message || status.stage || '발표자료 구성'});
     const slideCount = Number(status.slide_count || status.validation?.slide_count || PRESENTATION_SLIDE_COUNT);
     byId('presentationProgress').hidden = status.status === 'not_started';
     byId('presentationBar').style.width = `${percent}%`;
     byId('presentationPercent').textContent = `${percent}%`;
-    byId('presentationStage').textContent = status.status === 'completed' ? `${slideCount}장 발표자료 생성 완료` : status.status === 'failed' ? '발표자료 생성 실패' : status.stage || 'Claude 발표자료 구성';
-    byId('presentationMessage').textContent = status.error_message || status.message || `${status.model || 'OpenRouter Claude'}가 보고서와 근거자료를 ${slideCount}장으로 구성합니다.`;
+    byId('presentationStage').textContent = status.status === 'completed' ? `${slideCount}장 발표자료 생성 완료` : status.status === 'failed' ? '발표자료 생성 실패' : status.stage || 'AI 발표자료 구성';
+    byId('presentationMessage').textContent = status.error_message || status.message || `${status.model || '프로젝트 배정 AI'}가 보고서와 근거자료를 ${slideCount}장으로 구성합니다.`;
     byId('presentationExport').disabled = active;
     if (byId('presentationSlideCount')) {
       byId('presentationSlideCount').disabled = active;
@@ -1596,10 +1799,16 @@
   }
 
   function bind() {
+    byId('authRetry').onclick = () => window.KODAME_MODULE_FAILED ? location.reload() : initializeAuth();
+    byId('authSignOut').onclick = async () => {
+      try { await request('/api/v2/auth/logout', {method:'POST'}); location.reload(); }
+      catch (_) { setAuthView('unassigned', '로그아웃 요청을 완료하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.'); }
+    };
     byId('codeBtn').addEventListener('click', authenticate);
     ['codeInput', 'authPassword'].forEach((id) => byId(id).addEventListener('keydown', (event) => { if (event.key === 'Enter') authenticate(); }));
     byId('authSwitch').addEventListener('click', () => setAuthMode(authMode === 'login' ? 'register' : 'login'));
     byId('logout').addEventListener('click', async (event) => { event.stopPropagation(); try { await fetch('/api/v2/auth/logout', { method: 'POST' }); } finally { location.reload(); } });
+    byId('compactLogout')?.addEventListener('click', () => byId('logout').click());
 
     byId('daonFold').addEventListener('click', () => {
       byId('fixList').classList.toggle('expanded');
@@ -1613,16 +1822,55 @@
       renderDashboardIndicatorList(intake.pdm?.performance_indicators || []);
     });
 
-    byId('uploadBtn').addEventListener('click', (event) => { event.stopPropagation(); byId('bulkFileInput').click(); });
+    foundationUpload.bind();
+    byId('uploadBtn').addEventListener('click', (event) => { event.stopPropagation(); if (foundationUpload.canUpload()) byId('bulkFileInput').click(); });
     byId('bulkFileInput').addEventListener('change', () => uploadFiles(byId('bulkFileInput').files));
     ['dropzone', 'spDrop'].forEach((id) => {
       const zone = byId(id);
-      zone.addEventListener('click', (event) => { event.stopPropagation(); byId('bulkFileInput').click(); });
+      zone.addEventListener('click', (event) => { event.stopPropagation(); if (foundationUpload.canUpload()) byId('bulkFileInput').click(); });
       ['dragenter', 'dragover'].forEach((type) => zone.addEventListener(type, (event) => { event.preventDefault(); zone.classList.add('drag'); }));
       ['dragleave', 'drop'].forEach((type) => zone.addEventListener(type, (event) => { event.preventDefault(); zone.classList.remove('drag'); }));
       zone.addEventListener('drop', (event) => uploadFiles(event.dataTransfer.files));
     });
-    document.addEventListener('click', (event) => { if (event.target.closest('[data-live-upload]')) { event.stopPropagation(); byId('bulkFileInput').click(); } }, true);
+    document.addEventListener('click', (event) => { if (event.target.closest('[data-live-upload]')) { event.stopPropagation(); if (foundationUpload.canUpload()) byId('bulkFileInput').click(); } }, true);
+    document.addEventListener('click', async event => {
+      const scopeButton = event.target.closest('[data-evaluation-scope]');
+      if (scopeButton) {
+        const job = intake.jobs.find(doc => doc.id === scopeButton.dataset.scopeDocument);
+        if (!job || scopeButton.disabled) return;
+        const excluded = scopeButton.dataset.evaluationScope === 'exclude';
+        const reason = await confirmDocumentAction(excluded ? '평가 대상에서 제외' : '평가 대상에 포함', excluded ? '원본은 보관하며 평가 분석에서 제외합니다. 기존 평가가 있으면 다시 검토해야 합니다.' : '이 문서를 평가 자료에 포함하고 필요한 문서 분석을 다시 진행합니다.', excluded ? '사용자 검토에 따라 평가 대상에서 제외' : '사용자 검토에 따라 평가 자료로 활용');
+        if (!reason?.trim()) return;
+        scopeButton.disabled = true;
+        try {
+          await request(`/api/v2/intake/jobs/${encodeURIComponent(job.id)}/evaluation-scope`, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({excluded,reason:reason.trim(),expected_updated_at:job.updated_at})});
+          notify(excluded ? '원본을 보관하고 평가 대상에서 제외했습니다.' : '평가 대상에 포함하고 분석을 접수했습니다.');
+          await refreshIntake();
+        } catch (error) { notify(error.message); scopeButton.disabled = false; }
+        return;
+      }
+      const modeButton = event.target.closest('[data-intake-mode]');
+      if (modeButton) {
+        const job = intake.jobs.find(doc=>doc.id===modeButton.dataset.modeDocument);
+        if (!job || modeButton.disabled) return;
+        if (job.status==='completed' && !await confirmDocumentAction('문서 분석 다시 실행', '원본은 보관하며 이 문서의 기존 자동 매칭을 초기화하고 선택한 방식으로 다시 분석합니다.')) return;
+        modeButton.disabled=true;
+        try {
+          await request(`/api/v2/intake/jobs/${encodeURIComponent(job.id)}/mode`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:modeButton.dataset.intakeMode,expected_updated_at:job.updated_at})});
+          notify('선택한 방식으로 처리하도록 접수했습니다.'); await refreshIntake();
+        } catch(error) { notify(error.message); modeButton.disabled=false; }
+        return;
+      }
+      if (event.target.closest('[data-retry-upload]')) uploadFiles(uploadFailures.map(item => item.file));
+      const button = event.target.closest('[data-retry-document]');
+      if (!button || button.disabled) return;
+      button.disabled = true;
+      try {
+        await request(`/api/v2/intake/jobs/${encodeURIComponent(button.dataset.retryDocument)}/retry`, { method: 'POST' });
+        notify('문서를 다시 분석하도록 접수했습니다.');
+        await refreshIntake();
+      } catch (error) { notify(error.message); button.disabled = false; }
+    });
     document.addEventListener('click', (event) => {
       const opener = event.target.closest('[data-risk-open]');
       if (opener) {
@@ -1647,22 +1895,7 @@
     byId('fileMore').addEventListener('click', () => { fileShowAll = !fileShowAll; renderFiles(); });
     byId('runBtn').addEventListener('click', startEvaluation);
     byId('runBtn2').addEventListener('click', startEvaluation);
-    byId('indRefresh').addEventListener('click', async () => {
-      const button = byId('indRefresh');
-      try {
-        button.disabled = true;
-        button.textContent = '증빙 내용·성과 분석 중…';
-        window.ServiceJobTray?.update('pdm', {name:'PDM 지표 갱신', active:true, detail:'실적 근거와 리스크를 분석하고 있습니다. 기존 결과는 완료 후 갱신됩니다.'});
-        await request('/api/v2/pdm/refresh', { method: 'POST' });
-        await refreshLocalizedProjectViews(currentLocale(), true);
-        await refreshIntake();
-        window.ServiceJobTray?.update('pdm', {name:'PDM 지표 갱신', active:false, failed:intake.pdm.risk_analysis?.status === 'fallback', detail:intake.pdm.risk_analysis?.status === 'fallback' ? 'AI 분석 미완료 · 기본 권고 표시' : '실적 및 리스크 저장 완료'});
-        notify(intake.pdm.risk_analysis?.status === 'fallback'
-          ? '성과지표를 갱신했습니다. AI 분석을 완료하지 못해 기본 권고를 표시합니다. 지표 갱신으로 다시 시도할 수 있습니다.'
-          : '성과지표 실적과 AI 리스크 상세분석을 갱신했습니다.');
-      } catch (error) { window.ServiceJobTray?.update('pdm', {name:'PDM 지표 갱신', active:false, failed:true, detail:error.message}); notify(error.message); }
-      finally { button.disabled = false; button.textContent = '↻ 지표 갱신'; }
-    });
+    byId('indRefresh').addEventListener('click', () => performanceReview.open());
     byId('seclist').addEventListener('click', (event) => {
       const item = event.target.closest('[data-id]');
       if (item) loadReportSection(item.dataset.id, true).catch((error) => { byId('reportState').textContent = error.message; });
@@ -1691,6 +1924,26 @@
     byId('rhwpPreview').addEventListener('click', previewRhwp);
     byId('hwpxExport').addEventListener('click', exportHwpx);
     byId('presentationExport').addEventListener('click', exportPresentation);
+    byId('reportSubmissionDownload').addEventListener('click', async () => {
+      const button=byId('reportSubmissionDownload'), status=byId('reportSubmissionStatus');
+      const kind=byId('reportSubmissionKind').value, path=`/api/v2/report/submissions/${encodeURIComponent(kind)}`;
+      button.disabled=true; status.textContent='저장된 평가·보고서로 파일을 구성하고 있습니다.';
+      try {
+        const response=await fetch(path,{headers:serviceScope.headers(path)});
+        if (!response.ok) {
+          const error=await response.json().catch(()=>({}));
+          serviceScope.check(path,response,error);
+          throw new Error(error.detail||'별도 제출 파일을 만들지 못했습니다.');
+        }
+        const blob=await response.blob(); serviceScope.check(path,response,null);
+        const disposition=response.headers.get('Content-Disposition')||'';
+        const name=decodeURIComponent(disposition.split("filename*=UTF-8''")[1]||`submission.${kind.split('-').pop()}`);
+        const url=URL.createObjectURL(blob), link=document.createElement('a');
+        link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+        status.textContent='다운로드 완료 · 제출 전 확인 필요 항목을 검토해 주세요.';
+      } catch(error) {status.textContent=error.message;}
+      finally {button.disabled=false;}
+    });
     byId('adminRefresh')?.addEventListener('click', refreshAdmin);
     byId('adminCreateProject')?.addEventListener('click', openProjectCreator);
     byId('adminCreateAccount')?.addEventListener('click', () => serviceAdmin.openAccountForm());
@@ -1698,6 +1951,10 @@
     byId('adminUserSearch')?.addEventListener('input', renderAdminRows);
     byId('adminUserProject')?.addEventListener('change', renderAdminRows);
     byId('adminProjectList')?.addEventListener('click', event => {
+      const remove = event.target.closest('[data-delete-project]');
+      if (remove) serviceAdmin.deleteProject(remove.dataset.deleteProject);
+      const ai = event.target.closest('[data-project-ai]');
+      if (ai) projectAI.open(adminProjects.find(project => project.id === ai.dataset.projectAi));
       const issue = event.target.closest('[data-issue-project]');
       if (issue) serviceAdmin.openAccountForm(null, issue.dataset.issueProject);
       const users = event.target.closest('[data-project-users]');
@@ -1764,16 +2021,26 @@
       ? [refreshReportSections(), pollGeneration(), refreshPresentationLatest()]
       : [];
     Promise.all([
-      refreshDashboard(), refreshIntake(), refreshEvaluation(), refreshEvaluationStatus(),
+      refreshDashboard(), refreshIntake(), refreshEvaluation(), refreshEvaluationStatus(), pdmRefresh.sync(),
       refreshProjectOverview(), ...reportTasks
     ]);
     setInterval(refreshIntake, 3500);
     setInterval(refreshEvaluationStatus, 3500);
+    setInterval(() => pdmRefresh.sync(), 3500);
+    async function refreshReportTray() {
+      if (!window.hasMenuPermission?.('evaluation_report')) return;
+      try {
+        const snapshot = await request('/api/v2/report/job-tray');
+        snapshot.items.forEach(({key,...job}) => window.ServiceJobTray?.update(key,job));
+      } catch (_) { /* retain known work while the connection recovers */ }
+    }
+    refreshReportTray();
+    setInterval(refreshReportTray, 5000);
     setInterval(refreshDashboard, 12000);
     setInterval(() => {
       if (!document.hidden && location.hash === '#/eval/report') refreshReportLifecycle();
     }, 12000);
-    setInterval(async () => { const response = await fetch('/api/v2/auth/me'); if (response.status === 401) location.reload(); }, 60000);
+    setInterval(() => request('/api/v2/auth/me').catch(() => {}), 15000);
   }
 
   detachDemoHandlers();
@@ -1782,5 +2049,5 @@
   window.KODAME_LIVE_READY = true;
   byId('authSwitch').hidden = true;
   setAuthMode('login');
-  initializeAuth();
+  if (!window.KODAME_MODULE_FAILED) initializeAuth();
 })();

@@ -21,6 +21,6 @@ assert(!source.includes("method: 'PUT'"), 'preview must never save');
 assert(!source.includes('/generate'), 'preview must never invoke LLM');
 assert(source.includes('await waitForFrame()'), 'iframe initial load must be bounded');
 assert(source.includes('focused.setSelectionRange(...caret)'), 'rendering must preserve the editing caret');
-const live = fs.readFileSync('assets/odaon-v1-live.js', 'utf8');
+const live = fs.readFileSync('assets/app-controller.js', 'utf8');
 assert(live.includes('activeReportPart === selectedAtStart'), 'background refresh must not change a newer selection');
 console.log('PASS: section preview revision gate + no writes/LLM + origin/source guards');

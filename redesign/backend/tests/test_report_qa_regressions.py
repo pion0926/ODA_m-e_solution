@@ -8,6 +8,12 @@ from backend.oda_me.hwpx.patchers import parse_achievement_items, achievement_it
 
 
 class ReportQaRegressions(unittest.TestCase):
+    def test_multiline_indicator_records_keep_summary_heading(self):
+        text='ㅇ 성과지표: 강사 수\n- 목표치: 6명\n- 실적: 6명\n\nㅇ 산출물 달성 현황과 시사점\n- 후속 예산 확인 필요'
+        normalized=normalize_achievement_structure(text)
+        self.assertIn('3. 종합 평가 및 시사점\n\nㅇ 산출물',normalized)
+        self.assertEqual(normalize_achievement_structure(normalized),normalized)
+
     def test_pdm_display_labels_do_not_turn_detail_bullets_into_rows(self):
         content = ''
         for label in ['Outcome 1-1', 'Outputs 1.1-1']:
@@ -56,13 +62,14 @@ class ReportQaRegressions(unittest.TestCase):
             self.assertTrue(_quantitative_consistency_issues('achievement', row, []))
 
     def test_toc_uses_actual_ordered_pages_and_rejects_missing(self):
-        pages = [{'page_number': i + 1, 'text': ''} for i in range(22)]
+        pages = [{'page_number': i + 1, 'text': ''} for i in range(28)]
         for i, (_, title) in enumerate(DESTINATIONS):
             pages[i+2]['text'] = title
-        payload = {'page_count': 22, 'page_texts': pages}
+        payload = {'page_count': 28, 'page_texts': pages}
         mapping = rhwp_page_map(payload)
-        self.assertEqual(mapping['summary_ko_page'], '3')
-        self.assertEqual(mapping['feedback_lessons_page'], '22')
+        self.assertEqual(mapping['grade_page'], '3')
+        self.assertEqual(mapping['summary_ko_page'], '5')
+        self.assertEqual(mapping['feedback_lessons_page'], '28')
         pages[-1]['text'] = ''
         with self.assertRaises(ValueError):
             rhwp_page_map(payload)

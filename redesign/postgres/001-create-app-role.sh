@@ -4,7 +4,7 @@ set -eu
 psql -v ON_ERROR_STOP=1 \
   --username "$POSTGRES_USER" \
   --dbname "$POSTGRES_DB" \
-  --set=app_password="$POSTGRES_PASSWORD" \
+  --set=app_password="${APP_DATABASE_PASSWORD:-$POSTGRES_PASSWORD}" \
   --set=app_database="$POSTGRES_DB" \
   --set=bootstrap_user="$POSTGRES_USER" <<-'EOSQL'
 SELECT format(

@@ -31,13 +31,19 @@ _STORAGE_PATH_RE = re.compile(
     r"(?:^|[\s(])(?:uploads?|data-redesign)[\\/][^\s)]+)"
 )
 _MANAGEMENT_PREFIX_RE = re.compile(
-    r"^(?:(?:사업기본자료|미분류|DAC[ _-]*PDM|PDM|운영자료|업로드자료|실적증빙|첨부자료|참고자료)[ _-]+)+",
+    r"^(?:(?:사업기본자료|미분류|DAC[ _-]*PDM|운영자료|업로드자료|실적증빙|첨부자료|참고자료)[ _-]+)+",
     re.IGNORECASE,
 )
 
 
 def is_report_evidence_document(name: object, analysis: object = None) -> bool:
     """Return False for upload-operation artifacts that are not report evidence."""
+    from .document_classification import VERSION
+    metadata = analysis if isinstance(analysis, dict) else {}
+    classification = metadata.get("content_classification") or {}
+    if classification.get("version") == VERSION:
+        return bool(classification.get("is_project_plan") or classification.get("is_pdm_source")
+                    or classification.get("slot_matches"))
     normalized = str(name or "").replace("\\", "/").lower()
     if any(token in normalized for token in OPERATIONAL_SOURCE_TOKENS):
         return False
@@ -49,6 +55,9 @@ def is_report_evidence_document(name: object, analysis: object = None) -> bool:
 def reader_source_label(name: object, analysis: object = None) -> str:
     """Convert an upload/storage filename into a reader-facing bibliography label."""
     raw = Path(str(name or "").replace("\\", "/")).name
+    # Bulk imports preserve a numbered Drive folder before a double underscore.
+    # This namespace belongs to storage, not the document's bibliographic title.
+    raw = re.sub(r"^\d{2}_(?:(?!__).)+__", "", raw)
     stem = _SOURCE_EXTENSION_RE.sub("", raw).strip()
     stem = _FULL_DATE_RE.sub(" ", stem)
     stem = _MANAGEMENT_PREFIX_RE.sub("", stem)

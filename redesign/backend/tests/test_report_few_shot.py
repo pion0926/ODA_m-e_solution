@@ -102,7 +102,8 @@ class ReportFewShotTests(unittest.TestCase):
         )
         with (
             patch("kodame_intake.report_generator.httpx.Client", FakeClient),
-            patch("kodame_intake.report_generator.record_token_usage"),
+            patch("kodame_intake.ai_gateway.OPENROUTER_API_KEY", "fake-test-key"),
+            patch("kodame_intake.ai_gateway.record_token_usage"),
         ):
             result = _call_json(
                 "system",

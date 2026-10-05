@@ -3,14 +3,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const root = path.resolve(__dirname, '../..');
-const html = fs.readFileSync(path.join(root, '0821_OoooDaon_v1.0.html'), 'utf8');
-const script = fs.readFileSync(path.join(root, 'assets/odaon-v1-live.js'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8') + '<style>' + fs.readFileSync(path.join(root, 'assets/app-styles.css'), 'utf8') + '</style><script>' + fs.readFileSync(path.join(root, 'assets/app-shell.js'), 'utf8') + '</script>';
+const script = fs.readFileSync(path.join(root, 'assets/app-controller.js'), 'utf8');
 const adminScript = fs.readFileSync(path.join(root, 'assets/service-admin-ui.js'), 'utf8');
 const dockerIgnore = fs.readFileSync(path.join(root, '.dockerignore'), 'utf8');
 const dockerfile = fs.readFileSync(path.join(root, 'redesign/frontend/Dockerfile'), 'utf8');
 const nginx = fs.readFileSync(path.join(root, 'redesign/frontend/nginx.conf'), 'utf8');
 for (const match of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(match[1]);
-assert.ok(html.includes('main{flex:1;padding:22px 200px 110px;min-width:0}'), 'all menu pages must share the requested 200px horizontal gutters');
+assert.ok(html.includes('main{flex:1;padding:22px clamp(16px,3vw,64px) 110px;min-width:0}'), 'workspace gutters must adapt to screen width');
+assert.ok(html.includes('.monitoring-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'), 'narrow monitoring must expose values as cards');
 assert.ok(html.includes('main>.inner{width:100%;max-width:none;margin:0;min-width:0}'), 'the inner content cap must not add extra horizontal margins');
 assert.ok(html.includes('body:not(.report-mode) main>.inner{container:workspace / inline-size}'), 'menu grids must respond to actual available content width');
 assert.ok(html.includes('@container workspace (max-width:900px)'), 'narrow content must reflow without reducing the requested gutters');
@@ -23,7 +24,7 @@ assert.ok(!/\.repai\s*\{\s*display\s*:\s*none/.test(html), 'responsive view must
 assert.ok(!/\.repai\s+\.optlist\s*\{\s*display\s*:\s*flex/.test(html), 'legacy cards must not push the AI form down');
 assert.ok(html.includes('aria-live="polite"'));
 for (const asset of ['report-section-flow.js', 'service-admin-ui.js']) {
-  assert.ok(html.indexOf(`assets/${asset}`) < html.indexOf('assets/odaon-v1-live.js?'));
+  assert.ok(html.indexOf(`assets/${asset}`) < html.indexOf('assets/app-controller.js?'));
   assert.ok(dockerIgnore.includes(`!/assets/${asset}`), `${asset} must be allowed into Docker build context`);
   assert.ok(dockerfile.includes(asset), `${asset} must be verified during image build`);
 }

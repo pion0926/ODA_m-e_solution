@@ -13,7 +13,8 @@
     },
     "pdm_table": {
       "page_row_groups": [
-        [0, 1, 2, 3, 4, 5, 6, 7, 8]
+        [0, 1, 2, 3, 4],
+        [0, 5, 6, 7, 8]
       ],
       "column_widths": [15000, 12500, 10500, 9688],
       "header_labels": [
@@ -23,7 +24,7 @@
         "중요가정"
       ],
       "font_height": 800,
-      "line_spacing_percent": 115,
+      "line_spacing_percent": 130,
       "header_row_height": 2400,
       "level_label_row_height": 1450,
       "minimum_group_height": 5200,

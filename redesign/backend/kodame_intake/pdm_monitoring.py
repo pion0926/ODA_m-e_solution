@@ -10,7 +10,7 @@ from psycopg.types.json import Jsonb
 
 from .db import connection, current_project_id
 from .openrouter import AnalysisError, MissingApiKey, analyze_performance_risks
-from .pdm_source import extract_authoritative_pdm_slots
+from .document_classification import pdm_slots, NoPdmSource
 from .pdm_evidence import enrich_from_evidence
 from .reported_metrics_source import is_metrics_header, select_reported_metrics_source
 
@@ -27,11 +27,12 @@ TIER_LABELS = {
     "outputs": "Output(산출물)",
 }
 
-_NUMBERED_LINE = re.compile(r"^\s*(\d+(?:[.-]\d+)*(?:-\d+)?)\.\s*(.+?)\s*$")
+_NUMBERED_LINE = re.compile(r"^\s*(\d+(?:[.-]\d+)*)[.)]\s*(.+?)\s*$")
 
 
 def _numbered_items(text: str) -> list[dict]:
     items: list[dict] = []
+    has_numbering = any(_NUMBERED_LINE.match(line.strip()) for line in str(text or "").splitlines())
     for index, raw_line in enumerate(str(text or "").splitlines(), 1):
         line = raw_line.strip()
         if not line:
@@ -39,6 +40,9 @@ def _numbered_items(text: str) -> list[dict]:
         match = _NUMBERED_LINE.match(line)
         if match:
             code, value = match.groups()
+        elif has_numbering and items:
+            items[-1]["text"] += "\n" + line
+            continue
         else:
             code, value = str(index), line
         normalized = re.sub(r"[.-]+", ".", code).strip(".")
@@ -73,39 +77,36 @@ def _model_from_slots(slots: dict[str, str]) -> dict:
     return {"source_cells": {key: slots.get(key, "") for key in slots}, "tiers": tiers}
 
 
-def _source_priority(name: str) -> tuple[int, str]:
-    lowered = name.lower()
-    if "최신 pdm" in lowered:
-        return 0, lowered
-    if "pdm 1차 수정" in lowered:
-        return 1, lowered
-    if "pdm" in lowered and "원안" not in lowered:
-        return 2, lowered
-    return 3, lowered
-
-
 def _documents() -> list[dict]:
     with connection() as conn:
         return conn.execute(
-            """SELECT id,original_name,stored_path,extracted_path,size_bytes,summary,analysis,queue_position
-                 FROM intake_documents WHERE status='completed' ORDER BY queue_position"""
+            """SELECT id,original_name,stored_path,extracted_path,size_bytes,summary,analysis,queue_position,sha256
+                 FROM evaluation_intake_documents WHERE status='completed' ORDER BY queue_position"""
         ).fetchall()
 
 
 def _select_pdm_source(documents: list[dict]) -> tuple[dict, dict[str, str]]:
     candidates = sorted(
-        [item for item in documents if "pdm" in item["original_name"].lower() and item["original_name"].lower().endswith(".pdf")],
-        key=lambda item: (
-            -int(item.get("queue_position") or 0),
-            _source_priority(item["original_name"])[0],
-            _source_priority(item["original_name"])[1],
-        ),
+        [item for item in documents if pdm_slots(item.get("analysis"))],
+        key=lambda item: -int(item.get("queue_position") or 0),
     )
     for item in candidates:
-        slots = extract_authoritative_pdm_slots(item["stored_path"])
-        if slots:
-            return item, slots
-    raise RuntimeError("표 구조를 읽을 수 있는 PDM PDF가 없습니다.")
+        return item, pdm_slots(item.get("analysis"))
+    # Upgrades must not invalidate an already validated PDM merely because
+    # historical uploads predate content_classification. Reuse only the exact
+    # saved source (still present/completed), never guess from a filename.
+    legacy = [item for item in documents if item.get('id') and not (item.get('analysis') or {}).get('content_classification')]
+    previous = None
+    if legacy:
+        with connection() as conn:
+            previous = conn.execute('SELECT source_document_id,model FROM pdm_models ORDER BY created_at DESC LIMIT 1').fetchone()
+    if previous:
+        source = next((item for item in legacy if str(item['id']) == str(previous['source_document_id'])), None)
+        if source and not (source.get('analysis') or {}).get('content_classification'):
+            slots = (previous.get('model') or {}).get('source_cells') or {}
+            if any(slots.get(key) for key in ('impact_indicator','outcome_indicator','outputs_indicator')):
+                return source, slots
+    raise NoPdmSource("LLM 본문 분석으로 확인된 PDM 원본과 검증지표가 없습니다.")
 
 
 def _safe_document_name(document: dict) -> str:
@@ -113,8 +114,15 @@ def _safe_document_name(document: dict) -> str:
 
 
 def _is_evidence_document(document: dict) -> bool:
+    from .document_classification import VERSION, is_project_plan
+    analysis = document.get("analysis") or {}
+    if analysis.get('upload_role') == 'evidence':
+        return True
+    classification = analysis.get("content_classification") or {}
+    if classification.get("version") == VERSION:
+        return not pdm_slots(analysis) and not is_project_plan(analysis) and bool(classification.get("slot_matches"))
     name = _safe_document_name(document)
-    return not any(token in name for token in ("readme", "업로드_안내", "자료요청", "메일초안", "pdm", "사업계획서"))
+    return not pdm_slots(document.get("analysis")) and not any(token in name for token in ("readme", "업로드_안내", "자료요청", "메일초안", "사업계획서"))
 
 
 def _matches_pdm_requirement(document: dict, mov: str, indicator: str) -> tuple[bool, float, str]:
@@ -123,34 +131,9 @@ def _matches_pdm_requirement(document: dict, mov: str, indicator: str) -> tuple[
     if not _is_evidence_document(document) or "자료없음" in name:
         return False, 0.0, ""
     requirement = f"{mov} {indicator}".lower()
-    rules: list[tuple[tuple[str, ...], tuple[str, ...], str]] = [
-        (("보건통계",), ("보건통계", "연보"), "보건통계 연보"),
-        (("rrcem", "국립응급의료센터"), ("rrcem", "국립응급의료센터", "연례"), "응급의료센터 연례자료"),
-        (("강의계획서", "학사 운영"), ("강의계획서", "교육과정_1학년", "교육과정_2,3학년"), "학사운영·강의계획"),
-        (("정부 승인", "승인 공문"), ("job code", "승인서", "수총기관공문", "승인 공문"), "정부 승인 공문"),
-        (("자격시험 결과",), ("자격시험", "졸업시험"), "자격시험 결과"),
-        (("졸업생 취업",), ("졸업생 취업", "취업 현황", "추적조사"), "졸업생 취업 조사"),
-        (("cpcr 교육센터 운영",), ("cpcr", "운영 일지", "운영일지"), "CPCR 운영 일지"),
-        (("교원 연수 결과",), ("교원역량", "강사 양성"), "교원 연수 결과"),
-        (("출판물 실물", "배포리스트"), ("교육과정_교재", "교재 ", "교재개발"), "교재·배포자료"),
-        (("실습실 사용 대장",), ("실습실 사용", "사용 대장"), "실습실 사용 대장"),
-        (("자격시험 매뉴얼",), ("자격시험 매뉴얼", "졸업시험 매뉴얼"), "자격시험 매뉴얼"),
-        (("강사 자격증 발급",), ("강사 자격증", "발급 대장"), "강사 자격 발급대장"),
-        (("훈련 결과 보고서", "영상 자료"), ("mci", "훈련 결과", "모의훈련"), "MCI 훈련 결과"),
-    ]
-    for requirement_tokens, filename_tokens, label in rules:
-        if any(token in requirement for token in requirement_tokens):
-            hits = [token for token in filename_tokens if token in evidence_name]
-            if not hits:
-                return False, 0.0, ""
-            if label == "교원 연수 결과" and "결과보고서" not in name:
-                return False, 0.0, ""
-            if label == "CPCR 운영 일지" and not any(token in evidence_name for token in ("운영 일지", "운영일지", "교육 결과보고서")):
-                return False, 0.0, ""
-            if label == "MCI 훈련 결과" and not any(token in name for token in ("훈련 결과", "모의훈련", "영상")):
-                return False, 0.0, ""
-            return True, min(0.98, 0.86 + 0.03 * len(hits)), f"{label}와 문서명 신호({', '.join(hits[:4])}) 일치"
-    return False, 0.0, ""
+    from .domain_neutral_matching import candidate_match
+    return candidate_match(requirement, evidence_name)
+
 
 
 def _evidence_document_ids(documents: list[dict], evidence: str, program: str, indicator: str) -> list[str]:
@@ -160,6 +143,12 @@ def _evidence_document_ids(documents: list[dict], evidence: str, program: str, i
     matches: list[str] = []
     for document in documents:
         if not _is_evidence_document(document) or "자료없음" in _safe_document_name(document):
+            continue
+        saved = (document.get('analysis') or {}).get('evidence_matches')
+        if saved is not None:
+            if any(str(item.get('indicator', '')).strip().lower() == indicator_text.strip()
+                   for item in saved.get('pdm', [])):
+                matches.append(str(document['id']))
             continue
         name = _safe_document_name(document)
         matched = False
@@ -174,11 +163,11 @@ def _evidence_document_ids(documents: list[dict], evidence: str, program: str, i
         elif "수료명단" in evidence_text:
             matched = "출석부" in name or "수료" in name
         elif "교육 결과보고서" in evidence_text:
-            matched = "결과보고서" in name and any(token in name for token in ("교육", "강사 양성", "cpcr"))
+            matched = "결과보고서" in name and any(token in name for token in ("교육", "강사 양성"))
         elif "회의록" in evidence_text:
             matched = "회의록" in name
         elif "결과보고서" in evidence_text:
-            topic_tokens = [token for token in ("교원", "강사", "교육", "cpcr", "mci", "워크샵") if token in f"{program_text} {indicator_text}"]
+            topic_tokens = sorted(_indicator_tokens(f"{program_text} {indicator_text}"))
             matched = "결과보고서" in name and (not topic_tokens or any(token in name for token in topic_tokens))
         elif "mou" in evidence_text or "loi" in evidence_text:
             matched = "mou" in name or "loi" in name or "협약" in name
@@ -251,14 +240,7 @@ def _performance_indicators(documents: list[dict]) -> tuple[list[dict], dict | N
     return rows, source
 
 
-_INDICATOR_ALIASES = (
-    ("졸업시험", "자격시험"),
-    ("심폐소생술", "cpcr"),
-    ("master instructor", "전문 강사"),
-    ("masterinstructor", "전문강사"),
-    ("전공 관련 분야", "취업"),
-    ("전공관련분야", "취업"),
-)
+_INDICATOR_ALIASES = (("졸업시험", "자격시험"), ("전공 관련 분야", "취업"), ("전공관련분야", "취업"))
 _INDICATOR_STOPWORDS = {
     "및", "여부", "수", "건", "명", "회", "종", "비율", "증가", "감소", "완료",
     "현지", "지역", "대상", "사업", "프로그램", "교육", "운영", "개발", "실시",
@@ -303,7 +285,7 @@ def _indicator_match_score(pdm_indicator: object, reported_indicator: object) ->
     pdm_compact = pdm_text.replace(" ", "")
     reported_compact = reported_text.replace(" ", "")
     containment = 0.0
-    if min(len(pdm_compact), len(reported_compact)) >= 5 and (
+    if min(len(pdm_compact), len(reported_compact)) >= 3 and reported_compact not in _INDICATOR_STOPWORDS and (
         pdm_compact in reported_compact or reported_compact in pdm_compact
     ):
         containment = 0.82
@@ -315,20 +297,10 @@ def _indicator_match_score(pdm_indicator: object, reported_indicator: object) ->
     pdm_dimension = _indicator_measure_dimension(pdm_indicator)
     reported_dimension = _indicator_measure_dimension(reported_indicator)
     dimension_mismatch = bool(pdm_dimension and reported_dimension and pdm_dimension != reported_dimension)
-    strong_signatures = (
-        ("자격시험", "합격률"), ("취업률",), ("cpcr", "강사"),
-        ("mci", "훈련"), ("표준", "승인"),
-    )
-    for signals in strong_signatures:
-        if all(signal in pdm_compact and signal in reported_compact for signal in signals):
-            if dimension_mismatch:
-                return min(0.48, max(containment, dice, sequence))
-            return max(0.84, min(1.0, max(containment, dice, sequence) + 0.14))
-    distinctive = (("교재",), ("유지보수", "장비"))
     bonus = 0.0
-    for signals in distinctive:
-        if all(signal in pdm_compact and signal in reported_compact for signal in signals):
-            bonus = max(bonus, 0.14)
+    # Distinctive shared terms, independent of any named sector or program.
+    if len(overlap) >= 2 and not dimension_mismatch:
+        bonus = .14
     score = max(containment, dice, sequence) + bonus
     if dimension_mismatch:
         score -= 0.28
@@ -404,6 +376,8 @@ def _monitoring_indicators_from_pdm(
                 "reported_indicator": str(reported.get("indicator") or ""),
                 "reported_match_confidence": round(best_score, 3) if reported else None,
             })
+    from .pdm_targets import apply_pdm_targets
+    apply_pdm_targets(result, '')
     return result
 
 
@@ -518,21 +492,59 @@ def _attach_performance_risk_analysis(performance: list[dict], analyze_risks: bo
     return metadata
 
 
-def refresh_pdm_model(*, analyze_risks: bool = False) -> uuid.UUID:
+def refresh_pdm_model(*, analyze_risks: bool = False, refresh_run_id=None, analysis_plan=None) -> uuid.UUID:
     # Upload workers and manual refreshes must not overwrite each other's snapshots.
     with connection() as conn, conn.transaction():
         conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", (str(current_project_id()),))
-        return _refresh_pdm_model(analyze_risks=analyze_risks)
+        return _refresh_pdm_model(analyze_risks=analyze_risks, refresh_run_id=refresh_run_id, analysis_plan=analysis_plan)
 
 
-def _refresh_pdm_model(*, analyze_risks: bool = False) -> uuid.UUID:
+def _refresh_pdm_model(*, analyze_risks: bool = False, refresh_run_id=None, analysis_plan=None) -> uuid.UUID:
+    from .project_lifecycle import capture_input_snapshot, snapshots_match
+    input_snapshot = capture_input_snapshot() if refresh_run_id else None
+    if analysis_plan and not snapshots_match(analysis_plan['input_snapshot'], input_snapshot, include_evaluation=False):
+        raise RuntimeError('검토 이후 자료가 변경되었습니다. 분석 개요와 문서 매핑을 다시 확인해 주세요.')
     documents = _documents()
+    with connection() as conn:
+        previous=conn.execute('SELECT id,source_document_id,model FROM pdm_models ORDER BY created_at DESC LIMIT 1').fetchone()
+    if analysis_plan and 'new_mappings' in analysis_plan and analysis_plan.get('baseline_model_id') != (str(previous['id']) if previous else None):
+        raise RuntimeError('이전 성과 평가가 변경되었습니다. 신규 분석 대상을 다시 확인해 주세요.')
+    if refresh_run_id and not analysis_plan:
+        from .evidence_matching import ensure_current_matches
+        ensure_current_matches(documents)
     if not documents:
-        raise RuntimeError("PDM 모델을 만들 완료 문서가 없습니다.")
-    source, slots = _select_pdm_source(documents)
+        raise NoPdmSource("PDM 모델을 만들 완료 문서가 없습니다.")
+    try:
+        source, slots = _select_pdm_source(documents)
+    except NoPdmSource:
+        # Preserve already registered models during rollout. Never infer a new
+        # role from a filename, and never reuse a source explicitly rejected by LLM.
+        with connection() as conn:
+            previous = conn.execute("SELECT source_document_id,model FROM pdm_models ORDER BY created_at DESC LIMIT 1").fetchone()
+        source = next((d for d in documents if previous and str(d['id']) == str(previous['source_document_id'])), None)
+        slots = (previous['model'].get('source_cells') or {}) if previous else {}
+        if not source or (source.get('analysis') or {}).get('content_classification') or not slots:
+            raise
     model = _model_from_slots(slots)
-    reported_performance, performance_source = _performance_indicators(documents)
-    performance = _monitoring_indicators_from_pdm(model["tiers"], reported_performance, documents)
+    from .indicator_identity import assign_identities
+    assign_identities(model, previous['model'] if previous else None, current_project_id(), source['id'])
+    if analysis_plan:
+        if analysis_plan['source_document_id'] != str(source['id']):
+            raise RuntimeError('검토 이후 PDM 기준 문서가 변경되었습니다. 다시 확인해 주세요.')
+        performance, reported_performance, performance_source = [], [], None
+        for tier in model['tiers']:
+            for indicator in tier['indicators']:
+                ids = set(analysis_plan['mappings'].get(indicator['id'], []))
+                seed_ids=set(analysis_plan.get('new_mappings',analysis_plan['mappings']).get(indicator['id'],[]))
+                selected = [doc for doc in documents if str(doc['id']) in seed_ids]
+                reported, _ = _performance_indicators(selected)
+                reported_performance.extend(reported)
+                items = _monitoring_indicators_from_pdm([{**tier, 'indicators': [indicator]}], reported, selected)
+                items[0]['evidence_document_ids'] = sorted(ids)
+                performance.extend(items)
+    else:
+        reported_performance, performance_source = _performance_indicators(documents)
+        performance = _monitoring_indicators_from_pdm(model["tiers"], reported_performance, documents)
     model["performance_indicators"] = performance
     model["performance_source_document_id"] = str(performance_source["id"]) if performance_source else None
     model["performance_source_file_name"] = performance_source["original_name"] if performance_source else None
@@ -549,17 +561,51 @@ def _refresh_pdm_model(*, analyze_risks: bool = False) -> uuid.UUID:
     for tier in model["tiers"]:
         for indicator in tier["indicators"]:
             for document in documents:
-                matched, confidence, rationale = _matches_pdm_requirement(document, indicator["mov"], indicator["text"])
+                if analysis_plan:
+                    if str(document['id']) in analysis_plan['mappings'].get(indicator['id'], []):
+                        assignments.append((document['id'], indicator['id'], tier['id'], indicator['mov'], 1.0, '성과지표 분석 준비 화면에서 확인한 문서 매핑'))
+                    continue
+                saved = (document.get('analysis') or {}).get('evidence_matches')
+                if saved is not None:
+                    item = next((item for item in saved.get('pdm', []) if item['indicator_id'] == indicator['id']), None)
+                    source_matches = (saved.get('sources', {}).get('pdm') or {}).get('id') == str(source['id'])
+                    matched = bool(item and source_matches)
+                    confidence, rationale = (item['confidence'], item['rationale']) if matched else (0, '')
+                else:
+                    matched, confidence, rationale = _matches_pdm_requirement(document, indicator["mov"], indicator["text"])
+                override = (document.get('analysis') or {}).get('pdm_mapping_overrides') or {}
+                if override.get('source_document_id') == str(source['id']):
+                    if indicator['id'] in override.get('included', []):
+                        matched, confidence, rationale = True, 1.0, '사용자가 확인한 문서 매핑'
+                    if indicator['id'] in override.get('excluded', []):
+                        matched = False
                 if matched:
                     assignments.append((document["id"], indicator["id"], tier["id"], indicator["mov"], confidence, rationale))
 
-    model["monitoring"]["evidence_analysis"] = enrich_from_evidence(performance, documents, assignments)
-    model["risk_analysis"] = _attach_performance_risk_analysis(performance, analyze_risks)
+    if analysis_plan and 'new_mappings' in analysis_plan:
+        from .performance_delta import enrich
+        delta=enrich(performance,documents,analysis_plan,previous)
+        model['monitoring']['pair_results']=delta.pop('pair_results')
+        changed=set(delta.pop('changed_indicator_ids'))
+        model['monitoring']['evidence_analysis']=delta
+    else:
+        changed={i['id'] for i in performance}
+        model["monitoring"]["evidence_analysis"] = enrich_from_evidence(performance, documents, assignments)
+    from .pdm_targets import apply_pdm_targets
+    changed.update(apply_pdm_targets(performance, source['id']))
+    if refresh_run_id:
+        model['monitoring']['input_snapshot'] = input_snapshot
+    if analysis_plan:
+        model['monitoring']['reviewed_mappings'] = analysis_plan['mappings']
+        model['monitoring']['review_revision'] = analysis_plan['revision']
+    model["risk_analysis"] = _attach_performance_risk_analysis([i for i in performance if i['id'] in changed], analyze_risks)
 
     model_id = uuid.uuid4()
     with connection() as conn, conn.transaction():
+        if refresh_run_id and not snapshots_match(input_snapshot, capture_input_snapshot(conn), include_evaluation=False):
+            raise RuntimeError('성과 분석 도중 자료가 변경되었습니다. 기존 성과 결과를 보존했습니다. 최신 자료로 다시 분석해 주세요.')
         conn.execute("DELETE FROM pdm_document_assignments")
-        conn.execute("DELETE FROM pdm_models")
+        # Append versions so foundation changes and earlier measurements remain auditable.
         conn.execute(
             """INSERT INTO pdm_models(id,source_document_id,source_file_name,pdm_version,model)
                VALUES (%s,%s,%s,'source-table-v1',%s)""",
@@ -575,4 +621,7 @@ def _refresh_pdm_model(*, analyze_risks: bool = False) -> uuid.UUID:
                      confidence=excluded.confidence,rationale=excluded.rationale""",
                 assignment,
             )
+        if refresh_run_id:
+            from .pdm_jobs import finish_refresh
+            finish_refresh(conn, refresh_run_id, model_id, model)
     return model_id

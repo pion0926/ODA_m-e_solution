@@ -74,7 +74,7 @@ def table_widths(columns, width):
     if len(columns) == 2:
         fractions = [.24, .76]
     elif len(columns) == 3:
-        fractions = [.18, .12, .70] if columns[1] == '평점' else [.22, .43, .35]
+        fractions = [.18, .16, .66] if columns[1] == '평점' else [.22, .43, .35]
     elif columns[1] == '목표':
         fractions = [.31, .13, .13, .43]
     else:
@@ -87,14 +87,14 @@ def get_profile(count: int) -> dict:
         raise ValueError("발표자료는 15페이지 또는 30페이지만 선택할 수 있습니다.")
     pages = BRIEF if count == 15 else DETAILED
     width = 720 if count == 15 else 780
-    result = {"id": f"reference-{count}", "version": "2026-09-06.1", "slide_count": count,
+    result = {"id": f"reference-{count}", "version": "2026-09-16.1", "slide_count": count,
             "reference_file": "south-africa-15.pdf" if count == 15 else "mozambique-50.pdf",
             "reference_page_count": 15 if count == 15 else 50,
             "width_pt": width, "height_pt": 540,
             "pages": [dict(p, slide_number=i) for i, p in enumerate(pages, 1)]}
     for p in result['pages']:
         if p['columns']:
-            size = 13 if len(p['columns']) <= 3 else 12
+            size = 16 if len(p['columns']) <= 3 else 15
             # Two full-width Korean lines per cell, leaving room for six rows.
             p['cell_char_limits'] = [max(8, int((w-14)/size)*2) for w in table_widths(p['columns'], width-56)]
     return result

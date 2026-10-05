@@ -22,7 +22,7 @@ class TocColumnsTests(unittest.TestCase):
             s1=a.read('Contents/section1.xml').decode();s2=b.read('Contents/section1.xml').decode()
             self.assertEqual(a.read('Contents/header.xml'),b.read('Contents/header.xml'))
             self.assertEqual(re.findall(r'<hp:cellSz[^>]*/>',s1),re.findall(r'<hp:cellSz[^>]*/>',s2))
-            self.assertEqual(s2.count('name="toc_number_'),20)
+            self.assertEqual(s2.count('name="toc_number_'),26)
             for _,_,p in [(t[0],t[1],t[2]) for label in TOC_SECTION2_LABELS.values() if (t:=_toc_labeled_numeric_target(s2,label))]:
                 self.assertNotIn('<hp:tab ',p)
             for k,label in TOC_SECTION2_LABELS.items():

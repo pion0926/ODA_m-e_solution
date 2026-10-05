@@ -21,7 +21,7 @@
     const frame = byId('reportSectionFrame');
     const status = byId('reportPreviewStatus');
     const pending = new Map();
-    let sequence = 0, timer, running = false, loadedVersion = null;
+    let sequence = 0, timer, running = null, loadedVersion = null;
     const origin = location.origin;
     function rpc(method, params = {}) {
       return new Promise((resolve, reject) => {
@@ -66,9 +66,17 @@
       byId('reportPreviewPages').textContent = '';
       byId('reportPreviewZoom').textContent = '—';
     }
+    function cancel() {
+      if (!running) return;
+      running.abort(); running = null;
+      for (const item of pending.values()) { clearTimeout(item.timeout); item.reject(new Error('미리보기 요청 변경')); }
+      pending.clear();
+      // A previous renderer load must not overwrite a newer selection.
+      initFrame();
+    }
     async function render() {
       clearTimeout(timer);
-      if (running) return;
+      cancel();
       const item = gate.current();
       if (!item || loadedVersion === item.version) return;
       if (!String(item.content || '').trim()) {
@@ -76,19 +84,22 @@
         status.dataset.state = 'empty';
         return;
       }
-      running = true;
-      byId('reportPreviewRefresh').disabled = true;
+      const attempt = new AbortController();
+      running = attempt;
+      const deadline = setTimeout(() => attempt.abort(), 90000);
+      byId('reportPreviewRefresh').disabled = false;
+      byId('reportPreviewRefresh').textContent = '다시 불러오기';
       stale('선택 섹션을 한글 양식으로 조판 중…');
       const started = performance.now();
       try {
         const result = await request(`/api/v2/report/sections/${encodeURIComponent(item.partId)}/preview`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: item.content }), timeoutMs: 90000
+          body: JSON.stringify({ content: item.content }), signal: attempt.signal
         });
-        if (!gate.accepts(item) || result.part_id !== item.partId) return;
+        if ((!gate.accepts(item) || attempt.signal.aborted) || result.part_id !== item.partId) return;
         await waitForFrame();
         await rpc('ready');
-        if (!gate.accepts(item)) return;
+        if ((!gate.accepts(item) || attempt.signal.aborted)) return;
         const bytes = Uint8Array.from(atob(result.hwpx_base64), value => value.charCodeAt(0));
         const focused = document.activeElement;
         const caret = focused?.tagName === 'TEXTAREA' ? [focused.selectionStart, focused.selectionEnd] : null;
@@ -99,7 +110,7 @@
           focused.focus({ preventScroll: true });
           focused.setSelectionRange(...caret);
         }
-        if (!gate.accepts(item)) return;
+        if ((!gate.accepts(item) || attempt.signal.aborted)) return;
         frame.contentWindow.postMessage({ type: 'section-preview-fit' }, origin);
         loadedVersion = item.version;
         frame.style.visibility = 'visible';
@@ -109,14 +120,13 @@
         status.textContent = `저장된 섹션 반영 완료 · ${((performance.now() - started) / 1000).toFixed(1)}초`;
         status.dataset.state = 'ready';
       } catch (error) {
-        if (gate.accepts(item)) {
+        if (gate.accepts(item) && running === attempt) {
           stale(`미리보기를 만들지 못했습니다. 편집 내용은 유지됩니다. ${error.message}`);
           status.dataset.state = 'failed';
         }
       } finally {
-        running = false;
-        byId('reportPreviewRefresh').disabled = false;
-        if (!gate.accepts(item) && gate.current()) timer = setTimeout(render, 0);
+        clearTimeout(deadline);
+        if (running === attempt) { running = null; byId('reportPreviewRefresh').textContent = '새로고침'; }
       }
     }
     byId('reportPreviewRefresh').addEventListener('click', () => {
@@ -148,10 +158,11 @@
       select(partId, content, title) {
         byId('reportPreviewTitle').textContent = title || '선택 섹션 한글 미리보기';
         if (!gate.update(partId, content)) return;
+        cancel();
         stale('선택 섹션의 미리보기 갱신 대기…');
         clearTimeout(timer); timer = setTimeout(render, 700);
       },
-      clear() { gate.invalidate(); clearTimeout(timer); stale('섹션을 선택하세요.'); },
+      clear() { gate.invalidate(); cancel(); clearTimeout(timer); stale('섹션을 선택하세요.'); },
       fit() { frame.contentWindow.postMessage({ type: 'section-preview-fit' }, origin); },
       refresh() { loadedVersion = null; return render(); }
     };

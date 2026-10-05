@@ -65,6 +65,8 @@ from .tables import (
     ACHIEVEMENT_HEADER_ROW_HEIGHTS,
     ACHIEVEMENT_PHYSICAL_ROWS_PER_ITEM,
     ACHIEVEMENT_TABLE_PAGE_ITEM_GROUPS,
+    ACHIEVEMENT_PAGE_HEIGHT,
+    ACHIEVEMENT_FIRST_PAGE_HEIGHT,
     EVALUATION_MATRIX_CELL_MARGIN_HORIZONTAL,
     EVALUATION_MATRIX_CELL_MARGIN_VERTICAL,
     EVALUATION_MATRIX_HEADER_ROW_HEIGHT,
@@ -248,11 +250,10 @@ def validate_report_layout_contract(data: bytes) -> dict:
             for token in ("평가기준", "평가질문", "분석방법")
         )
     ]
-    if len(matrix_tables) != len(EVALUATION_MATRIX_TABLE_PAGE_ROW_GROUPS):
-        errors.append(
-            f"평가매트릭스 페이지 안전 분할 불일치: "
-            f"{len(matrix_tables)}/{len(EVALUATION_MATRIX_TABLE_PAGE_ROW_GROUPS)}"
-        )
+    if not matrix_tables:
+        errors.append("평가매트릭스 표 누락")
+    if "평가매트릭스 상세 M" in get_hwpx_xml_scope_text(pdm):
+        errors.append("평가매트릭스 별도 상세 본문 잔존")
     if any("…" in get_hwpx_xml_scope_text(table) for table in matrix_tables):
         errors.append("평가매트릭스 셀 생략부호 잔존")
     expected_matrix_margin = (
@@ -261,10 +262,7 @@ def validate_report_layout_contract(data: bytes) -> dict:
         f'top="{EVALUATION_MATRIX_CELL_MARGIN_VERTICAL}"',
         f'bottom="{EVALUATION_MATRIX_CELL_MARGIN_VERTICAL}"',
     )
-    for table_index, (matrix_table, row_group) in enumerate(
-        zip(matrix_tables, EVALUATION_MATRIX_TABLE_PAGE_ROW_GROUPS),
-        start=1,
-    ):
+    for table_index, matrix_table in enumerate(matrix_tables, start=1):
         if not all(
             attribute in matrix_table
             for attribute in ('pageBreak="CELL"', 'repeatHeader="1"', 'noAdjust="1"')
@@ -279,10 +277,8 @@ def validate_report_layout_contract(data: bytes) -> dict:
         ):
             errors.append(f"평가매트릭스 {table_index}쪽 개별 셀 여백 불일치")
         rows = find_hwpx_tag_spans(matrix_table, "hp:tr")
-        if len(rows) != len(row_group):
-            errors.append(
-                f"평가매트릭스 {table_index}쪽 행 구성 불일치: {len(rows)}/{len(row_group)}"
-            )
+        if len(rows) < 2:
+            errors.append(f"평가매트릭스 {table_index}쪽 본문 행 누락")
             continue
         table_height = 0
         for row_index, (row_start, row_end) in enumerate(rows):
@@ -304,6 +300,8 @@ def validate_report_layout_contract(data: bytes) -> dict:
             if any(f'rowAddr="{row_index}"' not in cell for cell in cells):
                 errors.append(f"평가매트릭스 {table_index}쪽 {row_index}행 주소 불일치")
             table_height += expected_height
+        if table_height > 60000:
+            errors.append(f"평가매트릭스 {table_index}쪽 인쇄 영역 초과")
         table_size = re.search(r'<hp:sz\b[^>]*\bheight="(\d+)"', matrix_table)
         if not table_size or int(table_size.group(1)) != table_height:
             errors.append(
@@ -323,7 +321,11 @@ def validate_report_layout_contract(data: bytes) -> dict:
         )
     ]
     achievement_item_count = sum(max(0, len(find_hwpx_tag_spans(table, "hp:tr")) - ACHIEVEMENT_HEADER_ROW_COUNT) for table in achievement_tables) // ACHIEVEMENT_PHYSICAL_ROWS_PER_ITEM
-    current_achievement_groups = achievement_page_groups(achievement_item_count)
+    achievement_heights=[]
+    for table in achievement_tables:
+        rows=[table[a:b] for a,b in find_hwpx_tag_spans(table,'hp:tr')][ACHIEVEMENT_HEADER_ROW_COUNT:]
+        achievement_heights.extend(achievement_item_group_height(''.join(rows[i:i+3])) for i in range(0,len(rows),3))
+    current_achievement_groups = achievement_page_groups(achievement_item_count,achievement_heights)
     if not achievement_tables or len(achievement_tables) != len(current_achievement_groups):
         errors.append(
             f"성과달성도 표 페이지 분할 불일치: "
@@ -449,6 +451,8 @@ def validate_report_layout_contract(data: bytes) -> dict:
 
             table_size = re.search(r'<hp:sz\b[^>]*\bheight="(\d+)"', achievement_table)
             expected_table_height = sum(physical_row_heights)
+            if expected_table_height > (ACHIEVEMENT_FIRST_PAGE_HEIGHT if table_index==1 else ACHIEVEMENT_PAGE_HEIGHT):
+                errors.append(f'성과달성도 표 {table_index}쪽 인쇄 높이 초과')
             if not table_size or int(table_size.group(1)) != expected_table_height:
                 errors.append(
                     f"성과달성도 표 전체 높이 불일치: "
@@ -464,11 +468,8 @@ def validate_report_layout_contract(data: bytes) -> dict:
         if "평가 기준" in get_hwpx_xml_scope_text(grade[start:end])
         and "핵심 질문" in get_hwpx_xml_scope_text(grade[start:end])
     ]
-    if len(grade_tables) != len(GRADE_TABLE_PAGE_ROW_GROUPS):
-        errors.append(
-            "평가등급 결과표 2쪽 분할 불일치: "
-            f"{len(grade_tables)}/{len(GRADE_TABLE_PAGE_ROW_GROUPS)}"
-        )
+    if not grade_tables:
+        errors.append("평가등급 결과표 누락")
     else:
         question_count = subtotal_count = summary_count = 0
         expected_margin_parts = (
@@ -545,6 +546,11 @@ def validate_report_layout_contract(data: bytes) -> dict:
                     errors.append(f"평가등급 결과표 {part_index}쪽 질문 산정 이유 TAB 잔존")
 
             table_size = re.search(r'<hp:sz\b[^>]*\bheight="(\d+)"', grade_table)
+            # Reserve space for the title and wrapped project name above the
+            # first table. Text presence alone does not prove it is on-page.
+            page_budget = 58000 if part_index == 1 else 65000
+            if table_height > page_budget:
+                errors.append(f"평가등급 결과표 {part_index}쪽 인쇄 영역 초과: {table_height}/{page_budget}")
             if not table_size or int(table_size.group(1)) != table_height:
                 errors.append(f"평가등급 결과표 {part_index}쪽 전체 높이 불일치")
         if (question_count, subtotal_count, summary_count) != (11, 5, 3):
@@ -552,7 +558,7 @@ def validate_report_layout_contract(data: bytes) -> dict:
                 "평가등급 결과표 행 구성 불일치: "
                 f"질문 {question_count}/11, 평점 {subtotal_count}/5, 종합 {summary_count}/3"
             )
-        expected_breaks = len(GRADE_TABLE_PAGE_ROW_GROUPS) - 1
+        expected_breaks = len(grade_tables) - 1
         if len(re.findall(r'<hp:p\b[^>]*\bpageBreak="1"', grade)) < expected_breaks:
             errors.append(f"평가등급 결과표 쪽 나눔 문단 {expected_breaks}개 누락")
 

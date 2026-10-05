@@ -1,4 +1,6 @@
 from __future__ import annotations
+from .llm_models import current_llm_model
+from .model_catalog import prepare_model_payload
 
 import json
 import hashlib
@@ -23,7 +25,6 @@ from .report_text import sanitize_report_text
 from .settings import (
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
-    OPENROUTER_PRESENTATION_MODEL,
     OPENROUTER_REFERER,
 )
 from .theory_visual_prompt import (
@@ -32,6 +33,7 @@ from .theory_visual_prompt import (
     theory_visual_messages,
 )
 from .usage import record_token_usage
+from .ai.request_limits import request_slot
 
 
 PALETTE = {
@@ -90,7 +92,7 @@ def _extract_json(value: str) -> dict[str, Any]:
 
 def _message_content(response: httpx.Response) -> str:
     payload = response.json()
-    record_token_usage(payload, OPENROUTER_PRESENTATION_MODEL)
+    record_token_usage(payload, current_llm_model())
     content = payload["choices"][0]["message"]["content"]
     if isinstance(content, list):
         return "".join(str(item.get("text") or "") for item in content if isinstance(item, dict))
@@ -115,7 +117,7 @@ def theory_visual_input_digest(context: dict, sections_by_id: dict[str, str], in
     # re-evaluating documents must invalidate a previously rendered diagram.
     relevant = {key: sections_by_id.get(key, "") for key in (
         "theory", "working-factors", "nonworking-factors", "pdm", "project-overview", "achievement", "conclusion")}
-    payload = {"project": context.get("project"), "sections": relevant,
+    payload = {"project": context.get("project"), "sections": relevant, "model": current_llm_model(),
                "document_digest": input_snapshot.get("document_digest"),
                "evaluation_run_id": input_snapshot.get("evaluation_run_id"),
                "design_version": THEORY_VISUAL_DESIGN_VERSION}
@@ -123,9 +125,9 @@ def theory_visual_input_digest(context: dict, sections_by_id: dict[str, str], in
 
 
 def request_theory_visual_plan(context: dict, sections_by_id: dict[str, str]) -> dict[str, Any]:
-    """Ask Claude to rebuild the current project's six-column visual."""
+    """Ask the assigned project model to rebuild the six-column visual."""
     if not OPENROUTER_API_KEY:
-        raise RuntimeError("OPENROUTER_API_KEY가 설정되지 않아 Claude 변화이론 도식을 생성할 수 없습니다.")
+        raise RuntimeError("OPENROUTER_API_KEY가 설정되지 않아 변화이론 도식을 생성할 수 없습니다.")
     source = theory_visual_source(context, sections_by_id)
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -134,14 +136,14 @@ def request_theory_visual_plan(context: dict, sections_by_id: dict[str, str]) ->
         "X-Title": "KODAME Theory of Change Visual",
     }
     payload = {
-        "model": OPENROUTER_PRESENTATION_MODEL,
+        "model": current_llm_model(),
         "messages": theory_visual_messages(source),
         "temperature": 0.2,
         "max_completion_tokens": 4500,
         "response_format": {"type": "json_schema", "json_schema": THEORY_VISUAL_SCHEMA},
     }
-    with httpx.Client(timeout=httpx.Timeout(300.0, connect=20.0)) as client:
-        response = client.post(f"{OPENROUTER_BASE_URL}/chat/completions", headers=headers, json=payload)
+    with request_slot(payload) as reservation, httpx.Client(timeout=httpx.Timeout(300.0, connect=20.0)) as client:
+        response = client.post(f"{OPENROUTER_BASE_URL}/chat/completions", headers=headers, json=prepare_model_payload(payload))
     if response.status_code >= 400:
         raise RuntimeError(
             f"OpenRouter Claude 변화이론 호출 실패: HTTP {response.status_code} {response.text[:300]}"
@@ -494,7 +496,7 @@ def build_theory_visual_artifacts(context: dict, sections_by_id: dict[str, str])
         "plan": plan,
         "pptx": pptx,
         "png": png,
-        "model": OPENROUTER_PRESENTATION_MODEL,
+        "model": current_llm_model(),
         "design_version": THEORY_VISUAL_DESIGN_VERSION,
         "render_source": render_source,
     }

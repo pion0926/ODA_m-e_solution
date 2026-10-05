@@ -27,7 +27,13 @@ class ReportResponseTests(unittest.TestCase):
                 with self.subTest(part=part, field=field):
                     content = section_response_content(payload, part, field)
                     final = _finalize_generated_section_content(part, content, {'project_status': 'ongoing'})
-                    self.assertEqual(json.loads(final), document)
+                    actual = json.loads(final)
+                    self.assertEqual(actual['schema'], document['schema'])
+                    self.assertEqual(set(actual['slots']), set(document['slots']))
+                    if part == 'eval-purpose':
+                        self.assertIn('검증된 근거임.', actual['slots']['evaluation_purpose_scope_body'])
+                    else:
+                        self.assertEqual(actual, document)
 
     def test_wrong_schema_or_missing_slots_rejected(self):
         with self.assertRaises(ValueError):

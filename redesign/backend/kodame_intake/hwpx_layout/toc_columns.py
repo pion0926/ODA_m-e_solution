@@ -7,6 +7,7 @@ import unicodedata
 import zipfile
 
 from backend.oda_me.hwpx.patchers import TOC_SECTION2_LABELS, _toc_labeled_numeric_target
+from backend.oda_me.hwpx.toc_registry import TOC_CHAPTER_KEYS
 
 MARKER = 'toc_number_'
 
@@ -66,7 +67,7 @@ def fixed_toc_columns(data: bytes, section_path: str = 'Contents/section1.xml') 
         start,end,p,number_match = target
         number = number_match[2].strip()
         opening = re.match(r'<hp:p\b[^>]*>',p).group()
-        chapter = '성과달성도' in label
+        chapter = key in TOC_CHAPTER_KEYS
         # Common physical right edge: 20pt indent + 413.44pt for normal rows;
         # chapter rows start at 0pt and therefore use the full 433.44pt.
         width = 43344 if chapter else 41344
@@ -92,6 +93,13 @@ def fixed_toc_columns(data: bytes, section_path: str = 'Contents/section1.xml') 
                  +'</hp:tr></hp:tbl>')
         cache = ''.join(re.findall(r'<hp:linesegarray\b[^>]*>.*?</hp:linesegarray>',p,re.S))
         rendered = opening + '<hp:run charPrIDRef="80">'+table+'</hp:run>'+cache+'</hp:p>'
+        if key == 'grade_page':
+            # Native and web renderers disagree on before-spacing for an
+            # inline table. Reserve two real lines below the floating ribbon.
+            # This happens only on first conversion; subsequent patches are
+            # numeric-cell edits and cannot accumulate spacer paragraphs.
+            spacer = '<hp:p id="{id}" paraPrIDRef="40" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="18"><hp:t/></hp:run></hp:p>'
+            rendered = spacer.format(id=uid+4) + spacer.format(id=uid+5) + rendered
         xml = xml[:start]+rendered+xml[end:]
     entries['Contents/header.xml'] = header.encode()
     entries[section_path] = xml.encode()

@@ -13,6 +13,7 @@ from pathlib import Path
 from psycopg.types.json import Jsonb
 from .report_policy import REPORT_TITLE
 from .project_lifecycle import capture_input_snapshot, snapshots_match
+from .project_identity import current_project_identity, project_title_overview, project_title_section
 
 from backend.oda_me.hwpx.patchers import (
     ACHIEVEMENT_CELL_OFFSETS,
@@ -44,6 +45,7 @@ from .hwpx_layout.cover import (
 )
 from .hwpx_layout.headings import patch_orphan_heading_page_breaks
 from .hwpx_layout.pipeline import finalize_report_header_layout, finalize_report_section_layout
+from .hwpx_layout.overflow import resolve_detail_text
 from .hwpx_layout.spacing import report_heading_gap_violations_xml
 from .hwpx_layout.rendering import (
     REQUIRED_TOC_KEYS,
@@ -74,7 +76,7 @@ from .hwpx_layout.toc import (
     patch_toc_page_numbers as _patch_toc_page_numbers,
     validate_toc_page_numbers,
 )
-from .pdm_source import extract_authoritative_pdm_slots
+from .document_classification import pdm_slots
 from .quality_profile import toc_project_overrides
 from .report_sources import (
     normalize_source_mentions,
@@ -131,7 +133,7 @@ def _report_sections_digest() -> str:
 
 
 def _load_cached_theory_visual_artifacts(input_digest: str) -> dict | None:
-    """Reuse the latest project-specific Claude visual without resending report text."""
+    """Reuse a visual only when project input, model and design match."""
 
     with connection() as conn:
         rows = conn.execute(
@@ -152,7 +154,7 @@ def _load_cached_theory_visual_artifacts(input_digest: str) -> dict | None:
         return {
             "png": png_path.read_bytes(),
             "pptx": pptx_path.read_bytes(),
-            "model": str(metadata.get("model") or "anthropic/claude-opus-4.8") + " (cached)",
+            "model": str(metadata.get("model") or "unknown"),
             "plan": {
                 "design_version": THEORY_VISUAL_DESIGN_VERSION,
                 "column_count": int(metadata.get("column_count") or 6),
@@ -169,6 +171,21 @@ def _coverage_text(value: object) -> str:
     decoded = html.unescape(str(value or ""))
     decoded = re.sub(r"<[^>]+>", "", decoded)
     return re.sub(r"[^0-9A-Za-z가-힣]", "", decoded).lower()
+
+
+def validate_report_identity(data: bytes, project: dict) -> dict:
+    """Do not publish a cover/grade/overview whose identity was truncated or stale."""
+    expected = _coverage_text(project.get('title'))
+    missing = []
+    with zipfile.ZipFile(BytesIO(data)) as archive:
+        for label, path in (('표지', 'Contents/section0.xml'), ('평가등급표', 'Contents/section2.xml'),
+                            ('사업개요', 'Contents/section3.xml')):
+            visible = _coverage_text(get_hwpx_xml_scope_text(archive.read(path).decode('utf-8')))
+            if not expected or expected not in visible:
+                missing.append(label)
+    if missing:
+        raise ValueError('보고서 사업명 일치 검증 실패: ' + ', '.join(missing))
+    return {'ok': True, 'title': project['title'], 'checked': ['cover', 'grade', 'project-overview']}
 
 
 def _body_probes(value: object, limit: int = 2) -> list[str]:
@@ -216,7 +233,7 @@ def _table_cell_texts(table_xml: str) -> list[str]:
 
 
 def _evaluation_matrix_cell_texts(section_xml: str) -> list[str]:
-    """Reconstruct the logical 9x5 matrix from its three physical tables."""
+    """Reconstruct the logical 9x5 matrix, joining continuation cells losslessly."""
 
     tables: list[str] = []
     for start, end in find_hwpx_tag_spans(section_xml, "hp:tbl"):
@@ -227,8 +244,20 @@ def _evaluation_matrix_cell_texts(section_xml: str) -> list[str]:
     if not tables:
         return []
     cells = _table_cell_texts(tables[0])[:5]
+    logical = []
     for table in tables:
-        cells.extend(_table_cell_texts(table)[5:])
+        physical = [html.unescape(get_hwpx_xml_scope_text(table[a:b]))
+                    for a, b in find_hwpx_tag_spans(table, "hp:tc")][5:]
+        for offset in range(0, len(physical), 5):
+            row = physical[offset:offset + 5]
+            if len(row) != 5:
+                raise ValueError("평가매트릭스 열 구성 오류")
+            if row[0].endswith(" (계속)"):
+                if not logical or logical[-1][0] != row[0][:-5]:
+                    raise ValueError("평가매트릭스 계속 행 연결 오류")
+                for index in range(1, 5): logical[-1][index] += row[index]
+            else: logical.append(row)
+    for row in logical: cells.extend(row)
     return cells
 
 
@@ -310,7 +339,7 @@ def _validate_semantic_coverage(data: bytes, context: dict, sections_by_id: dict
     for cell_index, slot_key in matrix_cell_slots.items():
         probe_length = 32 if slot_key.endswith("_question") else 10
         expected = _coverage_text(matrix_slots.get(slot_key))[:probe_length]
-        actual = _coverage_text(matrix_cells[cell_index]) if cell_index < len(matrix_cells) else ""
+        actual = _coverage_text(resolve_detail_text(section4_xml, matrix_cells[cell_index])) if cell_index < len(matrix_cells) else ""
         if expected and expected not in actual:
             failures.append(f"10:eval-matrix {slot_key} 셀 매핑 오류")
 
@@ -324,13 +353,23 @@ def _validate_semantic_coverage(data: bytes, context: dict, sections_by_id: dict
             for token in ("성과지표", "기초선", "달성도")
         )
     ]
-    expected_achievement_groups = achievement_page_groups(len(achievement_rows))
+    # Pagination is content-driven. Semantic validation walks every actual
+    # indicator in order; the separate layout contract validates page heights.
+    expected_achievement_groups = []
+    next_item = 0
+    for table in achievement_tables:
+        physical_rows = len(find_hwpx_tag_spans(table, 'hp:tr')) - ACHIEVEMENT_HEADER_ROWS
+        if physical_rows <= 0 or physical_rows % ACHIEVEMENT_PHYSICAL_ROWS_PER_ITEM:
+            failures.append('14:achievement 지표별 물리행 구조 오류')
+        count = max(0, physical_rows) // ACHIEVEMENT_PHYSICAL_ROWS_PER_ITEM
+        expected_achievement_groups.append(tuple(range(next_item,next_item+count)))
+        next_item += count
     if not achievement_rows:
         failures.append("14:achievement 지표 데이터 누락")
-    if len(achievement_tables) != len(expected_achievement_groups):
+    if next_item != len(achievement_rows):
         failures.append(
-            f"14:achievement 표 페이지 분할 오류: "
-            f"{len(achievement_tables)}/{len(expected_achievement_groups)}"
+            f"14:achievement 전체 지표 수 불일치: "
+            f"{next_item}/{len(achievement_rows)}"
         )
     for part_index, (achievement_table, item_indexes) in enumerate(
         zip(achievement_tables, expected_achievement_groups),
@@ -352,7 +391,7 @@ def _validate_semantic_coverage(data: bytes, context: dict, sections_by_id: dict
                 probe_length = 18 if field_key in {"name", "indicator"} else 10
                 expected = _coverage_text(expected_value)[:probe_length]
                 cell_index = base + ACHIEVEMENT_CELL_OFFSETS[field_key]
-                actual = _coverage_text(achievement_cells[cell_index]) if cell_index < len(achievement_cells) else ""
+                actual = _coverage_text(resolve_detail_text(achievement_section, achievement_cells[cell_index])) if cell_index < len(achievement_cells) else ""
                 if expected and expected not in actual:
                     failures.append(
                         f"14:achievement 표 {item_index + 1}행 {field_key} 셀 매핑 오류"
@@ -511,13 +550,14 @@ def _project_reader_text(value: object, donor: str) -> str:
 
 def _context() -> tuple[dict, dict[str, str]]:
     with connection() as conn:
+        identity = current_project_identity(conn)
         sections = conn.execute("SELECT part_id,content FROM report_sections ORDER BY section_number").fetchall()
         overview_row = conn.execute("SELECT overview FROM project_overviews ORDER BY created_at DESC LIMIT 1").fetchone()
         run = conn.execute("SELECT id FROM evaluation_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1").fetchone()
         evaluations = conn.execute(
             "SELECT * FROM criterion_evaluations WHERE run_id=%s ORDER BY id", (run["id"],)
         ).fetchall() if run else []
-    overview = overview_row["overview"] if overview_row else {}
+    overview = project_title_overview(overview_row["overview"] if overview_row else {}, identity)
     value = lambda key, fallback="확인 필요": str((overview.get(key) or {}).get("text") or fallback)
     criteria = []
     for row in evaluations:
@@ -528,17 +568,18 @@ def _context() -> tuple[dict, dict[str, str]]:
             "finding": sanitize_report_text(item.get("finding", "")),
         } for item in row["question_assessments"]]
         criteria.append({
-            "id": row["criterion_id"], "name": row["criterion_name"], "currentScore4": float(row["score"]),
+            "id": row["criterion_id"], "name": row["criterion_name"], "currentScore4": (float(row["score"]) if row["score"] is not None else None),
             "evaluationResult": {
-                "score": float(row["score"]), "summary": sanitize_report_text(row["summary"]),
+                "score": (float(row["score"]) if row["score"] is not None else None), "summary": sanitize_report_text(row["summary"]),
                 "rationale": sanitize_report_text(row["score_reason"]), "questionAssessments": assessments,
             },
         })
-    total = round(sum(item["currentScore4"] for item in criteria), 1)
-    koica, government = grade(total) if criteria else ("-", "-")
+    total = round(sum(item["currentScore4"] for item in criteria), 1) if len(criteria) == 5 and all(item["currentScore4"] is not None for item in criteria) else None
+    koica, government = grade(total) if total is not None else ("판정보류", "판정보류")
     context = {
         "project": {
             "title": value("project_name"), "period": value("period"), "budget": value("budget"),
+            "identity_resolution": identity,
             "country": value("country"), "location": value("location"),
         },
         "criteria": criteria,
@@ -559,7 +600,8 @@ def _context() -> tuple[dict, dict[str, str]]:
         if not item:
             return "현재 등록 자료 범위에서 추가 검토가 필요하다."
         result = item["evaluationResult"]
-        return sanitize_report_text(f"{item['currentScore4']:.1f}/4. {result['summary']}")
+        value = f"{item['currentScore4']:.1f}/4" if item['currentScore4'] is not None else '판정보류'
+        return sanitize_report_text(f"{value}. {result['summary']}")
 
     # ``summary-ko`` is intentionally not rebuilt here. The saved five-heading
     # draft is the canonical source, and the HWPX adapter may only apply layout
@@ -615,6 +657,7 @@ def _context() -> tuple[dict, dict[str, str]]:
 def _pipeline_context(content_overrides: dict[str, str] | None = None, *, preview_part: str | None = None) -> tuple[dict, dict[str, str], dict]:
     """Build the export context without replacing expert-authored section drafts."""
     with connection() as conn:
+        identity = current_project_identity(conn)
         section_rows = conn.execute(
             "SELECT part_id,content FROM report_sections ORDER BY section_number"
         ).fetchall()
@@ -628,37 +671,25 @@ def _pipeline_context(content_overrides: dict[str, str] | None = None, *, previe
             "SELECT * FROM criterion_evaluations WHERE run_id=%s ORDER BY id", (run["id"],)
         ).fetchall() if run else []
         pdm_source_row = conn.execute(
-            """SELECT original_name,stored_path
-                 FROM intake_documents
-                WHERE status='completed'
-                  AND lower(extension)='.pdf'
-                  AND original_name ILIKE '%%PDM%%'
-                  AND original_name NOT ILIKE '%%README%%'
-                ORDER BY
-                  CASE
-                    WHEN original_name ILIKE '%%최신%%PDM%%'
-                      OR original_name ILIKE '%%PDM%%최신%%' THEN 0
-                    WHEN original_name ILIKE '%%수정%%' THEN 1
-                    ELSE 2
-                  END,
-                  completed_at DESC NULLS LAST,
-                  uploaded_at DESC
-                LIMIT 1"""
+            """SELECT d.original_name,d.analysis,p.model
+                 FROM pdm_models p JOIN evaluation_intake_documents d ON d.id=p.source_document_id
+                WHERE d.status='completed'
+                ORDER BY p.created_at DESC LIMIT 1"""
         ).fetchone()
         metadata_rows = conn.execute(
             """SELECT original_name,extracted_path
-                 FROM intake_documents
+                 FROM evaluation_intake_documents
                 WHERE status='completed' AND extracted_path IS NOT NULL
                 ORDER BY completed_at DESC NULLS LAST, uploaded_at DESC"""
         ).fetchall()
         source_name_rows = conn.execute(
             """SELECT original_name
-                 FROM intake_documents
+                 FROM evaluation_intake_documents
                 WHERE status='completed'
                 ORDER BY uploaded_at DESC"""
         ).fetchall()
 
-    overview = overview_row["overview"] if overview_row else {}
+    overview = project_title_overview(overview_row["overview"] if overview_row else {}, identity)
 
     def overview_value(key: str, fallback: str = "확인 필요") -> str:
         return str((overview.get(key) or {}).get("text") or fallback).strip()
@@ -677,23 +708,24 @@ def _pipeline_context(content_overrides: dict[str, str] | None = None, *, previe
         criteria.append({
             "id": row["criterion_id"],
             "name": row["criterion_name"],
-            "currentScore4": float(row["score"]),
+            "currentScore4": (float(row["score"]) if row["score"] is not None else None),
             "evaluationResult": {
-                "score": float(row["score"]),
+                "score": (float(row["score"]) if row["score"] is not None else None),
                 "summary": _project_reader_text(row["summary"], donor),
                 "rationale": _project_reader_text(row["score_reason"], donor),
                 "questionAssessments": assessments,
             },
         })
 
-    total = round(sum(item["currentScore4"] for item in criteria), 1)
-    koica_grade, government_grade = grade(total) if criteria else ("-", "-")
+    total = round(sum(item["currentScore4"] for item in criteria), 1) if len(criteria) == 5 and all(item["currentScore4"] is not None for item in criteria) else None
+    koica_grade, government_grade = grade(total) if total is not None else ("판정보류", "판정보류")
     period = overview_value("period")
     scope = assessment_scope(overview)
     project_status = scope["project_status"]
     report_label = REPORT_TITLE
     project = {
         "title": overview_value("project_name"),
+        "identity_resolution": identity,
         "title_en": overview_value("project_name_en", ""),
         "period": period,
         "budget": overview_value("budget"),
@@ -702,6 +734,8 @@ def _pipeline_context(content_overrides: dict[str, str] | None = None, *, previe
         "sector": overview_value("sector", ""),
         "donor": donor,
         "implementer": overview_value("implementer"),
+        "project_manager": overview_value("project_manager"),
+        "lead_implementer": overview_value("lead_implementer"),
         "partner": overview_value("partner"),
         "beneficiaries": overview_value("beneficiaries"),
         "stakeholders": overview_value("stakeholders"),
@@ -733,7 +767,7 @@ def _pipeline_context(content_overrides: dict[str, str] | None = None, *, previe
         "_raw_source_names": [str(row["original_name"] or "") for row in source_name_rows],
     }
     if pdm_source_row:
-        pdm_source_slots = extract_authoritative_pdm_slots(pdm_source_row["stored_path"])
+        pdm_source_slots = pdm_slots(pdm_source_row.get("analysis")) or (pdm_source_row.get("model") or {}).get("source_cells", {})
         if pdm_source_slots:
             context["_pdm_source_slots"] = pdm_source_slots
             context["_pdm_source_name"] = pdm_source_row["original_name"]
@@ -755,11 +789,12 @@ def _pipeline_context(content_overrides: dict[str, str] | None = None, *, previe
             "현재 등록 근거 범위에서 확인된 실적은 다음과 같다.",
             reader_text,
         )
-        raw_sections[part_id] = reader_text
+        raw_sections[part_id] = project_title_section(part_id, reader_text, identity)
     prepared_sections, conversion_report = prepare_hwpx_sections(
         context, raw_sections, criteria,
         selected_parts={preview_part} if preview_part else None,
     )
+    prepared_sections = {part: project_title_section(part, body, identity) for part, body in prepared_sections.items()}
     return context, prepared_sections, conversion_report
 
 
@@ -874,6 +909,8 @@ def _local_validate(
         )
     ))
     source_artifacts = source_artifact_issues(visible_text, source_names or [])
+    if re.search(r'"schema"\s*:\s*"section\d+[ _]', visible_text):
+        source_artifacts.append('독자용 본문에 내부 JSON 슬롯 구조가 노출됨')
     project_identity = " ".join(str(project.get(key) or "") for key in ("title", "country", "location", "sector"))
     forbidden_samples = [
         "KOICA의 2010년 대 개발도상국 지원전략",
@@ -965,6 +1002,8 @@ def _run_report_export(export_id: uuid.UUID) -> None:
             raise RuntimeError("고정 원본 HWPX 양식이 변경되었습니다. 레이아웃 프로파일을 다시 생성해야 합니다.")
         source_sections_digest = _report_sections_digest()
         context, sections_by_id, conversion_report = _pipeline_context()
+        from .report_response import normalize_achievement_structure
+        sections_by_id['achievement'] = normalize_achievement_structure(sections_by_id.get('achievement', ''))
         if len(sections_by_id) != 27:
             raise RuntimeError(f"보고서 섹션이 27개가 아닙니다: {len(sections_by_id)}개")
 
@@ -1108,9 +1147,9 @@ def _run_report_export(export_id: uuid.UUID) -> None:
                     if info.filename == "Contents/section4.xml":
                         xml, refreshed_matrix_tables = refresh_evaluation_matrix_split_heights_xml(xml)
                         layout_checks[info.filename]["evaluation_matrix_height_refresh"] = (
-                            refreshed_matrix_tables == len(EVALUATION_MATRIX_TABLE_PAGE_ROW_GROUPS)
+                            refreshed_matrix_tables > 0
                         )
-                        if refreshed_matrix_tables != len(EVALUATION_MATRIX_TABLE_PAGE_ROW_GROUPS):
+                        if refreshed_matrix_tables == 0:
                             raise RuntimeError(
                                 "최종 텍스트 기준 평가매트릭스 분할 표의 행 높이를 모두 갱신하지 못했습니다."
                             )
@@ -1216,6 +1255,7 @@ def _run_report_export(export_id: uuid.UUID) -> None:
         from .rhwp_renderer import finalize_toc_with_rhwp
         _update(export_id, 92, "toc_final", "완성된 문서를 rHWP로 조판하고 목차 쪽수를 최종 확정하는 중")
         final_bytes, rhwp_final = finalize_toc_with_rhwp(final_bytes)
+        identity_validation = validate_report_identity(final_bytes, context['project'])
         toc_page_map = rhwp_final["page_map"]
         toc_validation = rhwp_final["visible_validation"]
         layout_validation = validate_report_layout_contract(final_bytes)
@@ -1240,6 +1280,8 @@ def _run_report_export(export_id: uuid.UUID) -> None:
             "local": local_validation,
             "input_snapshot": input_snapshot,
             "source_sections_sha256": source_sections_digest,
+            "project_identity": context['project'].get('identity_resolution'),
+            "project_identity_validation": identity_validation,
             "kordoc": kordoc_validation,
             "conversion": conversion_report,
             "semantic_coverage": semantic_validation,
@@ -1266,7 +1308,7 @@ def _run_report_export(export_id: uuid.UUID) -> None:
             "embedded_report_visuals": visual_validation,
             "theory_visual": {
                 "model": theory_visual["model"],
-                "source": theory_visual.get("source") or "claude_generated",
+                "source": theory_visual.get("source") or "project_model_generated",
                 "pptx_path": str(theory_pptx_path),
                 "png_path": str(theory_png_path),
                 "design_version": theory_visual.get("design_version") or THEORY_VISUAL_DESIGN_VERSION,
@@ -1285,7 +1327,7 @@ def _run_report_export(export_id: uuid.UUID) -> None:
                 (str(output_path), file_name, Jsonb(validation), export_id),
             )
     except Exception as exc:
-        logging.getLogger(__name__).exception("Report export failed: export_id=%s", export_id)
+        logging.getLogger(__name__).error("Report export failed: export_id=%s error_type=%s", export_id, type(exc).__name__)
         diagnostic = {}
         # Keep a non-published candidate for a reproducible layout diagnosis.
         # The download endpoint still requires status=completed. Never replace

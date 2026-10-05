@@ -12,6 +12,17 @@ from datetime import datetime, timezone
 from .db import connection, current_project_id
 
 
+# Terminal failures of optional uploads do not lock the whole project.
+DOCUMENT_BLOCKS_WORKFLOW_SQL = "(status NOT IN ('completed','failed','cancelled') OR (upload_role<>'evidence' AND status<>'completed'))"
+
+
+def document_blocks_workflow(row):
+    if row.get('evaluation_excluded'):
+        return False
+    return row['status'] != 'completed' and (
+        row['status'] not in ('failed', 'cancelled') or row.get('upload_role', 'evidence') != 'evidence')
+
+
 def _iso(value):
     return value.isoformat() if hasattr(value, "isoformat") else value
 
@@ -34,6 +45,10 @@ def input_snapshot_from_rows(documents: list[dict], evaluation: dict | None = No
         "version": 1,
         "document_count": len(rows),
         "completed_document_count": sum(row["status"] == "completed" for row in rows),
+        "failed_document_count": sum(row["status"] == "failed" for row in rows),
+        "pending_document_count": sum(document_blocks_workflow(row) for row in documents),
+        "cancelled_document_count": sum(row["status"] == "cancelled" for row in rows),
+        "waiting_document_count": sum(row["status"] == "waiting_llm" for row in rows),
         "document_digest": hashlib.sha256(json.dumps(rows, sort_keys=True, ensure_ascii=False).encode()).hexdigest(),
         "latest_document_change": _iso(max(changes)) if changes else None,
         "evaluation_run_id": str(evaluation["id"]) if evaluation else None,
@@ -45,26 +60,32 @@ def capture_input_snapshot(conn=None) -> dict:
     if conn is None:
         with connection() as current:
             return capture_input_snapshot(current)
-    documents = conn.execute("SELECT id,sha256,status,updated_at FROM intake_documents ORDER BY id").fetchall()
+    documents = conn.execute("SELECT id,sha256,status,updated_at,upload_role FROM evaluation_intake_documents ORDER BY id").fetchall()
     evaluation = conn.execute(
         "SELECT id,completed_at FROM evaluation_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1"
     ).fetchone()
-    return input_snapshot_from_rows(documents, evaluation)
+    from .evaluation_versions import project_inputs, digest
+    return {**input_snapshot_from_rows(documents, evaluation),
+            'workflow_digest': digest(project_inputs(conn))}
 
 
 def snapshots_match(before: dict | None, after: dict | None, *, include_evaluation: bool = True) -> bool:
     if not before or not after or not before.get("document_digest") or not after.get("document_digest"):
         return False
     return before["document_digest"] == after["document_digest"] and (
+        before.get('workflow_digest') == after.get('workflow_digest')) and (
         not include_evaluation or before.get("evaluation_run_id") == after.get("evaluation_run_id")
     )
 
 
 def evaluate_freshness(snapshot: dict, evaluation: dict | None, sections: list[dict], *, active_evaluation: bool = False) -> dict:
     total = int(snapshot["document_count"])
-    pending = total - int(snapshot["completed_document_count"])
+    completed = int(snapshot["completed_document_count"])
+    pending = int(snapshot.get('pending_document_count', total - completed - int(snapshot.get('failed_document_count', 0)) - int(snapshot.get('cancelled_document_count', 0))))
+    failed = int(snapshot.get("failed_document_count", 0))
+    waiting = int(snapshot.get("waiting_document_count", 0))
     evaluation_current = False
-    if evaluation and evaluation.get("status") == "completed" and not pending and total:
+    if evaluation and evaluation.get("status") == "completed" and not pending and completed:
         source = evaluation.get("input_snapshot") or {}
         if source.get("document_digest"):
             evaluation_current = snapshots_match(source, snapshot, include_evaluation=False)
@@ -72,7 +93,7 @@ def evaluate_freshness(snapshot: dict, evaluation: dict | None, sections: list[d
             # Upgrade path for existing reports: conservative timestamp/count
             # check against evaluation START, not completion (uploads can race).
             changed, started = _time(snapshot.get("latest_document_change")), _time(evaluation.get("started_at"))
-            evaluation_current = int(evaluation.get("document_count") or 0) == total and bool(started) and (not changed or changed <= started)
+            evaluation_current = int(evaluation.get("document_count") or 0) == completed and bool(started) and (not changed or changed <= started)
     stale = []
     missing = []
     active = []
@@ -94,6 +115,8 @@ def evaluate_freshness(snapshot: dict, evaluation: dict | None, sections: list[d
             stale.append(part_id)
     if not total:
         phase, message = "empty_project", "자료를 업로드해 주세요."
+    elif waiting or (not completed and failed):
+        phase, message = "documents_need_attention", f"문서 분석 실패 {failed}건 · AI 연결 대기 {waiting}건이 있습니다. 자료 업로드 화면에서 원인을 확인하고 재시도해 주세요."
     elif pending:
         phase, message = "processing_documents", f"문서 {pending}건 분석이 완료되면 재평가할 수 있습니다."
     elif active_evaluation:
@@ -110,11 +133,13 @@ def evaluate_freshness(snapshot: dict, evaluation: dict | None, sections: list[d
         "phase": phase, "message": message, "input_snapshot": snapshot,
         "evaluation_current": evaluation_current, "evaluation_stale": bool(evaluation and not evaluation_current),
         "evaluation_active": active_evaluation,
-        "can_evaluate": bool(total and not pending and not active_evaluation),
+        "can_evaluate": bool(completed and not pending and not active_evaluation),
         "can_generate_report": evaluation_current and not active and not active_evaluation,
         "report_current": evaluation_current and bool(sections) and not (missing or stale or active or active_evaluation),
         "stale_section_ids": stale, "missing_section_ids": missing, "active_section_ids": active,
         "pending_document_count": pending,
+        "excluded_document_count": total - completed - pending,
+        "failed_document_count": failed, "waiting_document_count": waiting,
     }
 
 
@@ -144,10 +169,12 @@ def lock_project_workflow(conn) -> None:
 def active_workflow_jobs(conn) -> list[str]:
     rows = conn.execute(
         """SELECT 'evaluation' AS kind FROM evaluation_runs WHERE status IN ('queued','running')
+           UNION ALL SELECT 'pdm_refresh' FROM pdm_refresh_runs WHERE status IN ('queued','running')
            UNION ALL SELECT 'report_generation' FROM report_generation_runs WHERE status IN ('queued','running')
            UNION ALL SELECT 'section_generation' FROM report_sections WHERE status='generating'
            UNION ALL SELECT 'report_export' FROM report_exports WHERE status IN ('queued','running')
-           UNION ALL SELECT 'presentation_export' FROM presentation_exports WHERE status IN ('queued','running')"""
+           UNION ALL SELECT 'presentation_export' FROM presentation_exports WHERE status IN ('queued','running')
+           UNION ALL SELECT 'translation' FROM translation_jobs WHERE status IN ('queued','running')"""
     ).fetchall()
     return sorted({row["kind"] for row in rows})
 

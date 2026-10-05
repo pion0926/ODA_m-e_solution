@@ -1,11 +1,17 @@
 // An embedded section proof must not offer unsynchronised document edits.
 // All content edits go through report_sections.content and the same adapters.
-if (new URLSearchParams(location.search).get('sectionPreview') === '1') {
+if (!window.kodameReadOnlyReport && new URLSearchParams(location.search).get('sectionPreview') === '1') {
   document.documentElement.classList.add('section-proof');
   const style = document.createElement('style');
-  style.textContent = '#menu-bar,#icon-toolbar,#style-bar{display:none!important}#studio-root{height:100vh!important}#scroll-container{top:0!important}.ruler{display:none!important}';
+  style.textContent = '#menu-bar,#icon-toolbar,#style-bar{display:none!important}#scroll-container{top:0!important}.ruler{display:none!important}';
+  if (!window.kodameReadOnlyReport) style.textContent += '#studio-root{height:100vh!important}';
   document.head.append(style);
-  const block = event => { event.preventDefault(); event.stopImmediatePropagation(); };
+  const isViewerControl = event => event.target?.closest?.('input,select,button,a') &&
+    !event.target?.closest?.('[aria-label="문서 편집 입력"]');
+  const block = event => {
+    if (isViewerControl(event)) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+  };
   for (const type of ['beforeinput', 'paste', 'cut', 'drop', 'compositionstart']) document.addEventListener(type, block, true);
   document.addEventListener('keydown', event => {
     if (!['PageDown','PageUp','Home','End','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Tab','Escape'].includes(event.key)) block(event);

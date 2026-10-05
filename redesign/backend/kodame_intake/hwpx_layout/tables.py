@@ -13,6 +13,7 @@ from backend.oda_me.hwpx.patchers import (
 )
 
 from .grade_table import style_grade_table_xml
+from .overflow import fit_table_details, append_table_details, oversized_group_cells
 from ..quality_profile import layout_profile
 
 
@@ -36,6 +37,8 @@ ACHIEVEMENT_HEADER_ROW_HEIGHTS = tuple(
 )
 ACHIEVEMENT_GROUP_MIN_HEIGHT = 5400
 ACHIEVEMENT_PHYSICAL_ROW_MIN_HEIGHT = ACHIEVEMENT_GROUP_MIN_HEIGHT // 3
+ACHIEVEMENT_PAGE_HEIGHT = 44000
+ACHIEVEMENT_FIRST_PAGE_HEIGHT = 41000
 ACHIEVEMENT_TABLE_PAGE_ITEM_GROUPS = tuple(
     tuple(int(item) for item in group)
     for group in _ACHIEVEMENT_PROFILE["page_item_groups"]
@@ -81,6 +84,7 @@ EVALUATION_MATRIX_TABLE_PAGE_ROW_GROUPS = tuple(
     tuple(int(row) for row in group)
     for group in _EVALUATION_MATRIX_PROFILE["page_row_groups"]
 )
+EVALUATION_MATRIX_MAXIMUM_TABLE_HEIGHT = 60000
 EVALUATION_MATRIX_CRITERION_LABELS = (
     "1. 적절성",
     "2. 일관성",
@@ -113,7 +117,7 @@ def _achievement_cell_line_count(cell_xml: str) -> int:
 
 def _achievement_cell_required_height(cell_xml: str) -> int:
     return (
-        _achievement_cell_line_count(cell_xml) * ACHIEVEMENT_LINE_HEIGHT
+        (_achievement_cell_line_count(cell_xml) + 1) * ACHIEVEMENT_LINE_HEIGHT
         + ACHIEVEMENT_CELL_MARGIN_VERTICAL * 2
         + 120
     )
@@ -290,13 +294,23 @@ def _resize_achievement_table_rows_xml(table_xml: str) -> str:
     )
 
 
-def achievement_page_groups(item_count: int) -> tuple[tuple[int, ...], ...]:
+def achievement_page_groups(item_count: int, heights=None) -> tuple[tuple[int, ...], ...]:
     capacity = max(len(group) for group in ACHIEVEMENT_TABLE_PAGE_ITEM_GROUPS)
-    # Reserve space for the chapter heading on the first landscape page.
-    first = min(capacity - 1, item_count)
-    if first <= 0:
-        return ()
-    return (tuple(range(first)),) + tuple(tuple(range(start, min(start + capacity, item_count))) for start in range(first, item_count, capacity))
+    heights = list(heights) if heights is not None else [ACHIEVEMENT_GROUP_MIN_HEIGHT] * item_count
+    if len(heights) != item_count:raise ValueError('성과달성도 지표 수와 높이가 일치하지 않습니다.')
+    groups, current = [], []
+    used = sum(ACHIEVEMENT_HEADER_ROW_HEIGHTS)
+    for index,height in enumerate(heights):
+        limit = ACHIEVEMENT_FIRST_PAGE_HEIGHT if not groups else ACHIEVEMENT_PAGE_HEIGHT
+        count_limit = capacity-1 if not groups else capacity
+        if current and (used+height > limit or len(current)>=count_limit):
+            groups.append(tuple(current));current=[];used=sum(ACHIEVEMENT_HEADER_ROW_HEIGHTS)
+            limit=ACHIEVEMENT_PAGE_HEIGHT
+        if used+height > limit:
+            raise ValueError(f'{index+1}번째 성과지표의 내용이 한 쪽을 초과합니다. 원문에서 세부 설명을 본문으로 분리해 주세요.')
+        current.append(index);used+=height
+    if current:groups.append(tuple(current))
+    return tuple(groups)
 
 
 def _split_achievement_table_into_pages_xml(table_xml: str) -> str:
@@ -306,10 +320,11 @@ def _split_achievement_table_into_pages_xml(table_xml: str) -> str:
     body_count = len(spans) - ACHIEVEMENT_HEADER_ROW_COUNT
     if body_count <= 0 or body_count % ACHIEVEMENT_PHYSICAL_ROWS_PER_ITEM:
         return table_xml
-    groups = achievement_page_groups(body_count // ACHIEVEMENT_PHYSICAL_ROWS_PER_ITEM)
     prefix = table_xml[: spans[0][0]]
     suffix = table_xml[spans[-1][1] :]
     rows = [table_xml[start:end] for start, end in spans]
+    heights = [achievement_item_group_height(''.join(rows[i:i+3])) for i in range(ACHIEVEMENT_HEADER_ROW_COUNT,len(rows),3)]
+    groups = achievement_page_groups(body_count // ACHIEVEMENT_PHYSICAL_ROWS_PER_ITEM,heights)
     base_id_match = re.search(r'<hp:tbl\b[^>]*\bid="(\d+)"', prefix)
     base_id = int(base_id_match.group(1)) if base_id_match else 1794292357
     parts: list[str] = []
@@ -425,6 +440,7 @@ def _pdm_cell_line_count(cell_xml: str) -> int:
         1,
         sum(
             max(1, math.ceil(_pdm_text_units(line) / characters_per_line))
+            + int(_pdm_text_units(line) > characters_per_line)
             for line in lines
             if line
         ),
@@ -440,7 +456,7 @@ def _pdm_cell_required_height(cell_xml: str) -> int:
 
 
 def _resize_pdm_rows_xml(table_xml: str) -> str:
-    """Rebuild the source PDM's four logical levels as one compact A4 table."""
+    """Measure each PDM level before splitting at complete level boundaries."""
 
     spans = find_hwpx_tag_spans(table_xml, "hp:tr")
     if len(spans) != 9:
@@ -635,7 +651,7 @@ def _remove_empty_achievement_body_paragraphs_xml(table_xml: str) -> str:
     return re.sub(r"<hp:tc\b.*?</hp:tc>", clean_cell, table_xml, flags=re.DOTALL)
 
 def style_pdm_table_xml(xml: str) -> tuple[str, bool]:
-    """Match the authoritative one-page A4 PDM while preserving every source cell."""
+    """Split the PDM at level boundaries while preserving every source cell."""
 
     target = find_hwpx_table_span_by_text(xml, ["프로그램 요약", "객관적 검증지표", "중요가정"], 20)
     if target is None:
@@ -646,11 +662,14 @@ def style_pdm_table_xml(xml: str) -> tuple[str, bool]:
     table = re.sub(r'(<hp:tbl\b[^>]*\brepeatHeader=")[^"]+', r'\g<1>1', table, count=1)
     table = _set_pdm_geometry_xml(table)
     for cell_index in (*PDM_HEADER_CELLS, *PDM_ROW_LABEL_CELLS):
-        table = set_hwpx_table_cell_char_pr_xml(table, cell_index, 44)  # 8 pt bold
+        table = set_hwpx_table_cell_char_pr_xml(table, cell_index, 43)  # 8 pt bold
     for cell_index in PDM_BODY_CELLS:
-        table = set_hwpx_table_cell_char_pr_xml(table, cell_index, 43)  # 8 pt regular
+        table = set_hwpx_table_cell_char_pr_xml(table, cell_index, 44)  # 8 pt regular
+    table, details = fit_table_details(table, lambda value: oversized_group_cells(
+        _resize_pdm_rows_xml(value), PDM_TABLE_PAGE_ROW_GROUPS, PDM_MAXIMUM_TABLE_HEIGHT), 'PDM')
     table = _resize_pdm_rows_xml(table)
     table = _split_pdm_table_into_pages_xml(table)
+    table = append_table_details(table, details)
     return xml[:start] + table + xml[end:], True
 
 
@@ -666,6 +685,9 @@ def style_achievement_table_xml(xml: str) -> tuple[str, bool]:
     updated = re.sub(r'(<hp:tbl\b[^>]*\brepeatHeader=")[^"]+', r'\g<1>1', updated, count=1)
     updated = updated.replace('charPrIDRef="43"', 'charPrIDRef="85"')
     updated = updated.replace('charPrIDRef="44"', 'charPrIDRef="92"')
+    # The source also uses 10pt styles 29/42. Measuring at 9pt while leaving
+    # those runs intact underestimates wrapping and overlays adjacent rows.
+    updated = re.sub(r'(<hp:run\b[^>]*\bcharPrIDRef=")(\d+)',lambda m:m[1]+('92' if m[2] in ('42','92') else '85'),updated)
     # The MOV guide cell has two legacy paragraphs which rHWP lays out on
     # the same baseline. A single wrapping paragraph retains all guide text.
     cells = find_hwpx_tag_spans(updated, "hp:tc")
@@ -687,8 +709,21 @@ def style_achievement_table_xml(xml: str) -> tuple[str, bool]:
             updated = updated[:a] + cleaned + updated[b:]
     updated = _set_achievement_margins_xml(updated)
     updated = _remove_empty_achievement_body_paragraphs_xml(updated)
+    def overflow_cells(value):
+        rows = find_hwpx_tag_spans(value, 'hp:tr')
+        cells = find_hwpx_tag_spans(value, 'hp:tc')
+        result = []
+        for i in range(ACHIEVEMENT_HEADER_ROW_COUNT, len(rows), 3):
+            group = rows[i:i + 3]
+            height = achievement_item_group_height(''.join(value[a:b] for a, b in group))
+            if height + sum(ACHIEVEMENT_HEADER_ROW_HEIGHTS) > ACHIEVEMENT_FIRST_PAGE_HEIGHT:
+                result.extend(j for j, (a, b) in enumerate(cells) if group[0][0] <= a and b <= group[-1][1])
+        return result
+
+    updated, details = fit_table_details(updated, overflow_cells, '성과지표')
     updated = _resize_achievement_table_rows_xml(updated)
     updated = _split_achievement_table_into_pages_xml(updated)
+    updated = append_table_details(updated, details)
     return xml[:start] + updated + xml[end:], updated != table
 
 
@@ -898,8 +933,10 @@ def style_evaluation_matrix_table_xml(xml: str) -> tuple[str, bool]:
         updated = set_hwpx_table_cell_char_pr_xml(updated, cell_index, 65 if cell_index < 5 else 92)
         if cell_index >= 5 and cell_index % 5:
             updated = _set_matrix_cell_para_pr_xml(updated, cell_index, 39)
-    updated = _resize_evaluation_matrix_rows_xml(updated)
-    updated = _split_evaluation_matrix_into_pages_xml(updated)
+    from .matrix_pagination import paginate_matrix
+    updated = paginate_matrix(updated, evaluation_matrix_row_height,
+                              EVALUATION_MATRIX_MAXIMUM_TABLE_HEIGHT,
+                              EVALUATION_MATRIX_HEADER_ROW_HEIGHT)
     return xml[:start] + updated + xml[end:], updated != table
 
 
@@ -925,7 +962,7 @@ def refresh_evaluation_matrix_split_heights_xml(xml: str) -> tuple[str, int]:
         # The page-balanced profile uses five criteria on the first page and
         # three on the second so the first table no longer leaves a large
         # unused lower half. Keep compatibility with shorter matrices.
-        if len(row_spans) not in {2, 3, 4, 5, 6}:
+        if len(row_spans) < 2:
             continue
         rows = [table[row_start:row_end] for row_start, row_end in row_spans]
         heights = [evaluation_matrix_row_height(row, index) for index, row in enumerate(rows)]

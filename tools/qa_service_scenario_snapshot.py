@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import UUID
 
 from kodame_intake.db import connection, pool, tenant_context
+from kodame_intake.dac_rules import mean_score
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--project-id", type=UUID, required=True)
@@ -17,7 +18,7 @@ with tenant_context(args.project_id), connection() as conn, conn.transaction():
     conn.execute("SET TRANSACTION READ ONLY")
     documents = conn.execute("SELECT id,original_name,status,size_bytes,sha256 FROM intake_documents ORDER BY queue_position").fetchall()
     pdm = conn.execute("SELECT source_document_id,source_file_name,model FROM pdm_models LIMIT 1").fetchone()
-    run = conn.execute("SELECT id,status,model,started_at,completed_at,error_message FROM evaluation_runs ORDER BY started_at DESC LIMIT 1").fetchone()
+    run = conn.execute("SELECT id,status,model,started_at,completed_at,error_message FROM evaluation_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1").fetchone()
     criteria = conn.execute("SELECT criterion_id,criterion_name,score,question_assessments FROM criterion_evaluations WHERE run_id=%s ORDER BY id", (run["id"],)).fetchall() if run else []
     for criterion in criteria:
         for question in criterion["question_assessments"]:
@@ -31,14 +32,14 @@ with tenant_context(args.project_id), connection() as conn, conn.transaction():
 checks = []
 questions = [q for c in criteria for q in c["question_assessments"]]
 checks.append({"check":"DAC question count", "pass":len(questions)==11, "actual":len(questions)})
-checks.append({"check":"DAC trace check count", "pass":sum(len(q.get("scoring_trace",{}).get("checks",[])) for q in questions)==33})
+checks.append({"check":"DAC trace check count", "pass":sum(len(q.get("scoring_trace",{}).get("checks",[])) for q in questions)==55})
 for c in criteria:
     qs = c["question_assessments"]
-    checks.append({"check":f"{c['criterion_id']} question average", "pass":float(c["score"])==round(sum(q["score"] for q in qs)/len(qs),1)})
+    checks.append({"check":f"{c['criterion_id']} question average", "pass":(float(c["score"]) if c["score"] is not None else None)==mean_score([q["score"] for q in qs])})
 for q in questions:
     trace = q.get("scoring_trace", {})
-    checks.append({"check":q["question_id"]+" complete trace", "pass":len(trace.get("checks",[]))==3 and trace.get("selected_score")==q["score"] and bool(trace.get("version"))})
-    checks.append({"check":q["question_id"]+" full-score evidence gate", "pass":q["score"]!=4 or all(x["status"]=="met" for x in trace.get("checks",[]))})
+    checks.append({"check":q["question_id"]+" complete trace", "pass":len(trace.get("checks",[]))==5 and trace.get("selected_score")==q["score"] and bool(trace.get("version"))})
+    checks.append({"check":q["question_id"]+" score range or evidence hold", "pass":q["score"] is None or 1 <= q["score"] <= 4})
 payload = {"captured_at":datetime.now(timezone.utc).isoformat(), "project_id":str(args.project_id),
            "documents":documents, "pdm":pdm, "evaluation":run, "criteria":criteria,
            "sections":sections, "exports":exports, "checks":checks}

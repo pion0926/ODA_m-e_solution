@@ -31,7 +31,7 @@ NARRATIVE_OUTLINE_PART_IDS = frozenset(
 
 
 NARRATIVE_OUTLINE_DEFAULT_LABELS = {
-    "eval-purpose": "평가 목적과 범위",
+    "eval-purpose": "평가 대상과 판단 범위",
     "eval-methods": "평가 방법과 수행절차",
     "eval-limitations": "주요 한계와 대응",
     "eval-team": "평가 수행체계",

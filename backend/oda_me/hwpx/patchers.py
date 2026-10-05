@@ -129,21 +129,16 @@ def grade_question_reason(reason: object, limit: int = 90) -> str:
         return grade_reason_sentence(reason, limit)
     if len(text) <= limit:
         return text.rstrip(".") + "."
-    complete_sentences = re.findall(r"[^.!?。]+[.!?。]", text)
-    selected = ""
-    for sentence in complete_sentences:
-        candidate = f"{selected} {sentence}".strip()
-        if len(candidate) > limit:
-            break
-        selected = candidate
-    if selected:
-        return selected
-    cut = text.rfind(" ", 0, limit)
-    if cut < max(36, limit // 2):
-        cut = limit
-    clipped = text[:cut].strip(" ,.;/-").rstrip(".")
-    clipped = re.sub(r"(하며|하고|하여|에서|으로|로|및|과|와|을|를|에|위한|대한)$", "", clipped).strip()
-    return grade_reason_sentence(clipped, limit)
+    # The character target is advisory. Keep at least the first two complete
+    # sentences so an initial positive finding retains its following limit.
+    # Table pagination handles long reasons; never splice a grammatical fragment
+    # into an invented conclusion. Splitting on punctuation followed by whitespace
+    # also preserves decimal values such as 1.7 and numeric dates.
+    sentences = re.split(r"(?<=[.!?。])\s+", text)
+    selected = sentences[:2]
+    if len(sentences) > 2 and len(" ".join(selected + sentences[2:3])) <= limit:
+        selected.append(sentences[2])
+    return " ".join(selected).rstrip(".") + "."
 
 
 # Question rationales are allowed to reflow over a two-page grade table. The
@@ -229,13 +224,13 @@ def patch_hwpx_grade_section(root: ET.Element, context: dict) -> None:
                 score_value = question.get("score", item["score"]) if isinstance(question, dict) else item["score"]
                 reason = question.get("reason") or question.get("question") or item["reason"] if isinstance(question, dict) else item["reason"]
             if score_cell < len(cells):
-                set_hwpx_scope_text(cells[score_cell], f"{format_score(score_value)}점")
+                set_hwpx_scope_text(cells[score_cell], format_score(score_value, '점'))
             if reason_cell < len(cells):
                 formatted = "" if is_average else grade_question_reason(reason, GRADE_REASON_CELL_LIMITS[reason_cell])
                 set_hwpx_scope_text(cells[reason_cell], formatted)
     overall = context.get("overall") or {}
     if 74 < len(cells):
-        set_hwpx_scope_text(cells[74], f"{format_score(overall.get('score', sum(item['score'] for item in criteria)))}/20점")
+        set_hwpx_scope_text(cells[74], format_score(overall.get('score'), '/20점'))
     if 76 < len(cells):
         set_hwpx_scope_text(cells[76], str(overall.get("governmentGrade") or "미흡"))
     if 78 < len(cells):
@@ -766,10 +761,15 @@ def _toc_labeled_numeric_target(
     xml_text: str,
     label: str,
 ) -> tuple[int, int, str, re.Match[str]] | None:
+    from .toc_registry import normalized_title
     candidates: list[tuple[int, int, str]] = []
     for start, end in find_hwpx_all_tag_spans(xml_text, "hp:p"):
         paragraph = xml_text[start:end]
-        if label in get_hwpx_xml_scope_text(paragraph):
+        # Only an individual row may own this number. Never fall through to
+        # the surrounding text box and accidentally use another row's number.
+        own_row = len(re.findall(r'<hp:p\b', paragraph)) == 1 or (
+            paragraph.count('name="toc_number_') == 1 and paragraph.count('name="toc_label_') == 1)
+        if own_row and normalized_title(get_hwpx_xml_scope_text(paragraph)).startswith(normalized_title(label)):
             candidates.append((start, end, paragraph))
     for start, end, paragraph in sorted(candidates, key=lambda row: len(row[2])):
         matches = list(re.finditer(r"(<hp:t\b[^>]*>)(\s*\d+\s*)(</hp:t>)", paragraph))
@@ -1911,7 +1911,7 @@ def normalize_toc_text(value: object) -> str:
 
 TOC_RENDERED_PAGE_PATTERNS = [
     ("summary_ko_page", [r"^1\.\s*국문\s*요약\b"]),
-    ("project_background_page", [r"^(?:Ⅱ|II)\.?\s*대상사업\s*개요\b", r"^1\.\s*사업\s*추진배경\b"]),
+    ("project_background_page", [r"^1\.\s*사업\s*추진배경\b"]),
     ("project_overview_page", [r"^2\.\s*사업개요\b", r"^2\.\s*사업\s*개요\b"]),
     ("pdm_page", [r"^3\.\s*사업설계매트릭스\s*\(PDM\)"]),
     ("evaluation_purpose_page", [r"^1\.\s*평가의\s*목적과\s*범위\b"]),
@@ -1927,7 +1927,7 @@ TOC_RENDERED_PAGE_PATTERNS = [
     ("criteria_sustainability_page", [r"^5\.\s+지속가능성\b"]),
     ("criteria_crosscutting_page", [r"^6\.\s+범분야\s*이슈\b", r"^6\.\s+범분야\b"]),
     ("criteria_other_page", [r"^7\.\s+그\s*외\s*평가기준\b"]),
-    ("conclusion_page", [r"^1\.\s+결론\b", r"^(?:Ⅵ|VI|IV)\.?\s*결론\b"]),
+    ("conclusion_page", [r"^1\.\s+결론\b"]),
     ("factors_page", [r"^2\.\s*작동요인\s*및\s*비작동요인\b"]),
     ("feedback_lessons_page", [r"^3\.\s*환류과제\s*및\s*교훈\b"]),
     ("appendix_summary_en_page", [r"^1\.\s*평가결과\s*영문\s*요약\b"]),
@@ -2000,13 +2000,19 @@ def toc_page_map_from_page_texts(page_texts: list[tuple[int, str]]) -> dict:
 
     page_map = {}
     min_page = 3
-    for key, patterns in TOC_RENDERED_PAGE_PATTERNS:
+    from .toc_registry import TOC_ROWS, destination_title, normalized_title
+    patterns_by_key = dict(TOC_RENDERED_PAGE_PATTERNS)
+    all_rows = [(key, label) for key, label, _ in TOC_ROWS]
+    all_rows += [(key, '') for key in patterns_by_key if key not in TOC_SECTION2_LABELS]
+    for key, label in all_rows:
+        patterns = patterns_by_key.get(key, [])
         compiled = [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
         matched_page = None
         for page_number, lines in content_pages:
             if page_number < min_page:
                 continue
-            if any(regex.search(line) for line in lines for regex in compiled):
+            if any(regex.search(line) for line in lines for regex in compiled) or (
+                label and any(normalized_title(line).startswith(normalized_title(destination_title(key, label))) for line in lines)):
                 matched_page = page_number
                 break
         if matched_page is not None:
@@ -2158,6 +2164,12 @@ def build_section_manifest_values(section_number: int, context: dict, sections_b
         institution_name = re.sub(
             r"^평가수행기관\s*", "", str(cover.get("institution") or "")
         ).strip() or people.get("institution") or "등록 자료 미기재"
+        # A plan-based cover names business roles, not the evaluation team.
+        # Never promote those people/institutions into notice evaluator slots.
+        if str(cover.get('manager') or '').startswith('사업책임자 '):
+            manager_name = '등록 자료 미기재'
+        if str(cover.get('institution') or '').startswith('사업 수행기관 '):
+            institution_name = '등록 자료 미기재'
         country = infer_project_country(project, {})
         country_value = f"{country} " if country else "대상국 "
         title = str(project.get("title") or "등록 사업").strip()
@@ -2190,7 +2202,7 @@ def build_section_manifest_values(section_number: int, context: dict, sections_b
 
         def criterion_score_text(criteria_id: str) -> str:
             item = criteria.get(criteria_id) or {}
-            return f"{format_score(item.get('score', 1))}점"
+            return format_score(item.get('score', 1), '점')
 
         def criterion_reason(criteria_id: str) -> str:
             item = criteria.get(criteria_id) or {}
@@ -2200,7 +2212,7 @@ def build_section_manifest_values(section_number: int, context: dict, sections_b
             item = criteria.get(criteria_id) or {}
             rows = item.get("questionRows") if isinstance(item.get("questionRows"), list) else []
             if index < len(rows):
-                return f"{format_score(rows[index].get('score', 1))}점"
+                return format_score(rows[index].get('score', 1), '점')
             return criterion_score_text(criteria_id)
 
         def question_reason(criteria_id: str, index: int) -> str:
@@ -2212,7 +2224,7 @@ def build_section_manifest_values(section_number: int, context: dict, sections_b
 
         overall = context.get("overall") or {}
         total_score = overall.get("score")
-        if total_score is None:
+        if total_score is None and all(item.get('score') is not None for item in criteria.values()):
             total_score = round(sum(float(item.get("score", 0) or 0) for item in criteria.values()), 1)
         return {
             # The grade sheet identifies the evaluated project by its formal
@@ -2250,7 +2262,7 @@ def build_section_manifest_values(section_number: int, context: dict, sections_b
             "sustainability_environment_reason": question_reason("sustainability", 1),
             "sustainability_total_score": criterion_score_text("sustainability"),
             "sustainability_total_reason": "",
-            "overall_score": f"{format_score(total_score)}/20점",
+            "overall_score": format_score(total_score, '/20점'),
             "government_grade": str(overall.get("governmentGrade") or "미흡"),
             "koica_grade": str(overall.get("koicaGrade") or "F"),
             "remove_texts": {
@@ -2657,11 +2669,11 @@ def patch_hwpx_grade_section_xml(xml_text: str, context: dict) -> str:
                 question = question_rows[pair_index] if pair_index < len(question_rows) else {}
                 score_value = question.get("score", item["score"]) if isinstance(question, dict) else item["score"]
                 reason = question.get("reason") or question.get("question") or item["reason"] if isinstance(question, dict) else item["reason"]
-            table_xml, _ = set_hwpx_table_cell_text_xml(table_xml, score_cell, f"{format_score(score_value)}점")
+            table_xml, _ = set_hwpx_table_cell_text_xml(table_xml, score_cell, format_score(score_value, '점'))
             formatted = "" if is_average else grade_question_reason(reason, GRADE_REASON_CELL_LIMITS[reason_cell])
             table_xml, _ = set_hwpx_table_cell_text_xml(table_xml, reason_cell, formatted)
     overall = context.get("overall") or {}
-    table_xml, _ = set_hwpx_table_cell_text_xml(table_xml, 74, f"{format_score(overall.get('score', sum(item['score'] for item in criteria)))}/20점")
+    table_xml, _ = set_hwpx_table_cell_text_xml(table_xml, 74, format_score(overall.get('score'), '/20점'))
     table_xml, _ = set_hwpx_table_cell_text_xml(table_xml, 76, str(overall.get("governmentGrade") or "미흡"))
     table_xml, _ = set_hwpx_table_cell_text_xml(table_xml, 78, str(overall.get("koicaGrade") or "F"))
     return xml_text[:start] + table_xml + xml_text[end:]
@@ -2673,7 +2685,7 @@ def cover_values_from_sections(context: dict, sections_by_id: dict[str, str] | N
     parsed_slots = parse_section1_cover_slots(section_text, context)
     if parsed_slots:
         return {
-            "title": parsed_slots.get("project_title") or str(project.get("title") or "사업명 확인 필요"),
+            "title": (project.get("title") if project.get("identity_resolution") else parsed_slots.get("project_title")) or str(project.get("title") or "사업명 확인 필요"),
             "date": parsed_slots.get("report_date") or datetime.now().strftime("%Y. %m"),
             "manager": parsed_slots.get("evaluation_manager") or "평가책임자 확인 필요",
             "institution": parsed_slots.get("evaluation_institution") or "평가수행기관 확인 필요",
@@ -2693,6 +2705,8 @@ def cover_values_from_sections(context: dict, sections_by_id: dict[str, str] | N
         title = "\n".join(title_lines)
     else:
         title = str(project.get("title") or "사업명 확인 필요").strip()
+    if project.get("identity_resolution"):
+        title = str(project["title"])
     date_line = next((line for line in lines if re.search(r"\d{4}\.\s*\d{1,2}", line)), "")
     manager_line = next((line for line in lines if "평가책임자" in line), "")
     institution_line = next((line for line in lines if "평가수행기관" in line), "")
@@ -2736,28 +2750,8 @@ def ensure_slot_prefix(value: str, prefix: str, fallback: str, max_chars: int) -
     return f"{prefix}{text}"[:max_chars].rstrip()
 
 
-TOC_SECTION2_LABELS = {
-    "summary_ko_page": "1. 국문 요약",
-    "project_background_page": "1. 사업 추진배경",
-    "project_overview_page": "2. 사업개요",
-    "pdm_page": "3. 사업설계매트릭스(PDM)",
-    "evaluation_purpose_page": "1. 평가의 목적과 범위",
-    "evaluation_matrix_page": "2. 평가매트릭스(Evaluation Matrix)",
-    "evaluation_methods_page": "3. 평가 방법",
-    "evaluation_limitations_page": "4. 평가의 한계",
-    "evaluation_team_page": "5. 평가팀 구성 및 시행체계",
-    "achievement_page": "Ⅳ. 성과달성도",
-    "criteria_relevance_page": "1. 적절성",
-    "criteria_coherence_page": "2. 일관성",
-    "criteria_effectiveness_page": "3. 효과성",
-    "criteria_efficiency_page": "4. 효율성",
-    "criteria_sustainability_page": "5. 지속가능성",
-    "criteria_crosscutting_page": "6. 범분야 이슈",
-    "criteria_other_page": "7. 그 외 평가기준",
-    "conclusion_page": "1. 결론",
-    "factors_page": "2. 작동요인 및 비작동요인",
-    "feedback_lessons_page": "3. 환류과제 및 교훈",
-}
+from .toc_registry import TOC_LABELS as TOC_SECTION2_LABELS
+
 
 def normalize_hwpx_manifest_value(section_number: int, value_key: str, value: object) -> object:
     """Apply outline-safe normalization to values written into fixed slots."""
@@ -2776,16 +2770,18 @@ def section5_summary_paragraph_style(value_key: str) -> int | None:
 
 def section1_cover_slot_values(context: dict, sections_by_id: dict[str, str]) -> dict[str, str]:
     cover = cover_values_from_sections(context, sections_by_id)
+    manager = str(cover.get('manager') or '')
+    institution = str(cover.get('institution') or '')
     return {
         "project_title": one_line_slot_value(cover.get("title"), "사업명 확인 필요", 80),
         "report_date": one_line_slot_value(cover.get("date") or datetime.now().strftime("%Y. %m"), datetime.now().strftime("%Y. %m"), 20),
-        "evaluation_manager": ensure_slot_prefix(cover.get("manager", ""), "평가책임자 ", "평가책임자 확인 대상", 40),
+        "evaluation_manager": one_line_slot_value(manager, "사업책임자 확인 필요", 40) if manager.startswith('사업책임자 ') else ensure_slot_prefix(manager, "평가책임자 ", "평가책임자 확인 대상", 40),
         "evaluation_institution": ensure_slot_prefix(
-            cover.get("institution", ""),
+            institution,
             "평가수행기관 ",
             "평가수행기관 확인 대상",
             60,
-        ),
+        ) if not institution.startswith('사업 수행기관 ') else one_line_slot_value(institution, "사업 수행기관 확인 필요", 60),
     }
 
 
@@ -4434,10 +4430,32 @@ def patch_hwpx_eval_matrix_table_xml(xml_text: str, context: dict, sections_by_i
 
 
 def parse_feedback_items(body: object) -> list[dict[str, str]]:
+    # Current narrative authoring uses an 'ㅇ' heading with labelled detail
+    # lines. Split on the record's 구분 field, never on every detail bullet.
+    # Otherwise three recommendations become dozens of unrelated rows.
+    source = str(body or "")
+    starts = list(re.finditer(r"(?m)^\s*(?:[-•∙ㆍ·]\s*)?구분\s*[:：]", source))
+    labelled_rows = []
+    for i, start in enumerate(starts):
+        block = source[start.start():starts[i + 1].start() if i + 1 < len(starts) else len(source)]
+        fields = {m.group(1).strip(): m.group(2).strip() for m in re.finditer(
+            r"(?m)^\s*(?:[-•∙ㆍ·]\s*)?(구분|제언|이해관계자|선정 사유|우선순위|완료기한|점검주기|후속 확인자료)\s*[:：]\s*([^\n]+)", block)}
+        if not fields.get("제언"):
+            continue
+        priority, due, cycle = (fields.get(key) or "확인 필요" for key in ("우선순위", "완료기한", "점검주기"))
+        labelled_rows.append({
+            "observation": fields.get("구분") or "제언", "task": fields["제언"],
+            "owner": fields.get("이해관계자") or "확인 필요",
+            "reason": f"우선순위: {priority} | 선정 사유: {fields.get('선정 사유') or '확인 필요'}",
+            "opinion": f"완료기한: {due} | 점검주기: {cycle} | 확인자료: {fields.get('후속 확인자료') or '확인 필요'}",
+            "priority": priority, "due_date": due, "review_cycle": cycle,
+        })
+    if labelled_rows:
+        return labelled_rows
     markdown_rows = parse_markdown_table_records(body)
     parsed_markdown: list[dict[str, str]] = []
     for record in markdown_rows:
-        task = markdown_record_value(record, ["제언", "환류과제", "조치사항"])
+        task = markdown_record_value(record, ["제언", "환류과제", "조치사항", "후속조치", "후속 조치"])
         if not task:
             continue
         reason = markdown_record_value(record, ["선정 사유", "선정사유", "기대효과"], "평가결과 환류 및 후속 성과관리 강화 필요")
@@ -4447,11 +4465,11 @@ def parse_feedback_items(body: object) -> list[dict[str, str]]:
         evidence = markdown_record_value(record, ["후속 확인자료", "유관부서 의견", "확인자료"], "후속계획, 협의 기록, 이행 증빙")
         parsed_markdown.append({
             "observation": normalize_hwpx_table_value(
-                markdown_record_value(record, ["구분", "관찰사항", "작동/비작동요인"], "제언"), 10000
+                markdown_record_value(record, ["관찰·근거", "관찰/근거", "관찰사항", "구분", "작동/비작동요인"], "제언"), 10000
             ),
             "task": normalize_hwpx_table_value(task, 10000),
             "owner": normalize_hwpx_table_value(
-                markdown_record_value(record, ["이해관계자", "이행부서", "담당 주체", "담당주체"], "사업담당부서/수행기관"), 10000
+                markdown_record_value(record, ["이해관계자", "이행부서", "담당 주체", "담당주체", "책임주체", "책임 주체"], "사업담당부서/수행기관"), 10000
             ),
             "reason": normalize_hwpx_table_value(f"우선순위: {priority} | 선정 사유: {reason}", 10000),
             "opinion": normalize_hwpx_table_value(f"완료기한: {due_date} | 점검주기: {review_cycle} | 확인자료: {evidence}", 10000),

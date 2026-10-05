@@ -1,0 +1,21 @@
+# Copied to .codex/config.toml by tools/Setup-ProjectTools.ps1.
+# Replace @ROOT@ with the resolved repository path; never add credentials here.
+web_search = "live"
+
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
+
+[mcp_servers.kodamePlaywright]
+command = "node"
+args = ["@ROOT@/node_modules/@playwright/mcp/cli.js", "--headless", "--isolated", "--block-service-workers", "--allowed-origins", "http://127.0.0.1:8317;http://127.0.0.1:8002;http://127.0.0.1:8004", "--output-dir", "@ROOT@/.runtime/playwright-mcp"]
+startup_timeout_sec = 30
+
+[mcp_servers.kodameKordoc]
+command = "node"
+args = ["@ROOT@/redesign/kordoc/node_modules/kordoc/dist/mcp.js"]
+startup_timeout_sec = 30
+enabled_tools = ["parse_document", "detect_format", "parse_metadata", "parse_pages", "parse_table", "compare_documents", "parse_chunks", "parse_form", "extract_profile"]
+
+[mcp_servers.kodameKordoc.env]
+KORDOC_OFFLINE = "1"
+KORDOC_ROOT = "@ROOT@"

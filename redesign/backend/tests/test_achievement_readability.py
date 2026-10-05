@@ -24,6 +24,15 @@ class AchievementReadabilityTests(unittest.TestCase):
         self.assertEqual([len(g) for g in groups], [4,5,3])
         self.assertEqual([i for g in groups for i in g], list(range(12)))
 
+    def test_long_indicators_pack_by_height_without_clipping(self):
+        from kodame_intake.hwpx_layout.tables import ACHIEVEMENT_HEADER_ROW_HEIGHTS
+        heights=[14000,10000,13000,15000,9000,11000]
+        groups=achievement_page_groups(len(heights),heights)
+        self.assertEqual([i for group in groups for i in group],list(range(len(heights))))
+        for page,group in enumerate(groups):
+            self.assertLessEqual(sum(ACHIEVEMENT_HEADER_ROW_HEIGHTS)+sum(heights[i] for i in group),41000 if page==0 else 44000)
+        with self.assertRaises(ValueError):achievement_page_groups(1,[45000])
+
     def test_records_become_grouped_notes_without_touching_table(self):
         record = '- [outcome-1-1] 명칭: 성과지표: 교육 / 기초선: 0 / 목표치: 10명 / 종료선 또는 현재 실적: 6명 / 대비 결과: 진행 / 지표입증수단(MOV): 명부 / 비고: 후속 확인이 필요함.'
         paragraph = f'<hp:p paraPrIDRef="71"><hp:run charPrIDRef="28"><hp:t>{record}</hp:t></hp:run></hp:p>'

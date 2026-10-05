@@ -4,7 +4,7 @@ import uuid
 
 from psycopg.types.json import Jsonb
 
-from .db import connection
+from .db import connection, current_project_id
 from .llm_models import DEFAULT_MODEL, MODEL_OPTIONS, validate_model
 
 
@@ -20,11 +20,8 @@ def get_account_settings(account_id: uuid.UUID | str) -> dict:
         ).fetchone()
     if not row:
         raise LookupError("계정을 찾을 수 없습니다.")
-    stored_model = row.get("llm_model")
-    try:
-        model = validate_model(stored_model) if stored_model else DEFAULT_MODEL
-    except ValueError:
-        model = DEFAULT_MODEL
+    from .project_ai import get_project_model
+    model = get_project_model() if current_project_id() else None
     return {
         "account": {
             "id": str(row["id"]),
@@ -32,6 +29,8 @@ def get_account_settings(account_id: uuid.UUID | str) -> dict:
             "display_name": row["display_name"],
         },
         "llm_model": model,
+        "model_scope": "project",
+        "model_editable": False,
         "locale": row.get("locale") or "ko-KR",
         "timezone": row.get("timezone") or "Asia/Seoul",
         "preferences": row.get("preferences") or {},
@@ -51,4 +50,3 @@ def update_account_model(account_id: uuid.UUID | str, model: str) -> dict:
             (account_id, selected, Jsonb({})),
         )
     return get_account_settings(account_id)
-

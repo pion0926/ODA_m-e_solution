@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 import re
 import struct
 import subprocess
@@ -46,14 +47,18 @@ def _safe_zip(path: Path) -> zipfile.ZipFile:
 
 def _pdf(path: Path) -> str:
     reader = PdfReader(str(path), strict=False)
+    if len(reader.pages) > int(os.getenv('PARSER_MAX_PAGES', '500')):
+        raise ParseError('PDF 페이지 한도를 초과했습니다. 500쪽 이하로 나누어 등록해 주세요.')
     if reader.is_encrypted:
         try:
             reader.decrypt("")
         except Exception as exc:
             raise ParseError("암호화된 PDF는 처리할 수 없습니다.") from exc
-    text = "\n\n".join((page.extract_text() or "") for page in reader.pages)
-    if len(text.strip()) >= 50:
-        return text
+    page_texts = [page.extract_text() or '' for page in reader.pages]
+    # Position markers must never make an image-only PDF look like extracted text.
+    if len(''.join(page_texts).strip()) >= 50:
+        return "\n\n".join((f'[PDF 페이지 {index}]\n' if _full_text.get() else '') + text
+                            for index,text in enumerate(page_texts,1))
     return _pdf_ocr(path, len(reader.pages) if _full_text.get() else min(len(reader.pages), 100))
 
 def _pdf_ocr(path: Path, page_count: int) -> str:
@@ -63,17 +68,17 @@ def _pdf_ocr(path: Path, page_count: int) -> str:
     with tempfile.TemporaryDirectory(prefix="kodame-ocr-") as temp_dir:
         prefix = str(Path(temp_dir) / "page")
         try:
-            subprocess.run(
-                ["pdftoppm", "-jpeg", "-r", "160", "-f", "1", "-l", str(page_count), str(path), prefix],
-                check=True, capture_output=True, timeout=max(180, page_count * 20),
-            )
-            images = sorted(Path(temp_dir).glob("page-*.jpg"))
-            for number, image in enumerate(images, 1):
+            for number in range(1, page_count + 1):
+                subprocess.run(
+                    ['pdftoppm', '-jpeg', '-singlefile', '-r', '160', '-f', str(number), '-l', str(number), str(path), prefix],
+                    check=True, capture_output=True, timeout=120)
+                image = Path(prefix + '.jpg')
                 completed = subprocess.run(
                     ["tesseract", str(image), "stdout", "-l", "kor+eng", "--psm", "3"],
                     check=False, capture_output=True, timeout=120,
                 )
                 page_text = completed.stdout.decode("utf-8", errors="replace").strip()
+                image.unlink(missing_ok=True)
                 if page_text:
                     chunks.append(f"[OCR 페이지 {number}]\n{page_text}")
                 if not _full_text.get() and sum(map(len, chunks)) >= MAX_EXTRACTED_CHARS:
@@ -87,6 +92,17 @@ def _pdf_ocr(path: Path, page_count: int) -> str:
 def _docx(path: Path) -> str:
     with _safe_zip(path):
         doc = Document(str(path))
+        if _full_text.get():
+            from docx.table import Table
+            from docx.text.paragraph import Paragraph
+            chunks = []
+            for index, element in enumerate(doc.element.body, 1):
+                if element.tag.endswith('}p'):
+                    chunks.append(f'[문단 {index}] ' + Paragraph(element, doc).text)
+                elif element.tag.endswith('}tbl'):
+                    for number, row in enumerate(Table(element, doc).rows, 1):
+                        chunks.append(f'[표 {index} 행 {number}] ' + ' | '.join(c.text for c in row.cells))
+            return '\n'.join(chunks)
         chunks = [p.text for p in doc.paragraphs]
         for table in doc.tables:
             chunks.extend(" | ".join(cell.text for cell in row.cells) for row in table.rows)
@@ -99,8 +115,9 @@ def _xlsx(path: Path) -> str:
         try:
             for sheet in book.worksheets:
                 chunks.append(f"[시트: {sheet.title}]")
-                for row in sheet.iter_rows(values_only=True):
-                    values = [str(value) for value in row if value not in (None, "")]
+                for row in sheet.iter_rows():
+                    values = [(f'{cell.coordinate}=' if _full_text.get() else '') + str(cell.value)
+                              for cell in row if cell.value not in (None, "")]
                     if values:
                         chunks.append(" | ".join(values))
                     if not _full_text.get() and sum(map(len, chunks)) >= MAX_EXTRACTED_CHARS:

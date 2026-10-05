@@ -98,6 +98,8 @@ def references_for_criterion(criterion_id: str, references: list[dict]) -> list[
 
 def criterion_score(criterion: dict) -> float:
     evaluation = criterion.get("evaluationResult") or {}
+    if ('score' in evaluation and evaluation['score'] is None) or ('currentScore4' in criterion and criterion['currentScore4'] is None):
+        return None
     try:
         return round(max(1.0, min(4.0, float(evaluation.get("score") or criterion.get("currentScore4") or criterion.get("score") or 1))), 1)
     except (TypeError, ValueError):
@@ -368,9 +370,9 @@ def editor_part_output_contract(part_id: str) -> str:
         ),
         "notice": (
             "OUTPUT CONTRACT FOR (3) NOTICE:\n"
-            "Return only one JSON object. No markdown fence, no prose, no comments.\n"
-            "Required JSON shape: {\"schema\":\"section3_notice_slots_v1\",\"slots\":{\"responsible_evaluator_name_first\":\"...\",\"country_name\":\"...\",\"evaluated_project_name\":\"...\"}}.\n"
-            "Only provide values for template placeholders. Use '확인 필요' for unknown names, dates, affiliations, grades, and review members."
+            "Return reader-facing Korean notice paragraphs only. No slot JSON, schema, XML, or metadata keys.\n"
+            "Describe the evidence scope, limitations, source attribution, and review requirements. "
+            "Names, dates, affiliations, and review-member metadata are populated by the template from verified context."
         ),
         "grade": (
             "OUTPUT CONTRACT FOR (4) GRADE TABLE:\n"

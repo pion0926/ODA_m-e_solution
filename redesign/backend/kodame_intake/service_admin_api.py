@@ -1,18 +1,39 @@
 """Account issuance and explicit project selection, separate from report APIs."""
 import secrets
+from uuid import UUID
 
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from .admin import (
     assign_project_member, create_account, require_admin,
-    reset_account_password, update_account_status,
+    reset_account_password, update_account_status, replace_project_memberships,
 )
 from .auth import account_projects, auth_payload, load_session, select_project
 from .project_lifecycle import project_lifecycle
 from .settings import SESSION_COOKIE_NAME
 
 router = APIRouter(prefix="/api/v2")
+
+
+class ProjectDeleteRequest(BaseModel):
+    name: str
+    revision: str = Field(min_length=64, max_length=64)
+    confirmed: bool
+
+
+@router.get('/admin/projects/{project_id}/deletion-preview')
+def project_deletion_preview(project_id: UUID, request: Request):
+    require_admin(request.state.auth)
+    from .project_deletion import preview
+    return preview(project_id)
+
+
+@router.delete('/admin/projects/{project_id}')
+def delete_project(project_id: UUID, payload: ProjectDeleteRequest, request: Request):
+    require_admin(request.state.auth)
+    from .project_deletion import delete
+    return delete(project_id, request.state.auth['account_id'], payload.name, payload.revision, payload.confirmed)
 
 
 class AccountIssueRequest(BaseModel):
@@ -29,6 +50,17 @@ class AccountStatusRequest(BaseModel):
 
 class PasswordResetRequest(BaseModel):
     password: str = Field(min_length=10, max_length=256)
+
+
+class MembershipUpdate(BaseModel):
+    project_ids: list[str] = Field(max_length=1000)
+    expected_project_ids: list[str] = Field(max_length=1000)
+
+
+@router.put("/admin/accounts/{account_id}/projects")
+def replace_memberships(account_id: str, payload: MembershipUpdate, request: Request):
+    require_admin(request.state.auth)
+    return replace_project_memberships(account_id, payload.project_ids, payload.expected_project_ids)
 
 
 @router.post("/admin/accounts", status_code=201)

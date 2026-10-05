@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -21,7 +22,10 @@ from .settings import (
 )
 
 
-pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=8, kwargs={"row_factory": dict_row}, open=False)
+pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=8,
+                      kwargs={"row_factory": dict_row, "connect_timeout": 10,
+                              "keepalives_idle": 10, "keepalives_interval": 5,
+                              "keepalives_count": 3, "tcp_user_timeout": 15000}, open=False)
 
 _project_id: ContextVar[str] = ContextVar("kodame_project_id", default="")
 _account_id: ContextVar[str] = ContextVar("kodame_account_id", default="")
@@ -29,6 +33,10 @@ _system_access: ContextVar[bool] = ContextVar("kodame_system_access", default=Fa
 
 
 AUTH_SCHEMA = r"""
+CREATE TABLE IF NOT EXISTS service_lifecycle_flags (key text PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS project_file_cleanup (
+  id uuid PRIMARY KEY, paths jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS accounts (
   id uuid PRIMARY KEY,
   email text NOT NULL,
@@ -55,6 +63,18 @@ CREATE INDEX IF NOT EXISTS projects_owner_idx ON projects(owner_account_id, upda
 CREATE UNIQUE INDEX IF NOT EXISTS projects_one_bootstrap_idx ON projects((1)) WHERE is_bootstrap;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS default_locale text NOT NULL DEFAULT 'ko';
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS supported_locales text[] NOT NULL DEFAULT ARRAY['ko']::text[];
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS llm_model text;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS ai_revision integer NOT NULL DEFAULT 0;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS ai_updated_at timestamptz;
+CREATE TABLE IF NOT EXISTS project_ai_changes (
+  id bigserial PRIMARY KEY,
+  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  account_id uuid NOT NULL REFERENCES accounts(id),
+  previous_model text NOT NULL,
+  selected_model text NOT NULL,
+  revision integer NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS project_members (
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -168,6 +188,10 @@ CREATE TABLE IF NOT EXISTS intake_documents (
 CREATE INDEX IF NOT EXISTS intake_documents_queue_idx ON intake_documents(status, available_at, queue_position);
 CREATE INDEX IF NOT EXISTS intake_documents_uploaded_idx ON intake_documents(uploaded_at DESC);
 ALTER TABLE intake_documents ADD COLUMN IF NOT EXISTS analysis_model text;
+ALTER TABLE intake_documents ADD COLUMN IF NOT EXISTS run_token uuid;
+ALTER TABLE intake_documents ADD COLUMN IF NOT EXISTS cancel_requested boolean NOT NULL DEFAULT false;
+ALTER TABLE intake_documents ADD COLUMN IF NOT EXISTS intake_mode text NOT NULL DEFAULT 'auto';
+ALTER TABLE intake_documents ADD COLUMN IF NOT EXISTS triage jsonb;
 ALTER TABLE intake_documents ADD COLUMN IF NOT EXISTS uploaded_by_account_id uuid REFERENCES accounts(id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS processing_events (
@@ -362,6 +386,10 @@ CREATE TABLE IF NOT EXISTS presentation_exports (
 CREATE INDEX IF NOT EXISTS presentation_exports_created_idx ON presentation_exports(created_at DESC);
 ALTER TABLE presentation_exports ADD COLUMN IF NOT EXISTS slide_count integer;
 ALTER TABLE report_generation_runs ADD COLUMN IF NOT EXISTS model text;
+ALTER TABLE report_generation_runs ADD COLUMN IF NOT EXISTS cancel_requested boolean NOT NULL DEFAULT false;
+ALTER TABLE report_generation_runs ADD COLUMN IF NOT EXISTS input_snapshot jsonb;
+ALTER TABLE report_generation_runs ADD COLUMN IF NOT EXISTS resume_part_ids jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE report_generation_runs ADD COLUMN IF NOT EXISTS resumed_from_run_id uuid;
 
 CREATE TABLE IF NOT EXISTS criterion_evaluations (
   id bigserial PRIMARY KEY,
@@ -380,6 +408,7 @@ CREATE TABLE IF NOT EXISTS criterion_evaluations (
 );
 CREATE INDEX IF NOT EXISTS criterion_evaluations_run_idx
   ON criterion_evaluations(run_id,criterion_id);
+ALTER TABLE criterion_evaluations ALTER COLUMN score DROP NOT NULL;
 """
 
 
@@ -398,21 +427,21 @@ ALTER TABLE report_exports ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES p
 ALTER TABLE presentation_exports ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES projects(id) ON DELETE CASCADE;
 ALTER TABLE criterion_evaluations ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES projects(id) ON DELETE CASCADE;
 
-UPDATE intake_documents SET project_id=current_setting('kodame.bootstrap_project_id')::uuid WHERE project_id IS NULL;
+UPDATE intake_documents SET project_id=NULLIF(current_setting('kodame.bootstrap_project_id'),'')::uuid WHERE project_id IS NULL;
 UPDATE processing_events e SET project_id=d.project_id FROM intake_documents d WHERE e.document_id=d.id AND e.project_id IS NULL;
 UPDATE slot_suggestions s SET project_id=d.project_id FROM intake_documents d WHERE s.document_id=d.id AND s.project_id IS NULL;
 UPDATE slot_suggestions SET review_status='approved',reviewed_at=COALESCE(reviewed_at,created_at,now()) WHERE review_status='pending';
 UPDATE document_slot_assignments a SET project_id=d.project_id FROM intake_documents d WHERE a.document_id=d.id AND a.project_id IS NULL;
-UPDATE pdm_models m SET project_id=COALESCE(d.project_id,current_setting('kodame.bootstrap_project_id')::uuid) FROM intake_documents d WHERE m.source_document_id=d.id AND m.project_id IS NULL;
-UPDATE pdm_models SET project_id=current_setting('kodame.bootstrap_project_id')::uuid WHERE project_id IS NULL;
+UPDATE pdm_models m SET project_id=COALESCE(d.project_id,NULLIF(current_setting('kodame.bootstrap_project_id'),'')::uuid) FROM intake_documents d WHERE m.source_document_id=d.id AND m.project_id IS NULL;
+UPDATE pdm_models SET project_id=NULLIF(current_setting('kodame.bootstrap_project_id'),'')::uuid WHERE project_id IS NULL;
 UPDATE pdm_document_assignments a SET project_id=d.project_id FROM intake_documents d WHERE a.document_id=d.id AND a.project_id IS NULL;
-UPDATE evaluation_runs SET project_id=current_setting('kodame.bootstrap_project_id')::uuid WHERE project_id IS NULL;
-UPDATE project_overviews o SET project_id=COALESCE(r.project_id,current_setting('kodame.bootstrap_project_id')::uuid) FROM evaluation_runs r WHERE o.run_id=r.id AND o.project_id IS NULL;
-UPDATE project_overviews SET project_id=current_setting('kodame.bootstrap_project_id')::uuid WHERE project_id IS NULL;
-UPDATE report_sections SET project_id=current_setting('kodame.bootstrap_project_id')::uuid WHERE project_id IS NULL;
-UPDATE report_generation_runs SET project_id=current_setting('kodame.bootstrap_project_id')::uuid WHERE project_id IS NULL;
-UPDATE report_exports SET project_id=current_setting('kodame.bootstrap_project_id')::uuid WHERE project_id IS NULL;
-UPDATE presentation_exports SET project_id=current_setting('kodame.bootstrap_project_id')::uuid WHERE project_id IS NULL;
+UPDATE evaluation_runs SET project_id=NULLIF(current_setting('kodame.bootstrap_project_id'),'')::uuid WHERE project_id IS NULL;
+UPDATE project_overviews o SET project_id=COALESCE(r.project_id,NULLIF(current_setting('kodame.bootstrap_project_id'),'')::uuid) FROM evaluation_runs r WHERE o.run_id=r.id AND o.project_id IS NULL;
+UPDATE project_overviews SET project_id=NULLIF(current_setting('kodame.bootstrap_project_id'),'')::uuid WHERE project_id IS NULL;
+UPDATE report_sections SET project_id=NULLIF(current_setting('kodame.bootstrap_project_id'),'')::uuid WHERE project_id IS NULL;
+UPDATE report_generation_runs SET project_id=NULLIF(current_setting('kodame.bootstrap_project_id'),'')::uuid WHERE project_id IS NULL;
+UPDATE report_exports SET project_id=NULLIF(current_setting('kodame.bootstrap_project_id'),'')::uuid WHERE project_id IS NULL;
+UPDATE presentation_exports SET project_id=NULLIF(current_setting('kodame.bootstrap_project_id'),'')::uuid WHERE project_id IS NULL;
 UPDATE criterion_evaluations c SET project_id=r.project_id FROM evaluation_runs r WHERE c.run_id=r.id AND c.project_id IS NULL;
 
 ALTER TABLE intake_documents ALTER COLUMN project_id SET NOT NULL;
@@ -444,7 +473,6 @@ ALTER TABLE presentation_exports ALTER COLUMN project_id SET DEFAULT NULLIF(curr
 ALTER TABLE criterion_evaluations ALTER COLUMN project_id SET DEFAULT NULLIF(current_setting('kodame.project_id', true),'')::uuid;
 
 DROP INDEX IF EXISTS intake_documents_source_dedupe_idx;
-CREATE UNIQUE INDEX intake_documents_source_dedupe_idx ON intake_documents(project_id, original_name, sha256);
 DROP INDEX IF EXISTS evaluation_runs_one_active_idx;
 CREATE UNIQUE INDEX evaluation_runs_one_active_idx ON evaluation_runs(project_id) WHERE status IN ('queued','running');
 DROP INDEX IF EXISTS report_generation_runs_one_active_idx;
@@ -460,10 +488,29 @@ CREATE INDEX IF NOT EXISTS pdm_models_project_idx ON pdm_models(project_id, crea
 CREATE INDEX IF NOT EXISTS pdm_document_assignments_project_idx ON pdm_document_assignments(project_id, indicator_id);
 CREATE INDEX IF NOT EXISTS evaluation_runs_project_idx ON evaluation_runs(project_id, started_at DESC);
 CREATE INDEX IF NOT EXISTS report_sections_project_idx ON report_sections(project_id, section_number);
+CREATE TABLE IF NOT EXISTS pdm_refresh_runs (
+  id uuid PRIMARY KEY,
+  project_id uuid NOT NULL DEFAULT NULLIF(current_setting('kodame.project_id', true),'')::uuid REFERENCES projects(id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'queued',
+  model text NOT NULL,
+  snapshot_id uuid,
+  result jsonb NOT NULL DEFAULT '{}'::jsonb,
+  error_message text,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+CREATE UNIQUE INDEX IF NOT EXISTS pdm_refresh_one_active_idx ON pdm_refresh_runs(project_id) WHERE status IN ('queued','running');
+CREATE INDEX IF NOT EXISTS pdm_refresh_project_idx ON pdm_refresh_runs(project_id,started_at DESC);
+ALTER TABLE pdm_refresh_runs ADD COLUMN IF NOT EXISTS analysis_plan jsonb;
 """
 
 
 TENANT_TABLES = (
+    "translation_jobs",
+    "evaluation_versions",
+    "foundation_changes",
+    "workflow_tasks",
+    "pdm_refresh_runs",
     "project_translations",
     "project_content_translations",
     "intake_documents",
@@ -508,6 +555,8 @@ def _ensure_bootstrap(conn) -> tuple[uuid.UUID, uuid.UUID]:
     # Startup is a migration, never a credential reset or account reactivation.
     # Existing administrator choices must survive API/worker/evaluation startup.
     project = conn.execute("SELECT id FROM projects WHERE is_bootstrap=true").fetchone()
+    if not project and conn.execute("SELECT 1 FROM service_lifecycle_flags WHERE key='bootstrap_deleted'").fetchone():
+        return account_id, None
     if project:
         project_id = project["id"]
     else:
@@ -527,7 +576,8 @@ def _ensure_bootstrap(conn) -> tuple[uuid.UUID, uuid.UUID]:
         "project_indicators": True, "project_gaps": True, "evaluation_overview": True,
         "evaluation_board": True, "evaluation_results": True, "evaluation_report": True,
     }
-    for number in (range(1, 11) if SEED_DEMO_ACCOUNTS else ()):
+    allow_seed = SEED_DEMO_ACCOUNTS and not conn.execute("SELECT 1 FROM service_lifecycle_flags WHERE key='demo_seed_deleted'").fetchone()
+    for number in (range(1, 11) if allow_seed else ()):
         test_email = f"test{number}@kodame.local"
         test = conn.execute("SELECT id FROM accounts WHERE lower(email)=lower(%s)", (test_email,)).fetchone()
         if test:
@@ -556,21 +606,47 @@ def _enable_rls(conn) -> None:
         conn.execute(f"CREATE POLICY tenant_isolation ON {table} USING {predicate} WITH CHECK {predicate}")
 
 
-def open_pool() -> None:
+def migrate_database() -> None:
     with psycopg.connect(ADMIN_DATABASE_URL, row_factory=dict_row) as conn:
-        conn.execute(AUTH_SCHEMA)
-        _, bootstrap_project_id = _ensure_bootstrap(conn)
-        _ensure_project_translations(conn)
-        conn.execute(SCHEMA)
-        conn.execute("SELECT set_config('kodame.bootstrap_project_id',%s,false)", (str(bootstrap_project_id),))
-        conn.execute(TENANT_MIGRATION)
+        conn.execute("SELECT pg_advisory_xact_lock(hashtextextended('kodame-schema-migration',0))")
+        from urllib.parse import urlsplit, unquote
+        from psycopg import sql
+        app_url = urlsplit(DATABASE_URL)
+        if app_url.username == 'kodame_app' and app_url.password:
+            conn.execute(sql.SQL('ALTER ROLE kodame_app PASSWORD {}').format(sql.Literal(unquote(app_url.password))))
+        conn.execute('CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())')
+        baseline = conn.execute("SELECT 1 FROM schema_migrations WHERE version='001_legacy_baseline'").fetchone()
+        if not baseline:
+            conn.execute(AUTH_SCHEMA)
+            _, bootstrap_project_id = _ensure_bootstrap(conn)
+            from .llm_models import DEFAULT_MODEL
+            conn.execute("UPDATE projects SET llm_model=%s WHERE llm_model IS NULL", (DEFAULT_MODEL,))
+            _ensure_project_translations(conn)
+            conn.execute(SCHEMA)
+            conn.execute("SELECT set_config('kodame.bootstrap_project_id',%s,false)", (str(bootstrap_project_id or ''),))
+            conn.execute(TENANT_MIGRATION)
+            from .foundation import MIGRATION
+            conn.execute(MIGRATION)
+            from .workflow_queue import MIGRATION as WORKFLOW_MIGRATION
+            conn.execute(WORKFLOW_MIGRATION)
+            conn.execute("INSERT INTO schema_migrations(version,checksum) VALUES ('001_legacy_baseline','legacy-adoption-v2.3')")
+        from .migration_history import apply_migrations
+        apply_migrations(conn)
         _enable_rls(conn)
         conn.execute("GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO kodame_app")
         conn.execute("GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA public TO kodame_app")
         conn.execute("DELETE FROM auth_sessions WHERE expires_at <= now()")
         conn.commit()
-    if pool.closed:
-        pool.open(wait=True)
+
+
+def open_pool() -> None:
+    # Compatibility for standalone maintenance commands. Never rerun DDL for
+    # each evaluation on a pool that is already open.
+    if not pool.closed:
+        return
+    if os.getenv('RUN_MIGRATIONS_ON_START', 'true').lower() == 'true':
+        migrate_database()
+    pool.open(wait=True)
 
 
 @contextmanager

@@ -6,6 +6,7 @@ from backend.oda_me.hwpx.patchers import patch_hwpx_report_outline_header_xml
 
 from .cover import adapt_cover_title_font_xml
 from .control_integrity import remove_empty_controls_xml
+from .notice import repair_notice_boxes
 from .background_hierarchy import normalize_background_hierarchy_xml
 from .cell_wrapping import normalize_table_cell_wrapping
 from .achievement_readability import improve_achievement_readability
@@ -86,6 +87,7 @@ def finalize_report_section_layout(
         xml, checks["toc_tab_widths"] = normalize_toc_tab_widths_xml(xml)
     if section_path == "Contents/section2.xml":
         xml, checks["grade_split_layout"] = style_grade_table_xml(xml)
+        xml, checks["notice_box_heights"] = repair_notice_boxes(xml)
     elif section_path == "Contents/section3.xml":
         xml, checks["project_chapter_fresh_page"] = ensure_page_break_before_heading_xml(
             xml, "II. 대상사업개요"
@@ -125,6 +127,11 @@ def finalize_report_section_layout(
         )
 
     xml, heading_stats = normalize_heading_hierarchy_xml(xml)
+    if section_path not in {"Contents/section0.xml", "Contents/section1.xml"}:
+        # Hierarchy normalization can promote a generated body paragraph to
+        # a heading. Apply its spacing contract after that promotion as well.
+        xml, added_gaps = ensure_blank_line_before_report_headings_xml(xml)
+        checks["blank_line_before_report_headings"] += added_gaps
     checks["major_chapters_normalized"] = heading_stats.major_chapters
     checks["section_headings_normalized"] = heading_stats.section_headings
     xml, identity_checks = apply_page_identity_xml(section_path, xml, project)

@@ -1,0 +1,10 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ui = fs.readFileSync('assets/project-ai-ui.js','utf8');
+const page = fs.readFileSync('frontend/index.html','utf8');
+assert(page.indexOf('assets/project-ai-ui.js') < page.indexOf('assets/app-controller.js'));
+for (const contract of ['expected_revision','catalog.can_assign','role="status"','data-provider="Google"','data-provider="OpenAI"','data-provider="Anthropic"','pricing_overrides','입력 / 100만 토큰','출력 / 100만 토큰','진행 중인 작업과 기존 결과']) assert(ui.includes(contract),contract);
+assert(ui.includes('selected === project.llm_model'));
+assert(ui.includes('encodeURIComponent(project.id)'));
+assert(!ui.includes('API_KEY'));
+console.log('Project AI UI contract: PASS');

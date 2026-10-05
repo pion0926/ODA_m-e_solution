@@ -159,6 +159,9 @@ def build_section_preview(part_id: str, content: str) -> dict:
         header = finalize_report_header_layout(source.read("Contents/header.xml").decode("utf-8"), context["project"]).xml
         xml = source.read(spec.hwpx_path).decode("utf-8")
     xml = apply_section_adapter_xml(spec.number, xml, context, prepared).xml
+    # Section 4 also contains the evaluation matrix. Do not lay out unrelated
+    # tables (and their overflow appendices) before discarding them.
+    xml = isolate_section_xml(xml, part_id)
     xml = finalize_report_section_layout(spec.hwpx_path, xml, context["project"], theory_png=theory_png).xml
     xml = cleanup_hwpx_placeholder_text_xml(xml)
     xml = _scrub_xml_reader_text(xml, context["project"], context.get("_raw_source_names", []))
@@ -166,7 +169,6 @@ def build_section_preview(part_id: str, content: str) -> dict:
         xml = re.sub(r"<hp:linesegarray>[\s\S]*?</hp:linesegarray>", "", xml)
     if spec.hwpx_path == "Contents/section4.xml":
         xml, _ = refresh_evaluation_matrix_split_heights_xml(xml)
-    xml = isolate_section_xml(xml, part_id)
     if part_id == "theory" and not theory_png:
         # Do not show the template's unrelated sample-project diagram.
         for start, end in reversed(find_hwpx_tag_spans(xml, "hp:pic")):

@@ -39,11 +39,24 @@ class DACPDMLinkingTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             attach_question_context({"pdm_indicator_ids": ["invented"]}, self.context())
 
-    @patch("kodame_intake.dac_pdm.refresh_pdm_model")
-    def test_absent_pdm_is_explicit_and_not_zero(self, refresh):
+    @patch("kodame_intake.dac_pdm.connection")
+    def test_absent_pdm_is_explicit_and_not_zero(self, connection):
+        connection.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = None
         context = refresh_context([{"name": "results.txt"}])
         self.assertEqual(context["status"], "unavailable")
         self.assertEqual(context["model"], {})
+
+    @patch('kodame_intake.pdm_monitoring.refresh_pdm_model')
+    @patch('kodame_intake.dac_pdm.capture_input_snapshot', return_value={'document_digest': 'new'})
+    @patch('kodame_intake.dac_pdm.connection')
+    def test_dac_reads_saved_pdm_without_running_performance(self, connection, snapshot, refresh):
+        conn = connection.return_value.__enter__.return_value
+        conn.execute.return_value.fetchone.return_value = {'id': 'pdm', 'created_at': datetime.now(timezone.utc),
+            'source_document_id': 'source', 'source_file_name': 'pdm.txt',
+            'model': {'monitoring': {'input_snapshot': {'document_digest': 'old'}}, 'performance_indicators': []}}
+        conn.execute.return_value.fetchall.return_value = []
+        result = refresh_context([])
+        self.assertEqual(result['performance_analysis_status'], 'stale')
         refresh.assert_not_called()
 
 

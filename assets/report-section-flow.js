@@ -10,7 +10,7 @@
     if (status === 'uncertain') return { reason: '접수 여부를 확인하지 못했습니다. 중복 생성을 방지하기 위해 먼저 진행 상태를 다시 확인해 주세요.' };
     if (lifecycle?.can_generate_report === false || ['empty_project', 'processing_documents', 'evaluation_required', 'evaluation_active'].includes(lifecycle?.phase)) {
       const action = lifecycle.phase === 'evaluation_required' ? { href: '#/eval/board', label: 'DAC 재평가로 이동' }
-        : ['empty_project', 'processing_documents'].includes(lifecycle.phase) ? { href: '#/evidence', label: '자료 처리 상태 확인' } : null;
+        : ['empty_project', 'processing_documents', 'documents_need_attention'].includes(lifecycle.phase) ? { href: '#/evidence', label: '자료 처리 상태 확인' } : null;
       return { reason: lifecycle.message || '자료·평가 처리가 완료된 뒤 수정할 수 있습니다.', action };
     }
     return null;

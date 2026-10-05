@@ -1,8 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const source = fs.readFileSync('assets/odaon-v1-live.js','utf8');
-const html = fs.readFileSync('0821_OoooDaon_v1.0.html','utf8');
+const source = fs.readFileSync('assets/app-controller.js','utf8');
+const html = fs.readFileSync('frontend/index.html','utf8') + fs.readFileSync('assets/app-shell.js','utf8') + fs.readFileSync('assets/app-styles.css','utf8');
 const admin = fs.readFileSync('assets/service-admin-ui.js','utf8');
 const nodes = {adminUserSearch:{value:''},adminUserProject:{value:'p2'},adminAccountRows:{innerHTML:''}};
 const context = {byId:id=>nodes[id],adminAccounts:[{id:'u1',username:'first',display_name:'하나',projects:[{id:'p1',name:'프로젝트1'}]},{id:'u2',username:'second',display_name:'둘',projects:[{id:'p2',name:'프로젝트2'}]}],selectedAdminAccountId:'u1',esc:String,formatAdminDate:()=>'-',renderAdminDetail(account){context.detailId=account?.id;}};

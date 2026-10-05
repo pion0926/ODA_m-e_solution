@@ -11,5 +11,25 @@ assert(html.includes('미확인 항목 포함'));
 assert(html.includes('상위 점수를 부여하지 않은 이유'));
 assert(html.includes('&lt;script&gt;'));
 assert(!html.includes('<script>'));
-assert(!fs.readFileSync('assets/odaon-v1-live.js','utf8').includes('판단 근거 원문 보기'));
+assert(!fs.readFileSync('assets/app-controller.js','utf8').includes('판단 근거 원문 보기'));
+const held = render({score:null,scoring_trace:{rubric_digest:'digest',selected_score:null,status:'needs_evidence',
+  checks:[],applied_rules:[],coverage:0,confidence:0,merit_index:null},
+  evidence_quotes:[{file_name:'<script>bad</script>',quote:'<img src=x>',finding:'원문 위치 검증됨',locator:{section:'PDF 페이지 2'}}]});
+assert(held.includes('점수 판정 보류'));
+assert(!held.includes('0점 산정'));
+assert(held.includes('&lt;img src=x&gt;'));
+assert(!held.includes('<script>bad'));
+const measurement = render({scoring_trace:{rubric_digest:'digest',checks:[{state:'unverified',
+  applied_rules:['근거 부족으로 확인 보류'],measurements:[{metric:'<교육>',target:6,actual:29,unit:'건',period:'2026',
+  population:'교과목',ratio:null,comparable:false,due:false}]}]},evidence_quotes:[]});
+assert(measurement.includes('목표 6건 / 실적 29건'));
+assert(measurement.includes('정의·기간·대상 비교 보류'));
+assert(measurement.includes('&lt;교육&gt;'));
+const rejected = render({scoring_trace:{rubric_digest:'digest',checks:[{state:'unverified',
+  measurements:[{metric:'교육',target:6,actual:999,unit:'건',period:'2026',population:'교과목',
+    ratio:null,comparable:true,due:true,validation_error:'원문에서 <999>를 확인할 수 없습니다.'}]}]}});
+assert(rejected.includes('원문 확인 전 제안값'));
+assert(rejected.includes('점수 반영 제외'));
+assert(rejected.includes('&lt;999&gt;'));
+assert(!rejected.includes('목표시점 미도래'));
 console.log('PASS DAC trace rendering, legacy honesty, escaping, no raw quote control');

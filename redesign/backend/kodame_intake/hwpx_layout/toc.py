@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import re
+from html import escape
 import zipfile
 from io import BytesIO
+from backend.oda_me.hwpx.toc_registry import normalized_title
 
 from backend.oda_me.hwpx.patchers import (
     TOC_SECTION2_LABELS,
@@ -190,6 +192,26 @@ def patch_toc_page_numbers(data: bytes, page_numbers: dict[str, str]) -> tuple[b
                 xml, changed = patch_hwpx_section2_toc_page_numbers_xml(
                     raw.decode("utf-8"), page_numbers
                 )
+                # The template had no number slots for the grade table and
+                # chapter headings. Add runs to those leaf rows only, without
+                # inserting paragraphs or changing the existing vertical grid.
+                for key, label in TOC_SECTION2_LABELS.items():
+                    value = str(page_numbers.get(key) or '').strip()
+                    if not value or _toc_labeled_numeric_target(xml, label) is not None:
+                        continue
+                    for start, end in find_hwpx_all_tag_spans(xml, 'hp:p'):
+                        paragraph = xml[start:end]
+                        if len(re.findall(r'<hp:p\b', paragraph)) != 1:
+                            continue
+                        if normalized_title(get_hwpx_xml_scope_text(paragraph)) != normalized_title(label):
+                            continue
+                        position = paragraph.find('<hp:linesegarray')
+                        if position < 0:
+                            position = paragraph.rfind('</hp:p>')
+                        run = f'<hp:run charPrIDRef="61"><hp:t>{escape(value)}</hp:t></hp:run>'
+                        xml = xml[:start] + paragraph[:position] + run + paragraph[position:] + xml[end:]
+                        changed += 1
+                        break
                 xml, spacing_changed = normalize_toc_page_number_spacing_xml(xml)
                 changed += spacing_changed
                 xml, tab_changed = normalize_toc_tab_widths_xml(xml)
@@ -216,6 +238,7 @@ def validate_toc_page_numbers(data: bytes, page_numbers: dict[str, str]) -> dict
     for key, label in TOC_SECTION2_LABELS.items():
         expected = str(page_numbers.get(key) or "").strip()
         if not expected:
+            mismatches.append(f"{label}: 출력 쪽수 계산 누락")
             continue
         target = _toc_labeled_numeric_target(xml, label)
         raw_value = target[3].group(2) if target is not None else ""
@@ -231,4 +254,5 @@ def validate_toc_page_numbers(data: bytes, page_numbers: dict[str, str]) -> dict
         if key.startswith("appendix_")
     ) and _normalized_toc_label(get_hwpx_xml_scope_text(xml)).find("첨부") >= 0:
         mismatches.append("미생성 첨부 목차가 남아 있음")
-    return {"ok": not mismatches, "mismatches": mismatches, "actual": actual}
+    return {"ok": not mismatches, "mismatches": mismatches, "actual": actual,
+            "required_count": len(TOC_SECTION2_LABELS), "checked_count": len(actual)}

@@ -229,8 +229,34 @@ def _resize_grade_table_rows_xml(table_xml: str) -> str:
     )
 
 
+def grade_page_row_groups(row_xml: list[str]) -> tuple[tuple[int, ...], ...]:
+    """Keep the preferred two-page layout when it fits; otherwise pack whole criteria.
+
+    Criterion labels span their question/subtotal rows. Never break those merged
+    cells or discard rationale text to satisfy a fixed page count.
+    """
+    heights = [min(map(int, re.findall(r'<hp:cellSz\b[^>]*\bheight="(\d+)"', row))) for row in row_xml]
+    if all(sum(heights[i] for i in group) <= (58000 if page == 0 else 65000)
+           for page, group in enumerate(GRADE_TABLE_PAGE_ROW_GROUPS)):
+        return GRADE_TABLE_PAGE_ROW_GROUPS
+    pages = []
+    current = [0]
+    height = heights[0]
+    for group in (*GRADE_CRITERION_ROW_GROUPS, GRADE_SUMMARY_ROWS):
+        needed = sum(heights[i] for i in group)
+        budget = 58000 if not pages else 65000
+        if len(current) > 1 and height + needed > budget:
+            pages.append(tuple(current))
+            current, height = [0], heights[0]
+        current.extend(group)
+        height += needed
+    if len(current) > 1:
+        pages.append(tuple(current))
+    return tuple(pages)
+
+
 def _split_grade_table_into_pages_xml(table_xml: str) -> str:
-    """Create two balanced tables with complete criterion groups."""
+    """Create page-sized tables, preserving complete criterion groups."""
 
     rows = find_hwpx_tag_spans(table_xml, "hp:tr")
     if len(rows) != 20:
@@ -241,7 +267,7 @@ def _split_grade_table_into_pages_xml(table_xml: str) -> str:
     base_id = int(base_id_match.group(1)) if base_id_match else 1243405073
     row_xml = [table_xml[start:end] for start, end in rows]
     parts: list[str] = []
-    for part_index, row_indexes in enumerate(GRADE_TABLE_PAGE_ROW_GROUPS):
+    for part_index, row_indexes in enumerate(grade_page_row_groups(row_xml)):
         part_prefix = re.sub(
             r'(<hp:tbl\b[^>]*\bid=")\d+',
             rf"\g<1>{base_id + part_index}",

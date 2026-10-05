@@ -63,12 +63,13 @@
           const saved = await request(account ? `/api/v2/admin/accounts/${encodeURIComponent(account.id)}/password` : '/api/v2/admin/accounts', { method: account ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), timeoutMs: 15000 });
           form.reset();
           if (!account) selected(saved.id);
-          await refresh();
           if (account) { dialog.close(); notify('비밀번호를 변경하고 기존 세션을 종료했습니다.'); }
           else {
             dialog.innerHTML = `<h2 id="serviceAccountTitle">계정 발급 완료</h2><p>프로젝트: <b>${esc(saved.project.name)}</b></p><p>아이디: <b id="issuedUsername">${esc(saved.username)}</b></p><p>초기 비밀번호: <code id="issuedPassword" style="user-select:all;overflow-wrap:anywhere">${esc(saved.initial_password)}</code></p><p>이 화면을 닫으면 비밀번호를 다시 조회할 수 없습니다. 이 계정으로 로그인하면 연결된 프로젝트의 빈 화면에서 시작합니다.</p><button class="btn primary" type="button" id="issuedAccountDone">확인 · 사용자 관리로 이동</button>`;
             dialog.querySelector('#issuedAccountDone').onclick = () => { dialog.close(); location.hash = '#/admin/users'; };
           }
+          // Show one-time credentials before any fallible list refresh.
+          try { await refresh(); } catch (_) { notify('계정 처리는 완료됐습니다. 목록은 새로고침해 주세요.'); }
         } catch (error) { state.textContent = error.status ? error.message : `접수 여부를 확인하지 못했습니다. 창을 닫고 계정 목록을 새로고침하여 결과를 확인한 뒤 다시 시도하세요. ${error.message}`; }
         finally { busy = false; form.querySelectorAll('button').forEach((button) => { button.disabled = false; }); }
       });
@@ -91,22 +92,67 @@
       }
       busy = true;
       target.textContent = '저장 중…';
-      let completed = 0;
       try {
         if (action === 'status') await request(`/api/v2/admin/accounts/${encodeURIComponent(account.id)}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: !account.is_active }), timeoutMs: 15000 });
-        for (const item of changes) {
-          await request(`/api/v2/admin/projects/${encodeURIComponent(item.id)}/members/${encodeURIComponent(account.id)}`, { method: item.add ? 'PUT' : 'DELETE', timeoutMs: 15000 });
-          completed++;
+        if (action === 'members') {
+          const projectIds = new Set(assigned(account).map(project => project.id));
+          changes.forEach(item => item.add ? projectIds.add(item.id) : projectIds.delete(item.id));
+          await request(`/api/v2/admin/accounts/${encodeURIComponent(account.id)}/projects`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, timeoutMs: 15000,
+            body: JSON.stringify({ project_ids: [...projectIds], expected_project_ids: assigned(account).map(project => project.id) })
+          });
         }
         await refresh();
         notify(action === 'status' ? '계정 상태를 변경했습니다.' : '프로젝트 배정을 저장했습니다.');
       } catch (error) {
         await refresh();
         const current = document.getElementById('adminServiceState');
-        if (current) current.textContent = `${completed ? `${completed}건 적용 후 ` : ''}요청을 완료하지 못했습니다. 현재 목록을 확인해 주세요. ${error.message}`;
+        if (current) current.textContent = `${error.status && error.status < 500 ? '변경은 적용되지 않았습니다.' : '접수 여부를 확인하지 못했습니다. 현재 목록을 확인해 주세요.'} ${error.message}`;
       } finally { busy = false; }
     }
-    return { detail, openAccountForm, act };
+    async function deleteProject(projectId) {
+      if (busy || document.getElementById('projectDeleteDialog')) return;
+      busy = true;
+      try {
+        const preview = await request(`/api/v2/admin/projects/${encodeURIComponent(projectId)}/deletion-preview`);
+        const dialog = document.createElement('dialog');
+        dialog.id = 'projectDeleteDialog'; dialog.className = 'service-account-dialog';
+        dialog.setAttribute('aria-labelledby', 'projectDeleteTitle');
+        dialog.innerHTML = `<form><h2 id="projectDeleteTitle">프로젝트 및 관련 계정 삭제</h2><p><b>${esc(preview.name)}</b>의 원본·추출 파일, 분석·평가 데이터, 보고서·발표자료와 연결된 계정을 영구 삭제합니다. 복구할 수 없습니다.</p><p>문서 ${preview.counts.intake_documents}개 · 평가 ${preview.counts.evaluation_runs}건 · 보고서 섹션 ${preview.counts.report_sections}개 · 내보내기 ${preview.counts.report_exports + preview.counts.presentation_exports}건</p><h3>함께 삭제할 계정 (${preview.accounts.length}개)</h3><ul style="max-height:200px;overflow:auto">${preview.accounts.map(a => `<li><b>${esc(a.username)}</b> · ${esc(a.display_name)}${a.other_projects.length ? `<br><strong style="color:var(--bad-t)">다른 프로젝트 접근도 삭제: ${a.other_projects.map(esc).join(', ')}</strong>` : ''}</li>`).join('') || '<li>연결 계정 없음</li>'}</ul><p>시스템 관리자 계정은 보존됩니다. 다른 프로젝트의 자료는 보존되며 필요한 경우 관리 소유권이 현재 관리자에게 이전됩니다.</p><label>확인을 위해 프로젝트명을 정확히 입력하세요.<input name="projectName" autocomplete="off" required style="width:100%;margin:8px 0"></label><div role="status" data-delete-state></div><div class="report-ai-actions"><button type="button" class="btn" data-delete-cancel>취소</button><button type="submit" class="btn" style="color:var(--bad-t)" data-delete-submit disabled>삭제 대상 확인</button></div></form>`;
+        let executing = false, reviewed = false;
+        const input = dialog.querySelector('input');
+        const submit = dialog.querySelector('[data-delete-submit]');
+        const status = dialog.querySelector('[data-delete-state]');
+        input.oninput = () => { reviewed = false; submit.textContent = '삭제 대상 확인'; submit.disabled = input.value !== preview.name; status.textContent = ''; };
+        dialog.querySelector('[data-delete-cancel]').onclick = () => { if (!executing) dialog.close(); };
+        dialog.addEventListener('cancel', event => { if (executing) event.preventDefault(); });
+        dialog.addEventListener('close', () => { dialog.remove(); busy = false; }, {once:true});
+        dialog.querySelector('form').onsubmit = async event => {
+          event.preventDefault();
+          if (executing || input.value !== preview.name) return;
+          if (!reviewed) {
+            reviewed = true;
+            status.textContent = `정말 삭제하시겠습니까? ${preview.name}의 모든 자료와 계정 ${preview.accounts.length}개가 영구 삭제됩니다. 아래 최종 삭제 버튼을 눌러야 실행됩니다.`;
+            submit.textContent = '최종 확인 · 영구 삭제';
+            return;
+          }
+          executing = true; submit.disabled = true; input.disabled = true;
+          dialog.querySelector('[data-delete-cancel]').disabled = true;
+          status.textContent = '프로젝트 데이터와 파일을 삭제하고 있습니다…';
+          try {
+            const result = await request(`/api/v2/admin/projects/${encodeURIComponent(projectId)}`, {method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:input.value, revision:preview.revision, confirmed:true})});
+            dialog.close(); await refresh();
+            notify(result.cleanup_pending ? '프로젝트와 계정을 삭제했습니다. 남은 파일은 백그라운드에서 삭제 재시도 중입니다.' : '프로젝트, 관련 계정 및 파일을 모두 삭제했습니다.');
+          } catch (error) {
+            status.textContent = `${error.message} 목록을 새로 확인한 뒤 다시 시도해 주세요.`;
+            reviewed = false; submit.textContent = '삭제 대상 확인'; submit.disabled = false; input.disabled = false;
+            dialog.querySelector('[data-delete-cancel]').disabled = false;
+          } finally { executing = false; }
+        };
+        document.body.appendChild(dialog); dialog.showModal(); input.focus();
+      } catch (error) { busy = false; notify(error.message); }
+    }
+    return { detail, openAccountForm, act, deleteProject };
   }
   root.ServiceAdminUI = { create };
 })(window);

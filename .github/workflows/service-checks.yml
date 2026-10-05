@@ -1,0 +1,45 @@
+name: Service checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - name: Build deployable images
+        run: docker compose -f compose.qa.yml build kodame-redesign-api kodame-redesign-web
+      - name: Backend contracts and algorithms (no paid API)
+        run: >-
+          docker run --rm -v "$PWD:/workspace:ro" -w /workspace
+          -e PYTHONPATH=/workspace/redesign/backend:/workspace/backend:/workspace
+          -e AI_GLOBAL_BUDGET_ENABLED=false -e PARSER_ISOLATION=false
+          -e REPORT_QUALITY_PROFILE_PATH=/workspace/config/report_quality_profile.json
+          -e OPENROUTER_API_KEY= --entrypoint sh odame-qa/api:refactor
+          -c 'pip install --quiet -r redesign/backend/requirements-test.txt && python -m pytest -q -p no:cacheprovider --tb=short redesign/backend/tests'
+      - name: Frontend contracts and state transitions
+        run: node --test --test-isolation=none redesign/frontend/test_*.cjs
+  browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-failure-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

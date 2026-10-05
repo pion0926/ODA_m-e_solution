@@ -13,7 +13,7 @@ MAX_EXTRACTED_CHARS = int(os.getenv("MAX_EXTRACTED_CHARS", "600000"))
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-3.5-flash-lite")
 OPENROUTER_PRESENTATION_MODEL = os.getenv(
-    "OPENROUTER_PRESENTATION_MODEL", "anthropic/claude-opus-5"
+    "OPENROUTER_PRESENTATION_MODEL", "openai/gpt-6-astra"
 )
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 OPENROUTER_REFERER = os.getenv("OPENROUTER_REFERER", "http://127.0.0.1:8002")
@@ -42,6 +42,7 @@ BOOTSTRAP_PROJECT_NAME = os.getenv(
     "운영자 기본 프로젝트",
 )
 WORKER_POLL_SECONDS = float(os.getenv("WORKER_POLL_SECONDS", "3"))
+WORKER_CONCURRENCY = max(1, min(4, int(os.getenv('WORKER_CONCURRENCY', '4'))))
 WORKER_STEP_DELAY_SECONDS = float(os.getenv("WORKER_STEP_DELAY_SECONDS", "1"))
 MAX_ATTEMPTS = int(os.getenv("MAX_ATTEMPTS", "4"))
 TAXONOMY_VERSION = "2026-08-13.1"

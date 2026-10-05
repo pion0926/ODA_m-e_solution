@@ -15,7 +15,8 @@ if ($Environment -eq 'production') {
     $composeArgs += @('--env-file', (Join-Path $runtimeDir 'production.env'), '--env-file', (Join-Path $runtimeDir 'production-images.env'), '-f', (Join-Path $sourceDir 'compose.production.yml'))
     foreach ($property in $manifest.images.PSObject.Properties) {
         $revision = & docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' $property.Value.imageId
-        if ($LASTEXITCODE -ne 0 -or $revision -ne $manifest.commit) { throw "Release image missing or revision mismatch: $($property.Name)" }
+        $expectedRevision = if ($property.Value.sourceRevision) { $property.Value.sourceRevision } else { $manifest.commit }
+        if ($LASTEXITCODE -ne 0 -or $revision -ne $expectedRevision) { throw "Release image missing or revision mismatch: $($property.Name)" }
     }
 } else {
     $composeArgs += @('--env-file', (Join-Path $opsRoot '.env'), '-f', (Join-Path $opsRoot 'docker-compose.yml'))

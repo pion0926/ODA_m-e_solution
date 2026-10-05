@@ -72,7 +72,7 @@ TRANSLATABLE_KEYS = {
 TRANSLATION_SYSTEM_PROMPT = """You translate user-interface content for an ODA performance-management and evaluation system.
 Translate every supplied value completely into the requested target language.
 Use professional public-sector and international-development terminology.
-Preserve PDM, DAC, OECD, KOICA, CPCR, MCI Triage, OVI, organization names, codes, numbers, units and date ranges unless a conventional localized name exists.
+Preserve PDM, DAC, OECD, KOICA, OVI, source-defined terminology, organization names, codes, numbers, units and date ranges unless a conventional localized name exists.
 Do not summarize, add facts, remove qualifications, or change list order.
 Preserve line breaks and bullet structure inside each value.
 Return one JSON object only, with a `translations` object containing every input key exactly once. Do not use Markdown."""
@@ -131,7 +131,9 @@ def _set_path(payload: Any, path: tuple[str | int, ...], value: str) -> None:
 
 
 def _source_digest(views: dict[str, Any], slots: list[TextSlot]) -> str:
+    from .llm_models import current_llm_model
     stable = {
+        "model": current_llm_model(),
         "contract": 1,
         "scopes": list(SCREEN_SCOPES),
         "values": [{"path": list(slot.path), "source": slot.source} for slot in slots],
@@ -262,11 +264,11 @@ def localize_project_views(
         # bounded by a few model calls instead of the sum of every model call.
         workers = min(4, len(batches)) or 1
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="view-i18n") as executor:
-            results = executor.map(
-                lambda batch: _translate_batch(batch, normalized, source_locale),
-                batches,
-            )
-            for values, model in results:
+            from contextvars import copy_context
+            futures = [executor.submit(copy_context().run, _translate_batch, batch, normalized, source_locale)
+                       for batch in batches]
+            for future in futures:
+                values, model = future.result()
                 translations.update(values)
                 models.append(model)
     except (MissingApiKey, AnalysisError, ViewTranslationError) as exc:
@@ -278,6 +280,8 @@ def localize_project_views(
     for slot in slots:
         _set_path(localized, slot.path, translations[slot.key])
     model = models[-1] if models else ""
+    from .translation_jobs import check_translation
+    check_translation()
     _store_translation(normalized, digest, localized, model)
     return {
         "locale": normalized,

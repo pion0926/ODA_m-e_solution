@@ -44,7 +44,7 @@ def mutation_menu_permission(method: str, path: str) -> str | None:
         return None
     if path.startswith("/api/v2/report/"):
         return "evaluation_report"
-    if path == "/api/v2/intake/uploads" or (path.startswith("/api/v2/intake/jobs/") and path.endswith("/retry")):
+    if path == "/api/v2/intake/uploads" or (path.startswith("/api/v2/intake/jobs/") and path.endswith(("/retry", "/cancel", "/mode", "/evaluation-scope"))):
         return "evidence_upload"
     if path == "/api/v2/evaluations":
         return "evaluation_board"
@@ -111,10 +111,12 @@ def list_accounts() -> dict:
 
 
 def list_projects() -> dict:
+    from .project_ai import policy_payload
     with tenant_context(system=True):
         with connection() as conn:
             rows = conn.execute(
                 """SELECT p.id,p.name,p.status,p.default_locale,p.supported_locales,p.created_at,
+                          p.llm_model,p.ai_revision,p.ai_updated_at,
                           count(pm.account_id) FILTER (WHERE NOT a.is_admin) AS member_count,
                           (SELECT count(*) FROM intake_documents d WHERE d.project_id=p.id) AS document_count,
                           (SELECT count(*) FROM evaluation_runs e WHERE e.project_id=p.id AND e.status='completed') AS evaluation_count,
@@ -125,6 +127,7 @@ def list_projects() -> dict:
             ).fetchall()
     return {
         "projects": [{
+            **policy_payload(row),
             "id": str(row["id"]), "name": row["name"], "status": row["status"],
             "default_locale": row["default_locale"], "supported_locales": row["supported_locales"],
             "member_count": row["member_count"], "created_at": row["created_at"].isoformat(),
@@ -135,6 +138,7 @@ def list_projects() -> dict:
 
 
 def create_project(owner_account_id: str, name: str, supported_locales: list[str], default_locale: str, account_ids: list[str]) -> dict:
+    from .llm_models import DEFAULT_MODEL
     try:
         owner_id = uuid.UUID(str(owner_account_id))
         member_ids = list(dict.fromkeys(uuid.UUID(str(value)) for value in account_ids))
@@ -152,13 +156,13 @@ def create_project(owner_account_id: str, name: str, supported_locales: list[str
         with connection() as conn, conn.transaction():
             if not conn.execute("SELECT id FROM accounts WHERE id=%s AND is_active=true", (owner_id,)).fetchone():
                 raise HTTPException(422, "프로젝트 소유자 계정을 확인해 주세요.")
-            existing_ids = {row["id"] for row in conn.execute("SELECT id FROM accounts WHERE id=ANY(%s) AND is_active=true", (member_ids,)).fetchall()} if member_ids else set()
+            existing_ids = {row["id"] for row in conn.execute("SELECT id FROM accounts WHERE id=ANY(%s) AND is_active=true ORDER BY id FOR UPDATE", (member_ids,)).fetchall()} if member_ids else set()
             if len(existing_ids) != len(member_ids):
                 raise HTTPException(422, "존재하지 않거나 비활성화된 계정이 포함되어 있습니다.")
             conn.execute(
-                """INSERT INTO projects(id,owner_account_id,name,default_locale,supported_locales)
-                   VALUES (%s,%s,%s,%s,%s)""",
-                (project_id, owner_id, clean_name, default, locales),
+                """INSERT INTO projects(id,owner_account_id,name,default_locale,supported_locales,llm_model)
+                   VALUES (%s,%s,%s,%s,%s,%s)""",
+                (project_id, owner_id, clean_name, default, locales, DEFAULT_MODEL),
             )
             # The operator owns administration, not membership in the client's data workspace.
             for account_id in existing_ids - {owner_id}:
@@ -290,13 +294,14 @@ def assign_project_member(project_id: str, account_id: str, *, remove: bool = Fa
     project = _account_uuid(project_id)
     target = _account_uuid(account_id)
     with tenant_context(system=True), connection() as conn, conn.transaction():
+        account = conn.execute("SELECT id,is_active,is_admin FROM accounts WHERE id=%s FOR UPDATE", (target,)).fetchone()
+        if not account or account["is_admin"] or (not remove and not account["is_active"]):
+            raise HTTPException(422, "활성 사용자 계정만 프로젝트에 배정할 수 있습니다.")
         project_row = conn.execute("SELECT owner_account_id,default_locale FROM projects WHERE id=%s AND status='active' FOR UPDATE", (project,)).fetchone()
         if not project_row:
             raise HTTPException(404, "프로젝트를 찾을 수 없습니다.")
         if target == project_row["owner_account_id"]:
             raise HTTPException(422, "프로젝트 소유자 배정은 변경할 수 없습니다.")
-        if not conn.execute("SELECT id FROM accounts WHERE id=%s AND is_active=true", (target,)).fetchone():
-            raise HTTPException(422, "활성 계정만 프로젝트에 배정할 수 있습니다.")
         if remove:
             conn.execute("DELETE FROM project_members WHERE project_id=%s AND account_id=%s", (project, target))
             conn.execute("UPDATE auth_sessions SET selected_project_id=NULL WHERE account_id=%s AND selected_project_id=%s", (target, project))
@@ -307,3 +312,41 @@ def assign_project_member(project_id: str, account_id: str, *, remove: bool = Fa
                 (project, target, project_row["default_locale"]),
             )
     return {"project_id": str(project), "account_id": str(target), "assigned": not remove}
+
+
+def replace_project_memberships(account_id: str, project_ids: list[str], expected_project_ids: list[str]) -> dict:
+    """Validate the entire change before writing; serialize all account membership writers."""
+    target = _account_uuid(account_id)
+    desired = {_account_uuid(value) for value in project_ids}
+    expected = {_account_uuid(value) for value in expected_project_ids}
+    with tenant_context(system=True), connection() as conn, conn.transaction():
+        account = conn.execute("SELECT is_active,is_admin FROM accounts WHERE id=%s FOR UPDATE", (target,)).fetchone()
+        if not account:
+            raise HTTPException(404, "계정을 찾을 수 없습니다.")
+        if account["is_admin"]:
+            raise HTTPException(422, "관리자는 사용자 프로젝트 배정 대상이 아닙니다.")
+        current = {row["id"] for row in conn.execute(
+            """SELECT p.id FROM project_members pm JOIN projects p ON p.id=pm.project_id
+               WHERE pm.account_id=%s AND p.status='active'""", (target,)).fetchall()}
+        if current != expected:
+            raise HTTPException(409, "다른 관리자가 프로젝트 배정을 변경했습니다. 최신 목록을 확인한 후 다시 저장해 주세요.")
+        added, removed = desired - current, current - desired
+        if added and not account["is_active"]:
+            raise HTTPException(422, "중지된 계정은 활성화한 후 새 프로젝트에 배정해 주세요.")
+        projects = conn.execute(
+            "SELECT id,owner_account_id,default_locale FROM projects WHERE id=ANY(%s) AND status='active' ORDER BY id FOR UPDATE",
+            (sorted(desired | removed),),
+        ).fetchall()
+        if {row["id"] for row in projects} != desired | removed:
+            raise HTTPException(422, "존재하지 않거나 종료된 프로젝트가 포함되어 있습니다. 배정은 변경되지 않았습니다.")
+        if any(row["owner_account_id"] == target and row["id"] in added | removed for row in projects):
+            raise HTTPException(422, "프로젝트 소유자 배정은 변경할 수 없습니다.")
+        for row in projects:
+            if row["id"] in added:
+                conn.execute("INSERT INTO project_members(project_id,account_id,role,preferred_locale) VALUES (%s,%s,'viewer',%s)",
+                             (row["id"], target, row["default_locale"]))
+        if removed:
+            conn.execute("DELETE FROM project_members WHERE account_id=%s AND project_id=ANY(%s)", (target, sorted(removed)))
+            conn.execute("UPDATE auth_sessions SET selected_project_id=NULL WHERE account_id=%s AND selected_project_id=ANY(%s)",
+                         (target, sorted(removed)))
+    return {"account_id": str(target), "project_ids": sorted(map(str, desired)), "added_count": len(added), "removed_count": len(removed)}

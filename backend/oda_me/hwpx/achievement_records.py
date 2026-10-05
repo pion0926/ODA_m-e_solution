@@ -2,7 +2,7 @@
 import re
 
 ACHIEVEMENT_RECORD_RE = re.compile(
-    r'^\s*-\s*\[((?:outcome|outputs?)(?:\s+|-)[\w.-]+|\d+(?:[.-]\d+)+)\]\s*(.*)$',
+    r'^\s*-\s*\[((?:outcome|outputs?)(?:\s+|-)[\w.-]+|\d+(?:[.-]\d+)+)(?:\s+[^\]\r\n]+)?\]\s*[:：]?\s*(.*)$',
     re.IGNORECASE,
 )
 

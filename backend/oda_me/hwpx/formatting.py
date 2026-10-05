@@ -59,12 +59,14 @@ def find_hwpx_grade_table(root: ET.Element) -> ET.Element | None:
     return None
 
 
-def format_score(value: object) -> str:
+def format_score(value: object, suffix: str = '') -> str:
+    if value is None:
+        return '판정보류'
     try:
         score = round(float(value), 1)
     except (TypeError, ValueError):
         score = 1.0
-    return str(int(score)) if score.is_integer() else f"{score:.1f}"
+    return (str(int(score)) if score.is_integer() else f"{score:.1f}") + suffix
 
 
 def criterion_question_rows(item: dict) -> list[dict]:
@@ -84,7 +86,7 @@ def criterion_question_rows(item: dict) -> list[dict]:
             {
                 "questionId": str(assessment.get("questionId") or f"q{index + 1}"),
                 "question": str(assessment.get("question") or f"평가질문 {index + 1}"),
-                "score": float(assessment.get("score") or 1),
+                "score": float(assessment['score']) if assessment.get('score') is not None else None,
                 "reason": reason,
             }
         )
@@ -121,7 +123,7 @@ def criterion_grade_rows(context: dict) -> list[dict]:
         rows.append({
             "id": item.get("id"),
             "name": names.get(item.get("id"), criterion_label(item)),
-            "score": round(max(1.0, min(4.0, float(score or 1))), 1),
+            "score": round(max(1.0, min(4.0, float(score))), 1) if score is not None else None,
             "reason": compact_report_sentence(reason, 120),
             "questionRows": question_rows,
         })
@@ -181,7 +183,7 @@ def format_grade_section_text(context: dict) -> str:
     lines.extend(
         [
             "",
-            f"종합점수: {overall.get('score', sum(item['score'] for item in rows))}/{overall.get('maxScore', 20)}점",
+            f"종합점수: {format_score(overall.get('score'))}/{overall.get('maxScore', 20)}점",
             f"국무조정실 평가등급: {overall.get('governmentGrade') or '미흡'}",
             f"KOICA 평가등급: {overall.get('koicaGrade') or 'F'}",
         ]

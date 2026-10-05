@@ -32,6 +32,11 @@ def normalize_achievement_structure(content: str) -> str:
     lines = content.splitlines()
     record_indexes = [i for i, line in enumerate(lines) if ACHIEVEMENT_RECORD_RE.match(line)]
     if not record_indexes:
+        # The parser also supports labelled multiline records. Their narrative
+        # following the final record needs the same layout heading.
+        record_indexes = [i for i, line in enumerate(lines)
+                          if re.match(r'\s*ㅇ\s+(?:PDM 지표명|성과지표)\s*[:：]', line)]
+    if not record_indexes:
         return content
     for i in range(record_indexes[-1] + 1, len(lines)):
         if re.match(r"\s*ㅇ\s+", lines[i]):

@@ -10,6 +10,7 @@ from backend.oda_me.hwpx.patchers import (
 )
 
 from ..quality_profile import layout_profile
+from .overflow import fit_table_details, append_table_details, oversized_group_cells
 
 
 _PROFILE = layout_profile("recommendation_tables")
@@ -206,13 +207,19 @@ def style_recommendation_tables_xml(xml: str) -> tuple[str, dict[str, int | bool
             checks[f"{name}_table_pages"] = 0
             continue
         start, end, table = target
+        row_count = len(find_hwpx_tag_spans(table, 'hp:tr'))
+        budget = max_table_height or 60000
+        groups = [tuple(range(header_rows)) + (i,) for i in range(header_rows, row_count)]
+        table, details = fit_table_details(table, lambda value: oversized_group_cells(
+            _style_rows_xml(value, header_rows), groups, budget), '환류과제' if name == 'feedback' else '교훈')
         updated = _style_rows_xml(table, header_rows)
         updated, pages = _split_table_xml(
             updated,
             header_rows=header_rows,
             rows_per_page=rows_per_page,
-            max_table_height=max_table_height,
+            max_table_height=budget,
         )
+        updated = append_table_details(updated, details)
         if "…" in get_hwpx_xml_scope_text(updated):
             checks["recommendation_full_text"] = False
         xml = xml[:start] + updated + xml[end:]

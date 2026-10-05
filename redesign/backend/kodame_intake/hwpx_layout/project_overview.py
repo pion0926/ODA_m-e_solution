@@ -11,6 +11,7 @@ from backend.oda_me.hwpx.patchers import (
 )
 
 from ..quality_profile import layout_profile
+from .overflow import fit_table_details, append_table_details, oversized_group_cells
 
 
 _PROFILE = layout_profile("project_overview")
@@ -295,6 +296,23 @@ def compact_project_overview_table_xml(xml: str) -> tuple[str, bool]:
         return re.sub(r'(<hp:cellSz\b[^>]*\bwidth=")\d+', rf'\g<1>{width}', cell, count=1)
     updated = re.sub(r'<hp:tc\b.*?</hp:tc>', resize_width, updated, flags=re.DOTALL)
     updated = re.sub(r'(<hp:sz\b[^>]*\bwidth=")\d+', rf'\g<1>{sum(TABLE_COLUMN_WIDTHS)}', updated, count=1)
+    def overflow_cells(value):
+        measured = _compact_table_row_heights_xml(value)
+        rows = [measured[a:b] for a, b in find_hwpx_tag_spans(measured, 'hp:tr')]
+        groups, first = [], 1
+        while first < len(rows):
+            stop, cursor = first + 1, first
+            while cursor < stop:
+                if cursor >= len(rows):
+                    raise ValueError('사업개요 병합 셀의 행 범위가 표를 벗어났습니다.')
+                spans = [int(v) for v in re.findall(r'<hp:cellSpan\b[^>]*\browSpan="(\d+)"', rows[cursor])]
+                stop = max(stop, cursor + max(spans or [1]))
+                cursor += 1
+            groups.append((0, *range(first, stop)))
+            first = stop
+        return oversized_group_cells(measured, groups, TABLE_PAGE_BUDGET)
+
+    updated, details = fit_table_details(updated, overflow_cells, '사업개요')
     updated = _compact_table_row_heights_xml(updated)
     # This table follows a forced-page heading after variable-length section-6
     # prose. With the template's floating anchor (treatAsChar=0), kordoc can
@@ -306,4 +324,5 @@ def compact_project_overview_table_xml(xml: str) -> tuple[str, bool]:
     updated = re.sub(r'(<hp:tbl\b[^>]*\bpageBreak=")[^"]+', r"\g<1>CELL", updated, count=1)
     updated = re.sub(r'(<hp:tbl\b[^>]*\brepeatHeader=")[^"]+', r"\g<1>1", updated, count=1)
     updated = _split_overview_at_merged_groups(updated)
+    updated = append_table_details(updated, details)
     return xml[:start] + updated + xml[end:], updated != table

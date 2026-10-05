@@ -1,0 +1,880 @@
+KOICA 종료평가 점수 표준화 알고리즘
+개발보고서
+KOICA 종료평가 호환 Scoring Engine v1.0
+문서 기반 증거 추출부터 DAC 기준별 점수 산정과 평가자 합의까지
+
+항목 | 내용
+문서 목적 | 개발팀 구현과 QA에 필요한 기능 규칙 데이터 API 화면 검수 기준 확정
+적용 범위 | KOICA 종료평가 5개 기준 11개 질문 및 DAC 6대 기준 확장
+작성 주체 | AI_M&E Consulting
+버전 | 1.0
+기준일 | 2026년 9월 16일
+상태 | 개발 착수용 기준안
+
+본 문서는 구현 기준을 고정하기 위한 명세다. 점수 임계값과 가중치는 버전 관리 대상이며 코드에 직접 고정하지 않는다.
+
+문서 개요
+이 보고서는 ODA 사업 자료를 읽어 OECD DAC 기준별 정성평가를 표준화하고, KOICA 종료평가 등급표와 호환되는 점수와 근거를 생성하는 시스템의 개발 기준을 정의한다. 개발팀은 AI를 문서 근거를 찾고 구조화하는 분석기로 사용하고, 점수 확정에는 버전이 고정된 규칙 엔진을 사용해야 한다. 동일한 입력과 동일한 루브릭 버전은 동일한 계산 결과를 반환해야 한다.
+개발 원칙
+사업 성과점수와 증거 신뢰도와 평가보고서 품질을 서로 다른 값으로 저장하고 표시한다.
+자료 미제시는 부정적 사실과 구분한다. Not Demonstrated는 점수 하락이 아니라 신뢰도 하락과 상한 규칙으로 처리한다.
+AI가 근거를 추출하고 원자판정을 제안하되 최종 산술과 게이트와 등급 변환은 결정론적 규칙 엔진이 수행한다.
+모든 결과는 문서 페이지 또는 셀 주소와 연결되며 판정값 규칙 버전 사람의 수정 이력을 남긴다.
+기관과 평가유형별 차이는 프로파일과 Grade Policy로 관리한다. 기존 공식 제도는 변경하지 않는다.
+평가표 분석 결과
+현재 평가표는 공식 질문과 1~4점 판단 방향을 제공하지만 대부분 일부 소폭 충분히 가능성이 높음과 같은 표현을 정량적으로 정의하지 않는다. 개발 시스템은 이 표현을 측정 가능한 Atomic Indicator와 증거요건으로 변환하고, 공식 점수와 함께 성과수준과 증거 신뢰도를 별도로 제공해야 한다.
+현재 평가표의 공백 | 개발 구현
+대부분 일부 소폭 등 해석 편차 | 질문별 6~8개 Atomic Indicator와 공통 판정 앵커
+증거 부족과 성과 부진의 혼재 | NOT_DEMONSTRATED와 VERIFIED_NEGATIVE 상태 분리
+4점의 우수성 요건 불명확 | Mandatory Gate와 Evidence Coverage 85퍼센트 조건
+핵심성과와 부수성과의 동일 취급 | 중요도 가중 달성률과 핵심지표 Score Cap
+사업유형별 품질 차이 | 시설 교육 보건 디지털 정책 연구 품질모듈
+
+문서 구성
+구성 | 개발팀 산출물
+1~4장 | 범위 아키텍처 처리흐름 역할 정의
+5~8장 | 점수 증거 신뢰도 게이트 등급 계산 규칙
+9장 | KOICA 11개 질문과 Impact 모듈 상세 루브릭
+10~12장 | 데이터 모델 API 화면 권한과 감사로그
+13~17장 | 평가품질 보안 비기능 요건 인수기준 단계별 구현계획
+부록 | JSON 예시 현재 Excel 구조 매핑 기준자료
+
+우선순위 표기
+등급 | 의미
+MUST | MVP 출시와 공식 점수 재현에 필수
+SHOULD | 실무 사용성과 평가자 합의에 필요한 기능
+COULD | 후속 고도화 또는 캘리브레이션 단계
+
+용어
+용어 | 정의
+Evidence Atom | 한 개 문서의 특정 위치에서 추출한 최소 근거 단위
+Atomic Indicator | 평가질문을 0.00 0.33 0.67 1.00으로 판정하기 위한 최소 평가항목
+Merit Index | 확인된 Atomic Indicator의 가중 평균을 0~100으로 환산한 성과지수
+Coverage | 필요한 평가항목 중 유효 근거가 확보된 가중 비율
+Evidence Confidence | Coverage와 근거 품질을 결합한 판단 신뢰도
+Mandatory Gate | 상위 점수를 주기 위해 반드시 충족해야 하는 조건
+Score Cap | 근거 또는 필수조건이 부족할 때 적용하는 최대점수
+Red Flag | 윤리 위반 중대한 부정적 영향 등 자동 검토 또는 상한을 발생시키는 조건
+Rubric Version | 질문 지표 가중치 게이트 임계값의 변경 불가능한 버전 묶음
+
+1 제품 범위
+1.1 목표
+시스템은 평가문서와 PDM 성과자료에서 질문별 긍정 부정 미확인 근거를 추출하고, 세분화된 루브릭과 게이트 규칙으로 KOICA 질문별 1~4점 추천값을 산출한다. 사용자는 점수의 근거와 미충족 조건을 확인하고 필요한 경우 사유를 기록해 수정할 수 있어야 한다.
+1.2 MVP 포함 기능
+ID | 기능 | 우선순위 | 완료 조건
+F01 | 사업 및 평가 프로파일 생성 | MUST | KOICA 종료평가 DAC Universal 사후평가 중 하나 선택
+F02 | PDF DOCX XLSX HWP 이미지 업로드 및 문서분류 | MUST | 파일 해시 버전 언어 문서유형 저장
+F03 | OCR 텍스트 표 PDM 지표 추출 | MUST | 페이지 또는 셀 위치로 원문 역추적
+F04 | 질문별 Evidence Retrieval | MUST | 근거 원문 출처 위치 극성 DQ 표시
+F05 | Atomic Indicator 판정 | MUST | 0 0.33 0.67 1 또는 ND 상태
+F06 | 게이트 상한 레드플래그 규칙 | MUST | 적용 규칙과 전후 점수 추적
+F07 | KOICA 점수와 등급 계산 | MUST | 공식 산식과 경계값 회귀시험 통과
+F08 | 평가자 검토 수정 합의 | MUST | 수정 사유와 전자적 감사로그 저장
+F09 | Evidence Confidence와 자료보완 목록 | MUST | 누락 지표와 필요한 자료 자동 생성
+F10 | Word Excel PDF 결과 내보내기 | SHOULD | 공식 결과표와 질문별 근거표 생성
+F11 | 평가품질 준비도 | SHOULD | 별도 100점과 누락 제출물 표시
+F12 | 과거 평가자료 캘리브레이션 | COULD | 모델 버전과 성능지표 관리
+
+1.3 MVP 제외 범위
+AI가 사람의 확인 없이 공식 평가점수를 확정하거나 서명하는 기능
+근거 위치를 제시할 수 없는 생성형 서술을 공식 근거로 저장하는 기능
+기관별 공식 등급표를 하나의 하드코딩된 기준으로 통합하는 기능
+공개 평가보고서만으로 사업의 인과효과를 자동 확정하는 기능
+1차 출시에서 복잡한 비용편익분석 또는 실험설계 통계분석을 자동 수행하는 기능
+1.4 사용자 역할
+역할 | 주요 권한
+System Admin | 사용자 기관 루브릭 Grade Policy 시스템 설정 관리
+Evaluation Manager | 사업 생성 문서 관리 평가자 배정 결과 잠금과 내보내기
+Evaluator | 근거 검토 원자판정 질문점수와 의견 입력
+Quality Reviewer | 근거 충분성 점수 편차 Override 적정성 품질검토
+Project Contributor | 자료 업로드 메타데이터 입력 자료보완 대응
+Viewer | 잠금된 결과와 허용된 근거 열람
+
+
+2 평가 프로파일
+평가 프로파일은 질문 구성 기준 가중치 총점 등급정책을 묶는다. 프로젝트 생성 후 평가가 시작되면 사용된 버전을 고정한다. 관리자가 새 버전을 발행해도 기존 평가에는 자동 적용하지 않는다.
+프로파일 ID | 기준 | 점수 | 용도
+KOICA_END_2026 | 적절성 일관성 효과성 효율성 지속가능성 | 20점 | 종료평가 11개 질문
+DAC_UNIVERSAL_1 | DAC 6대 기준 | 24점 또는 100점 | 기관 공통 진단
+KOICA_POST_2026 | DAC 6대 기준 | 20점 가중 | 사후평가
+LEGACY_KOICA_4BAND | 종료평가 5개 기준 | 20점 | 첨부 Excel 4단계 결과 재현
+
+2.1 KOICA 종료평가 산식
+R   = (Q1.1 + Q1.2) / 2
+C   = (Q2.1 + Q2.2) / 2
+EFF = (Q3.1 + Q3.2 + Q3.3) / 3
+EFI = (Q4.1 + Q4.2) / 2
+SUS = (Q5.1 + Q5.2) / 2
+TOTAL_20 = R + C + EFF + EFI + SUS
+
+질문별 최종점수는 1 2 3 4 중 하나로 확정한다. 기준별 점수와 총점은 소수점 둘째 자리까지 저장하고 화면과 보고서 표시 자릿수는 프로파일 설정으로 관리한다.
+2.2 등급 정책
+정책 | 경계값 | 표시
+KOICA 2026 세부등급 | 18 이상 A  16 이상 B  14 이상 C  12 이상 D  10 이상 E  10 미만 F | 매우 성공적 성공적 부분 성공적 미흡 병행
+첨부 Excel 호환 | 18 이상 매우성공적  14 이상 성공적  10 이상 부분성공적  10 미만 미흡 | 4단계
+DAC Universal | 기관 설정 | 24점 또는 100점 환산
+
+첨부 Excel 수식은 8 이상 10 미만 구간에서 빈 결과가 발생할 수 있으므로 호환 정책 구현 시 10 미만을 미흡으로 명시한다. 기관 승인 없이 원본 파일을 덮어쓰지 않는다.
+2.3 사후평가 가중치
+기준 | 원점수 | 가중 배점 | 환산식
+적절성 | 1~4 | 3 | 원점수 ÷ 4 × 3
+일관성 | 1~4 | 3 | 원점수 ÷ 4 × 3
+효과성 | 1~4 | 4 | 원점수 ÷ 4 × 4
+효율성 | 1~4 | 3 | 원점수 ÷ 4 × 3
+지속가능성 | 1~4 | 3 | 원점수 ÷ 4 × 3
+영향력 | 1~4 | 4 | 원점수 ÷ 4 × 4
+
+
+3 시스템 아키텍처
+3.1 논리 구성
+계층 | 구성요소 | 책임
+Presentation | Web UI Export | 입력 검토 평가자 합의 결과표 보고서
+Application | Project Document Assessment Review | 워크플로 상태 권한 잠금 비동기 작업
+AI Analysis | OCR Parser Retriever Classifier | 문서구조 PDM 근거 후보 극성 원자판정 제안
+Rule Engine | Rubric Gate Cap Red Flag Grade | 결정론적 점수와 적용규칙 생성
+Data | RDB Object Store Vector Index Audit Log | 원문 메타데이터 임베딩 평가버전 이력
+
+3.2 처리 흐름
+사용자가 사업과 평가 프로파일을 생성한다.
+문서를 업로드하면 시스템이 해시와 버전을 저장하고 문서유형 언어 페이지 구조를 분류한다.
+OCR와 표 추출기가 본문 표 PDM 지표 예산 일정 이해관계자 정보를 구조화한다.
+Retriever가 질문과 Atomic Indicator별 근거 후보를 찾고 출처 위치와 함께 Evidence Atom을 생성한다.
+AI Classifier가 근거 극성 판정값 설명과 DQ 구성요소를 제안한다.
+Rule Engine이 Merit Coverage Confidence Gate Cap Red Flag를 계산하고 질문점수를 제안한다.
+평가자가 근거와 차이를 검토하고 점수를 확정하거나 사유를 기록해 Override한다.
+시스템이 기준점수 총점 등급 자료보완 목록 결과보고서와 감사로그를 생성한다.
+3.3 AI와 규칙 엔진의 경계
+처리 | AI 허용 | 규칙 엔진 필수
+문서분류와 항목추출 | 허용 | 스키마와 필수값 검증
+근거 관련성 극성 요약 | 허용 | 원문 좌표와 해시 검증
+정성적 원자판정 제안 | 허용 | 허용값과 필수 게이트 검증
+정량 달성률 계산 | 보조 | 산식과 120퍼센트 상한 적용
+질문점수와 등급 | 설명 생성만 허용 | 반드시 결정론적으로 계산
+사람의 Override | 요약 가능 | 권한 사유 이전값 이후값 저장
+
+3.4 평가 상태
+상태 | 진입 조건 | 허용 작업
+DRAFT | 사업 생성 | 문서 업로드 설정 변경
+INGESTING | 문서 처리 중 | 진행률 조회 취소
+AI_PROPOSED | 질문별 제안 완료 | 근거 검토 원자판정 수정
+HUMAN_REVIEW | 평가자 제출 | 다중 평가자 비교 합의
+FINALIZED | 관리자 잠금 | 결과 열람과 내보내기
+REOPENED | 권한자가 사유 입력 | 새 결과 버전 생성
+
+
+4 입력과 문서 처리
+4.1 지원 파일과 메타데이터
+파일 | MVP 처리 | 필수 메타데이터
+PDF | 텍스트 PDF와 스캔 PDF OCR 표 추출 | 문서유형 작성기관 기준일 언어
+DOCX | 문단 표 제목 스타일 추출 | 문서유형 버전 기준일
+XLSX | 셀 값 수식 시트 주소 병합영역 추출 | 자료구분 단위 기준연도
+HWP | 지원 변환기 우선 실패 시 PDF 변환 요청 | 원본 보존 변환본 연결
+PNG JPG | OCR와 좌표 추출 | 촬영일 문서유형 페이지 순서
+ZIP | 악성파일 검사 후 개별 파일 등록 | 폴더구조와 원본 압축 해시
+
+4.2 문서유형 분류
+코드 | 문서유형 | 대표 활용
+PDM | PDM ePDM 논리모형 | 산출물 성과 지표 목표 실적 가정
+PLAN | 사업계획 사전조사 타당성조사 | 수요 정책 설계 위험
+MONITORING | 연차보고 자체평가 성과관리표 | 달성률 변경관리
+FINANCE | 예산 집행 조달 계약 | 효율성
+SURVEY | 기초선 종료선 만족도 원자료 | 효과성 형평성 영향
+GOVERNANCE | 회의록 MoU 승인서 공문 | 일관성 지속가능성
+OPERATIONS | 교육 기자재 유지보수 인수인계 | 산출물 품질 지속가능성
+POLICY | 국가전략 법령 국제규범 | 적절성 일관성 제도화
+EVALUATION | 평가보고서 등급표 평가매트릭스 | 검증 캘리브레이션
+
+4.3 PDM 구조화 필드
+필드 | 형식 | 검증
+level | goal outcome output activity | 허용 enum
+indicator_code | 문자열 | 프로젝트 내 유일
+indicator_text | 다국어 문자열 | 빈 값 불가
+baseline target actual | 수치 또는 범주 | 단위와 기준일 필수
+achievement_ratio | 계산값 | actual ÷ target 방향성 반영
+importance | 1~5 | 핵심지표는 4 이상
+disaggregation | 성 지역 연령 장애 취약집단 | 적용 여부와 누락 사유
+means_of_verification | 문서 참조 | Evidence Atom 연결
+assumption_risk | 문자열과 상태 | 발생 대응 영향
+
+4.4 추출 실패와 예외
+OCR 신뢰도 0.80 미만 페이지는 검토 대기열에 넣고 해당 근거를 자동 확정에 사용하지 않는다.
+표의 행과 열 구조가 불확실하면 셀 좌표와 원본 이미지 미리보기를 함께 제공한다.
+같은 문서의 새 버전은 별도 document_version으로 저장하고 이전 Evidence Atom을 자동 삭제하지 않는다.
+암호화 손상 미지원 파일은 FAILED 상태와 사람이 이해할 수 있는 원인을 반환한다.
+
+5 원자판정 모델
+5.1 상태와 판정값
+상태 | m 값 | 판정 기준
+VERIFIED_NEGATIVE | 0.00 | 미충족 또는 명백한 부정적 영향이 유효 근거로 확인됨
+LIMITED | 0.33 | 계획 또는 일부 실행만 확인되며 범위 품질 지속성이 제한됨
+SUBSTANTIAL | 0.67 | 대부분 충족했으나 중요한 한계 또는 미완료 요소가 있음
+VERIFIED_POSITIVE | 1.00 | 충분히 충족했고 독립 또는 원자료 근거로 검증됨
+NOT_DEMONSTRATED | null | 자료가 없어 긍정 또는 부정을 판정할 수 없음
+CONFLICTED | null | 비교 가능한 긍정과 부정 근거가 충돌하여 평가자 판단 필요
+
+5.2 판정 공통 앵커
+판정유형 | 0.00 | 0.33 | 0.67 | 1.00
+실행 성숙도 | 미실행 또는 역효과 | 계획 시범 일부 | 주요 범위 실행 | 전 범위 실행과 검증
+정량 달성률 | 50퍼센트 미만 | 50~80퍼센트 미만 | 80~100퍼센트 미만 | 100퍼센트 이상
+제도화 | 부재 또는 후퇴 | 논의 초안 | 승인 준비 또는 제한 적용 | 승인 시행 정규화
+협력 조율 | 충돌 방치 | 접촉 의지 | 공식 조율 역할분담 | 공동 산출과 시너지
+인과 기여 | 반대 증거 | 서술 주장 | 논리와 일부 교차검증 | 대안설명 검토와 교차검증
+
+정량 달성률은 기본 앵커다. 지표 방향성이 낮을수록 좋은 경우와 질적 지표는 indicator_rule에서 별도 산식을 설정한다. 개별 지표의 초과달성은 기본 120퍼센트에서 상한 처리한다.
+5.3 Merit Index
+observed = indicators where state not in {NOT_DEMONSTRATED, CONFLICTED}
+Merit_q = 100 * SUM(weight_i * m_i for observed) / SUM(weight_i for observed)
+
+BaseScore_q = 1, if 0 <= Merit_q < 40
+              2, if 40 <= Merit_q < 60
+              3, if 60 <= Merit_q < 80
+              4 candidate, if 80 <= Merit_q <= 100
+
+관측된 항목이 없으면 Merit와 점수는 null이다. 낮은 Coverage를 0점으로 간주하지 않는다. 대신 5.4의 확정 제한을 적용한다.
+5.4 점수 확정 순서
+Atomic Indicator 상태와 m 값을 검증한다.
+관측된 항목으로 Merit Index와 BaseScore를 계산한다.
+중대한 부정적 사실에 대한 Red Flag를 먼저 적용한다.
+질문별 Mandatory Gate와 Score Cap을 적용한다.
+Coverage와 Confidence에 따른 자동확정 제한을 적용한다.
+AI 추천점수와 규칙 추적을 저장한다.
+사람이 점수를 확정하며 AI와 다르면 Override 사유를 필수 입력한다.
+조건 | 시스템 처리
+Coverage 60퍼센트 미만 | 점수 판정유보 NEEDS_EVIDENCE
+Coverage 60~85퍼센트 미만 | 최대 3점
+Coverage 85퍼센트 이상 | 4점 후보 허용
+Confidence 50퍼센트 미만 | 자동확정 금지
+필수 4점 Gate 미충족 | 최대 3점
+CONFLICTED 핵심항목 존재 | 평가자 검토 전 확정 금지
+
+
+6 증거 품질과 신뢰도
+6.1 Evidence Atom 필수값
+필드 | 설명
+evidence_id | 불변 UUID
+document_version_id | 원본 문서 버전
+locator | PDF 페이지와 좌표 DOCX 제목과 문단 XLSX 시트와 셀 범위
+quote | 저작권과 보안을 고려한 최소 원문 발췌
+normalized_claim | 근거가 지지하거나 반박하는 구조화 문장
+polarity | POSITIVE NEGATIVE NEUTRAL
+indicator_id | 연결 Atomic Indicator
+dq_components | R D T G Rec 각각 0~1
+extraction | 모델 버전 프롬프트 버전 생성시각
+verification | AI_PROPOSED HUMAN_VERIFIED REJECTED
+
+6.2 근거 품질 계산
+DQ_e = 0.30*R + 0.25*D + 0.20*T + 0.15*G + 0.10*Rec
+
+R   Source Reliability
+D   Directness to the indicator
+T   Traceability to original data
+G   Triangulation across independent sources
+Rec Recency for the evaluation period
+
+요소 | 0.0 | 0.5 | 1.0
+R 신뢰성 | 출처 불명 또는 생성 추정 | 수행기관 단독 서술 | 공식 원자료 독립감사 승인 기록
+D 직접성 | 질문과 무관 | 간접 정황 | 해당 지표를 직접 측정
+T 추적성 | 원본 확인 불가 | 문서만 확인 | 원자료 산식 표본까지 확인
+G 교차검증 | 모순 미해결 | 같은 출처 내 복수자료 | 독립 출처 둘 이상 일치
+Rec 시의성 | 평가기간 부적합 | 일부 기간만 반영 | 기준일과 평가기간에 적합
+
+6.3 Coverage와 Confidence
+valid_evidence_i = 1 when at least one relevant evidence has DQ_e >= 0.50
+Coverage_q = SUM(weight_i * valid_evidence_i) / SUM(weight_i)
+
+DQ_i = weighted mean of non-duplicate top evidence for indicator i
+DQ_q = SUM(weight_i * DQ_i) / SUM(weight_i for observed indicators)
+
+Confidence_q = 100 * (0.55*Coverage_q + 0.45*DQ_q)
+
+Confidence | 표시 | 처리
+80 이상 | High | 자동 제안 가능 게이트 충족 시 4점 후보
+65~80 미만 | Medium | 평가자 검토 필요
+50~65 미만 | Low | 평가자 검토와 자료보완 권고
+50 미만 | Insufficient | 자동점수 확정 금지
+
+6.4 중복과 충돌 처리
+같은 원자료를 인용한 여러 보고서는 하나의 source_family로 묶어 교차검증 수를 부풀리지 않는다.
+동일 범위와 기간을 다루는 긍정 근거와 부정 근거가 각각 DQ 0.65 이상이면 CONFLICTED로 표시한다.
+충돌을 해소한 평가자는 채택한 근거와 배제 사유를 기록한다.
+문서의 단순 키워드 존재만으로 유효 근거를 만들지 않는다. claim과 질문의 직접성을 확인한다.
+
+7 게이트 상한과 레드플래그
+규칙 ID | 조건 | 효과 | 해제 조건
+CAP_R1_01 | 정책문서만 있고 수혜자 수요분석 없음 | Q1.1 최대 3 | 수혜자 또는 현지 이해관계자 근거 확인
+CAP_E2_01 | Outcome 수치는 있으나 대표성 또는 인과성 미확인 | Q3.2 최대 3 | 지표 타당성과 기여도 교차검증
+CAP_E3_01 | 취약계층 분리데이터 없음 | Q3.3 최대 3 | 분리 통계 또는 정당한 대체 근거
+CAP_S2_01 | 제도화가 계획 또는 협의 단계 | Q5.2 최대 3 | 승인 시행 정규사업화 증거
+RF_C_01 | 주요 국제규범 위반이 성과에 영향 | 일관성 해당 질문 1점 후보 | 사실오인 해소 또는 범위 재판정
+RF_F1_01 | 타당한 사유 없이 예산 또는 기간 150퍼센트 이상 | Q4.1 최대 1 | 공식 승인과 불가피성 검증
+RF_E1_01 | 핵심 Output 현저한 미달과 타당성 없음 | Q3.1 최대 1 | 핵심 Output 복구 또는 오류 정정
+RF_E3_01 | 사업이 취약계층 제약을 명백히 심화 | Q3.3 최대 1 | 사실오인 해소 후 재검토
+RF_ETHICS | 조작 윤리 위반 세이프가드 중대 위반 | 평가 확정 차단 | Quality Reviewer와 관리자 해소
+RF_TRACE | 근거 원문 위치 또는 파일 해시 불일치 | 해당 근거 무효 | 재추출과 검증
+
+7.1 규칙 우선순위
+BLOCKING_RED_FLAG
+  > NEGATIVE_RED_FLAG_CAP
+  > QUESTION_SPECIFIC_CAP
+  > COVERAGE_CAP
+  > BASE_SCORE
+
+When multiple caps apply, use the lowest cap.
+Every applied rule must be appended to score_trace in evaluation order.
+
+7.2 판정유보와 점수 상한의 차이
+판정유보는 유효한 점수가 아직 없다는 뜻이다. 점수 상한은 관측된 성과로 기본점수를 계산할 수 있지만 상위 점수의 필수조건을 입증하지 못했다는 뜻이다. API와 화면에서 두 상태를 같은 0점으로 표현하면 안 된다.
+7.3 필요한 자료 생성 규칙
+원인 | 자료보완 항목 예시
+Gate 미충족 | 4점 전환에 필요한 필수자료와 해당 지표를 명시
+Coverage 부족 | 근거가 없는 가중치 상위 Atomic Indicator 순으로 제시
+DQ 부족 | 원자료 교차검증 기준일 표본정보 등 품질요소 제시
+근거 충돌 | 충돌 문서와 비교 기간 단위 모집단 차이를 표시
+Red Flag | 해소 가능 여부 담당자와 승인 절차 표시
+
+7.4 정량 임계값 기본값
+대상 | 구간 | 기본 처리
+산출물과 성과 달성률 | 50퍼센트 미만 | 0.00 또는 핵심지표 Red Flag 검토
+산출물과 성과 달성률 | 50~80퍼센트 미만 | 0.33
+산출물과 성과 달성률 | 80~100퍼센트 미만 | 0.67
+산출물과 성과 달성률 | 100퍼센트 이상 | 1.00 초과달성 기여는 120퍼센트에서 제한
+예산 또는 기간 비율 | 1.05 이하 | 1.00 후보 단 성과미달 불용액 제외
+예산 또는 기간 비율 | 1.05 초과~1.20 | 0.67
+예산 또는 기간 비율 | 1.20 초과~1.50 미만 | 0.33
+예산 또는 기간 비율 | 1.50 이상 | 0.00 타당성 미확인 시 Q4.1 최대 1점
+
+예산과 기간 비율은 승인된 변경기준선과 환율 물가 재난 등 검증된 외부요인을 반영한 후 계산한다. 임계값은 Rubric Version별 설정값으로 관리하고 코드에 직접 고정하지 않는다.
+
+8 평가자 합의
+8.1 독립 평가
+평가자는 다른 평가자의 점수와 코멘트를 보기 전에 Atomic Indicator를 독립 판정한다. 시스템은 질문점수 차이만 보여주지 않고 차이가 발생한 indicator_id와 근거 선택 차이를 보여준다.
+8.2 합의 추천값
+human_scores = valid final question scores from assigned evaluators
+consensus_recommendation = median(human_scores)
+
+flag disagreement when:
+  max(human_scores) - min(human_scores) >= 2
+  OR any critical indicator differs by 0.67 or more
+  OR any evaluator activates a blocking red flag
+
+화면 항목 | 표시 내용
+점수 비교 | AI 평가자 A 평가자 B 평가자 C 중앙값
+차이 원인 | 판정이 다른 Atomic Indicator와 m 값
+근거 차이 | 각 평가자가 채택 배제한 Evidence Atom
+규칙 차이 | 평가자별 Red Flag Gate 해석
+합의 결과 | 최종점수 결정자 회의 메모 미해결 의견
+
+8.3 Override
+조건 | 요구사항
+AI 추천과 동일 | 사유 선택사항
+1점 차이 | 사유와 채택 근거 필수
+2점 이상 차이 | 상세 사유와 Quality Reviewer 승인 필수
+Blocking Red Flag 무시 | 관리자와 Quality Reviewer 이중 승인
+잠금 후 변경 | 평가 재개 사유와 새 결과 버전 생성
+
+8.4 Audit Trail
+criterion_id -> question_id -> indicator_id -> indicator_state -> m_value
+-> applied_rule_ids -> evidence_ids -> locator -> evidence_quality
+-> ai_score -> human_score -> override_reason -> actor_id -> timestamp
+-> rubric_version -> grade_policy_version -> model_version -> result_version
+
+필드 | 저장 규칙
+event_id | 정렬 가능한 불변 식별자
+entity_type와 entity_id | Project Evidence Assessment Result 등 변경대상
+action | CREATE UPDATE OVERRIDE FINALIZE REOPEN EXPORT
+before와 after | 변경 전후 값을 JSON diff 또는 불변 스냅샷으로 저장
+actor와 authority | 사용자 서비스계정 역할 승인권한
+reason과 evidence_ids | Override 재개 규칙해제의 근거와 사유
+versions | Rubric Grade Policy Model Result 버전을 모두 저장
+occurred_at | UTC 기준 서버시각과 기관 표시시간대
+
+감사로그는 append only로 저장하고 일반 사용자에게 수정과 삭제 권한을 부여하지 않는다.
+결과 잠금 이후의 변경은 기존 이벤트를 덮어쓰지 않고 새 Result Version과 재개 이벤트를 생성한다.
+
+9 질문별 표준 루브릭
+아래 가중치는 v1.0 기본값이다. 각 질문 안에서 합계가 100이어야 하며 Rubric Version에 저장한다. 1.00 조건은 Atomic Indicator의 완전충족 기준이다. 0.33과 0.67은 5.2 공통 앵커와 질문 맥락을 함께 적용한다.
+9.1 적절성 Q1.1 수요와 우선순위 반영
+질문 ID  relevance-q1
+사업은 이해관계자의 수요와 우선순위를 반영하여 설계되었는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+RQ1_I01 | 한국정부 및 기관 전략 부합성 | 15 | 적용 전략의 목표와 사업 구성요소가 구체적으로 연결됨 | CPS 기관전략 사업기획서
+RQ1_I02 | 수원국 국가 및 분야 정책 부합성 | 15 | 수원국 정책의 우선과제와 사업 설계의 대응관계가 확인됨 | 국가전략 분야계획 승인문서
+RQ1_I03 | 대상지역 문제의 객관적 근거 | 15 | 기초선 통계 또는 조사로 문제 규모와 원인이 검증됨 | 통계 사전조사 기초선
+RQ1_I04 | 수혜자 수요와 우선순위 분석 | 15 | 수혜자 표본과 방법이 명시된 수요분석이 완료됨 | 설문 FGD 면담 원자료
+RQ1_I05 | 수원기관과 파트너 우선순위 | 10 | 수원기관의 공식 우선순위와 역할이 설계에 반영됨 | 공문 MoU 회의록
+RQ1_I06 | 현지 이해관계자 실질적 참여 | 10 | 현지 주체가 단순 참석을 넘어 문제와 대안을 공동 결정함 | 워크숍 산출물 의사결정 기록
+RQ1_I07 | 문제나무 또는 변화이론 | 10 | 문제 원인 결과와 개입경로가 검증 가능한 형태로 존재함 | 문제나무 ToC PDM
+RQ1_I08 | 수요에서 설계까지 추적성 | 10 | 주요 수요가 활동 산출물 지표와 일대일 또는 다대일로 연결됨 | 요구사항 추적표 설계변경표
+
+4점 Gate  현지 참여 객관적 수요분석 인과분석 수요의 설계 반영을 모두 확인해야 4점 후보
+Score Cap  정책문서만 있고 수혜자 수요 근거가 없으면 최대 3점
+Red Flag  수요와 무관한 설계로 확인되거나 주요 이해관계자 배제가 성과에 중대한 영향을 주면 1점 후보
+
+9.2 적절성 Q1.2 상황변화 관리
+질문 ID  relevance-q2
+내외부 상황변화에 맞추어 사업설계를 적절히 관리하고 유지했는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+RQ2_I01 | 상황변화 감지체계 | 10 | 정기 모니터링과 이슈 등록 기준이 운영됨 | 리스크대장 회의록
+RQ2_I02 | 위험과 영향 분석 | 15 | 발생가능성과 성과 영향을 구조적으로 분석함 | 위험분석 변경검토서
+RQ2_I03 | 대응 적시성 | 15 | 성과 손실 이전에 대응을 결정하고 착수함 | 일자별 조치 기록
+RQ2_I04 | 이해관계자 공유와 협의 | 10 | 영향과 대안을 책임 주체와 공유하고 의견을 반영함 | 협의체 회의록 승인
+RQ2_I05 | 대안의 현실성 | 15 | 예산 일정 역량 제약을 반영한 실행 가능한 대안임 | 대안분석 승인문서
+RQ2_I06 | 대안의 실제 실행 | 15 | 대안이 계획에 머물지 않고 실행 완료 또는 운영 중임 | 집행 실적 계약 교육 기록
+RQ2_I07 | 변경 후 성과 보전 | 10 | 핵심 성과지표가 달성되거나 합리적으로 회복됨 | 변경 전후 지표
+RQ2_I08 | Goal 달성 가능성 유지 | 10 | 변경 이후에도 최종 목표의 인과경로가 유지됨 | 수정 ToC PDM
+
+4점 Gate  적기대응 위험분석 공유 현실적 대안 실행 성과지표 달성 Goal 가능성을 모두 확인해야 4점 후보
+Score Cap  회의 또는 계획 변경만 있고 실행이나 성과보전 근거가 없으면 최대 2점
+Red Flag  미대응으로 핵심 성과에 중대한 손실이 발생하면 1점 후보
+
+9.3 일관성 Q2.1 내적 일관성
+질문 ID  coherence-q1
+한국 정부와 국내 타 기관 사업 및 국제규범과 조화롭게 추진했는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+CQ1_I01 | 국내 및 KOICA 유관사업 사전 Mapping | 15 | 관련 개입을 체계적으로 조사하고 비교함 | 사업목록 중복검토
+CQ1_I02 | 한국정부 정책과 조화 | 15 | 정책 목표와 실행방식이 충돌 없이 정합함 | 정책 매핑표
+CQ1_I03 | 국제규범과 세이프가드 준수 | 15 | 적용 규범과 준수 증거 및 위반 대응이 확인됨 | 세이프가드 점검 윤리 기록
+CQ1_I04 | 중복과 충돌 방지 | 20 | 중복 역할충돌 자원경합을 사전에 제거함 | 조정 기록 역할표
+CQ1_I05 | 실제 조율 체계 | 15 | 정례 협의와 의사결정 경로가 운영됨 | 위원회 회의록
+CQ1_I06 | 시너지와 부가가치 | 20 | 연계로 공동성과 비용절감 범위확대 중 하나 이상이 검증됨 | 공동 산출물 비교 데이터
+
+4점 Gate  구체적 조율과 연계가 실제 이루어지고 시너지 또는 부가가치가 검증되어야 4점 후보
+Score Cap  정책 부합만 있고 실제 조율 또는 부가가치가 없으면 최대 3점
+Red Flag  국제규범 위반 또는 타 개입과의 충돌이 성과에 영향을 주면 1점 후보
+
+9.4 일관성 Q2.2 외적 일관성
+질문 ID  coherence-q2
+타 공여기관과 수원국 정부 및 현지 주체의 개입과 조율했는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+CQ2_I01 | 타 공여기관 정부 민간 개입 Mapping | 15 | 동일 지역 대상 분야의 주요 개입을 파악함 | 공여기관 맵핑
+CQ2_I02 | 조율 메커니즘 | 20 | 정례 또는 공식 조율체계가 운영됨 | 협의체 MoU
+CQ2_I03 | 기관별 역할분담 | 15 | 누가 무엇을 언제 제공하는지 공식화됨 | RACI 업무분장
+CQ2_I04 | 중복과 충돌 방지 | 20 | 대상 활동 예산 일정 중복을 방지함 | 중복검토 조정 기록
+CQ2_I05 | 공동성과와 시너지 | 20 | 공동 산출 성과확산 비용절감이 확인됨 | 공동 결과보고
+CQ2_I06 | 수원국 주도성 | 10 | 수원국이 조율 의사결정 또는 자원배분을 주도함 | 정부 회의 주재 승인
+
+4점 Gate  공식 조율 역할분담 중복방지와 실제 공동성과가 확인되어야 4점 후보
+Score Cap  단순 회의 참석은 0.33을 넘지 않으며 공동성과가 없으면 최대 3점
+Red Flag  인지 가능한 중복을 방치해 성과에 영향을 주면 1점 후보
+
+9.5 효과성 Q3.1 직접 산출물
+질문 ID  effectiveness-q1
+직접적 일차적 산출물을 계획대로 달성했는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+EQ1_I01 | 중요도 가중 산출물 달성률 | 35 | 모든 핵심 Output 100퍼센트 이상 | 최종 PDM 실적 원자료
+EQ1_I02 | 산출물 품질 | 20 | 수용기준 또는 사용자 검증에서 우수 또는 적합 | 검수 품질시험 만족도
+EQ1_I03 | 목표 수량과 범위 | 15 | 계획된 대상 지역 수량 범위를 충족 | 완료계 인수증
+EQ1_I04 | 일정 준수 | 10 | 핵심 산출물을 계획 또는 승인된 일정 내 완료 | 일정표 승인 변경
+EQ1_I05 | 실제 활용 가능성 | 10 | 사용자 접근 운영환경 인수인계가 준비됨 | 사용 기록 운영준비
+EQ1_I06 | 핵심 산출물 실패 여부 | 10 | 핵심 산출물 실패가 없음 | 핵심지표 목록
+
+4점 Gate  모든 핵심 Output 100퍼센트 이상 품질 적정 이상 중장기 성과 기여 가능성을 확인해야 4점 후보
+Score Cap  핵심 Output 하나라도 100퍼센트 미만이면 최대 3점
+Red Flag  핵심 Output 현저한 실패가 있고 사유가 타당하지 않으면 1점 후보
+
+9.6 효과성 Q3.2 Outcome과 Goal
+질문 ID  effectiveness-q2
+중장기 성과와 목표를 달성했거나 달성할 것으로 예상하는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+EQ2_I01 | 중요도 가중 Outcome 달성률 | 30 | 모든 핵심 Outcome 목표 달성 | 종료선 성과표
+EQ2_I02 | 성과지표 대표성과 타당성 | 15 | 지표가 의도한 실제 변화를 적절히 대표 | 지표정의 검증
+EQ2_I03 | 사업 기여도와 인과성 | 20 | 대안 설명을 검토하고 사업 기여를 교차검증 | ToC 기여분석
+EQ2_I04 | 핵심 가정 충족 | 10 | 주요 가정과 외부요인을 검토하고 인과경로 유지 | 가정 위험 분석
+EQ2_I05 | 실제 수혜자 변화 | 15 | 대상집단의 행동 역량 상태 변화가 확인됨 | 조사 행정통계 인터뷰
+EQ2_I06 | 의도하지 않은 성과와 부작용 | 10 | 긍정 부정 비의도 효과를 조사하고 반영 | 오픈 질문 민원 사례
+
+4점 Gate  모든 핵심 Outcome 달성 지표 대표성 사업과 Outcome 인과성을 모두 확인해야 4점 후보
+Score Cap  Outcome 달성률만 있고 지표 대표성 또는 인과성이 없으면 최대 3점
+Red Flag  Outcome을 전혀 달성하지 못했고 Goal 가능성이 없으면 1점 후보
+
+9.7 효과성 Q3.3 포용과 형평성
+질문 ID  effectiveness-q3
+사회적 소외계층을 포용하여 형평성 있게 성과를 달성했는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+EQ3_I01 | 취약 소외계층 식별 | 15 | 맥락에 맞는 집단과 선정근거가 명시됨 | 취약성 분석
+EQ3_I02 | 접근제약 분석 | 15 | 비용 거리 언어 성별 장애 등 제약을 분석함 | 장벽 조사
+EQ3_I03 | 취약계층 수요반영 | 15 | 우선 수요가 설계와 자원배분에 반영됨 | 수요 추적표
+EQ3_I04 | 포용적 사업설계 | 15 | 합리적 편의 접근지원 표적활동이 실행됨 | 활동 실적
+EQ3_I05 | 분리데이터 | 20 | 성 지역 장애 계층 등 필요한 분리자료가 존재 | 원자료 데이터사전
+EQ3_I06 | 집단별 성과격차 | 15 | 집단별 달성 격차와 원인을 분석하고 조치함 | 격차분석 조치계획
+EQ3_I07 | Do no harm | 5 | 부정적 차등영향을 조사하고 완화함 | 세이프가드 민원
+
+4점 Gate  취약층 식별 제약분석 수요반영 분리데이터와 실제 성과를 모두 확인해야 4점 후보
+Score Cap  필요한 분리데이터 없이 서술만 있으면 최대 3점
+Red Flag  사업이 취약계층의 제약이나 취약성을 명백히 심화하면 1점 후보
+
+9.8 효율성 Q4.1 경제성과 시의성
+질문 ID  efficiency-q1
+사업은 경제적이고 시의적절한 방식으로 추진되었는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+FQ1_I01 | 계획 대비 예산 비율 | 15 | 승인된 예산 범위와 목적에 맞게 집행 | 예산 계획 집행
+FQ1_I02 | 계획 대비 기간 비율 | 15 | 승인된 일정 내 핵심 활동 완료 | 기준 일정 실제 일정
+FQ1_I03 | 증액 지연 사유 타당성 | 15 | 불가피성과 승인 및 완화조치가 검증됨 | 변경 승인 원인분석
+FQ1_I04 | 조달 행정 Lead Time | 10 | 병목을 측정하고 합리적 기간으로 관리 | 조달 로그
+FQ1_I05 | 단위비용 또는 Benchmark | 20 | 비교 가능한 대안이나 기준 대비 경제성 확인 | 시장조사 단가 비교
+FQ1_I06 | Input 대비 Output 생산성 | 15 | 주요 자원 대비 산출량과 품질이 양호 | 단위비용 생산성
+FQ1_I07 | 절감 단축 추가성과 | 10 | 비용절감 기간단축 또는 동일 자원 추가성과가 확인 | 비교표 실적
+
+4점 Gate  조정의 타당성 및 예산절감 공기단축 추가성과 중 하나 이상의 긍정 효율효과를 확인해야 4점 후보
+Score Cap  Benchmark 또는 대안 비교 없이 집행률만 있으면 최대 3점
+Red Flag  타당한 사유 없이 예산 또는 기간이 계획의 150퍼센트 이상이면 1점 후보
+
+9.9 효율성 Q4.2 투입과 활동의 균형
+질문 ID  efficiency-q2
+주요 투입과 활동 간 균형과 상호작용을 고려했는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+FQ2_I01 | 기획단계 투입 활동 논리 | 20 | 투입 활동 산출 연결과 필요자원이 설계됨 | PDM 작업계획
+FQ2_I02 | 활동 순서와 선후관계 | 15 | 의존성과 임계경로가 합리적으로 관리됨 | 일정 네트워크
+FQ2_I03 | 자원배분 균형 | 20 | 핵심활동에 예산 인력 시간이 적정 배분됨 | 자원배분표
+FQ2_I04 | 역할과 조정체계 | 15 | 중복과 공백 없는 역할 및 의사결정 체계 운영 | RACI 회의체
+FQ2_I05 | 재배분과 적응관리 | 15 | 성과자료에 따라 자원을 적시에 재배분함 | 변경이력
+FQ2_I06 | 투입요소 간 시너지 | 15 | 연계가 산출 품질 속도 범위를 개선함 | 전후 비교
+
+4점 Gate  기획단계부터 균형과 상호작용을 고려하고 실제 시너지 효과가 성과강화 요인으로 확인되어야 4점 후보
+Score Cap  추진 중 사후 조정만 확인되면 최대 3점
+Red Flag  투입 활동 불균형이 성과 미달에 심각한 영향을 주면 1점 후보
+
+9.10 지속가능성 Q5.1 재정 운영과 위기대응
+질문 ID  sustainability-q1
+수원국 시스템과 조직은 재정적 경제적 자립역량과 위기대응능력을 갖췄는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+SQ1_I01 | 현지 운영주체와 Ownership | 15 | 책임조직과 의사결정권이 현지에 정착 | 지정문서 운영기록
+SQ1_I02 | 다년도 예산 또는 수익모델 | 25 | 승인된 다년도 예산 또는 검증된 자립수익 구조 | 예산서 수익자료
+SQ1_I03 | 운영인력 | 15 | 필요 직무 인원 역량과 고용계획이 확보 | 정원 직무 교육
+SQ1_I04 | 유지보수 소모품 공급망 | 15 | 주기 비용 책임 공급경로가 운영 | 유지보수 대장 계약
+SQ1_I05 | 현지 의사결정권 | 10 | 주요 운영 변경을 현지 주체가 결정 | 회의 승인 기록
+SQ1_I06 | 위험과 위기 대응능력 | 15 | 자체 인력 예산 절차로 위기에 대응 가능 | BCP 대응 사례
+SQ1_I07 | 외부지원 의존도 | 5 | 핵심 운영이 단기 외부지원 없이 가능 | 재원 구성
+
+4점 Gate  다년도 자체예산 또는 현실적 수익모델 운영인력 자체 위기대응체계를 모두 확인해야 4점 후보
+Score Cap  단년도 예산 또는 외부지원 필요가 확인되면 최대 3점
+Red Flag  운영주체 예산 위기대응 기제가 모두 확인되지 않으면 1점 후보
+
+9.11 지속가능성 Q5.2 제도와 사회 환경
+질문 ID  sustainability-q2
+사업 편익이 장기적으로 지속될 제도적 사회적 환경이 갖춰졌는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+SQ2_I01 | 법 정책 제도화 | 25 | 법령 정책 지침 또는 정규사업에 공식 반영 | 법령 승인 지침
+SQ2_I02 | 책임기관과 Mandate | 20 | 전담기관과 법정 또는 공식 책임이 지정 | 조직규정 지정서
+SQ2_I03 | 기존 시스템 통합 | 15 | 예산 정보 인력 업무체계에 정규 통합 | 업무절차 시스템 기록
+SQ2_I04 | 사회적 수용성과 정당성 | 15 | 이해관계자 지지 이용 지속 민원 대응이 확인 | 이용률 조사 협의
+SQ2_I05 | 확산과 Replication | 10 | 확산 기준 재원 지원체계가 작동 | 확산 승인 복제 실적
+SQ2_I06 | 환경 사회적 지속가능성 | 15 | 장기 환경 사회 위험을 관리하고 수용 가능 | 환경사회 관리계획
+
+4점 Gate  법제화 정규사업화 전담기관 지정 등 구체적 조치가 실제 실현되어야 4점 후보
+Score Cap  준비와 협의 단계이면 최대 3점
+Red Flag  제도와 사회 환경의 결함으로 성과 지속 또는 확장이 불가능하면 1점 후보
+
+9.12 영향력 모듈
+질문 ID  impact-q1
+사업은 중요하고 광범위한 상위수준 변화를 만들었는가
+지표 ID | Atomic Indicator | 가중치 | 1.00 조건 | 대표 근거
+IQ1_I01 | 상위수준 변화 크기 | 25 | Outcome을 넘어선 측정 가능한 중요 변화 | 행정통계 장기추적
+IQ1_I02 | 변화 중요성 | 15 | 대상사회 정책 시스템에서 의미 있는 변화 | 이해관계자 검증
+IQ1_I03 | 범위와 확산 | 10 | 지역 기관 집단으로 변화가 확산 | 확산자료
+IQ1_I04 | 사업 기여도 | 20 | 외부요인과 대안설명을 검토해 기여를 확인 | 기여분석 비교자료
+IQ1_I05 | 의도하지 않은 효과 | 15 | 긍정 부정 의도 비의도 효과를 조사 | 사례 민원 오픈조사
+IQ1_I06 | 시스템 전환 | 10 | 제도 규범 시장 서비스체계의 구조적 변화 | 정책 제도 데이터
+IQ1_I07 | 집단별 차등효과 | 5 | 집단별 긍정 부정 효과 차이를 분석 | 분리데이터
+
+4점 Gate  상위수준 변화와 사업 기여도를 교차검증해야 4점 후보
+Score Cap  Outcome 반복 또는 기여도 미확인이면 최대 3점
+Red Flag  중대한 부정적 영향이 완화되지 않았으면 1점 후보 또는 공식 검토 차단
+
+9.13 사업유형별 품질모듈
+공통 DAC 루브릭은 모든 사업에 동일하게 적용하되, Q3.1 산출물 품질과 Q5 지속가능성의 세부 증거는 사업유형별 모듈로 보완한다. 사업유형 모듈은 공식 질문 배점을 바꾸지 않고 해당 Atomic Indicator의 판정기준과 필수 증거만 구체화한다.
+사업유형 | 품질 판정항목 | 대표 증거
+시설과 장비 | 기능검사 안전기준 하자율 가동률 실제 이용률 | 검수서 시험성적서 자산대장 이용기록
+교육과 역량강화 | 수료율 사전사후 역량 현업 적용률 교육 지속체계 | 평가도구 출결 원자료 관찰 관리자 확인
+보건서비스 | 접근성 서비스 품질 보건지표 의뢰회송 취약집단 격차 | 보건정보시스템 진료기록 조사 분리데이터
+디지털과 플랫폼 | 사용자 채택률 가동률 데이터 품질 상호운용성 보안 | 접속로그 장애기록 데이터품질표 보안점검
+정책과 제도 | 공식 채택 예산편성 책임기관 실제 집행 | 법령 지침 예산서 조직규정 집행자료
+연구와 컨설팅 | 방법론 타당성 산출물 채택 정책 사업 반영 활용도 | 검수결과 인용기록 반영문서 사용자 조사
+
+
+10 데이터 모델
+10.1 핵심 엔터티
+엔터티 | 주요 키 | 관계와 제약
+Project | project_id | 하나의 active evaluation profile과 여러 assessment 보유
+Document | document_id | 논리 파일 단위 여러 version 보유
+DocumentVersion | document_version_id sha256 | 불변 원본과 추출 상태
+EvidenceAtom | evidence_id | 하나의 문서버전 위치와 하나 이상의 indicator 연결
+RubricVersion | rubric_version_id | 발행 후 불변
+Criterion Question Indicator | 각 stable id | 가중치 합계 질문별 100
+AssessmentRun | run_id | 입력 스냅샷 모델 룰 버전 저장
+IndicatorAssessment | run evaluator indicator | 상태 m 근거 설명
+QuestionScore | run evaluator question | Merit Coverage Confidence 점수 trace
+HumanOverride | override_id | 이전값 이후값 사유 승인
+GradePolicy | grade_policy_version | 경계 가중치 표시명
+ResultVersion | result_version_id | 잠금된 평가 결과
+AuditEvent | event_id | append only actor action before after
+
+10.2 권장 관계 규칙
+DocumentVersion과 EvidenceAtom은 물리삭제 대신 revoked_at과 사유를 사용한다.
+AssessmentRun은 사용한 document_version_id 목록과 rubric_version_id를 스냅샷으로 보존한다.
+QuestionScore는 계산값과 표시값을 분리한다. 계산값은 full precision으로 저장한다.
+공식 결과는 ResultVersion을 생성한 뒤 변경 불가로 전환한다.
+모든 ID는 외부 노출 가능한 불변 UUID를 사용하고 사업명이나 질문번호로 ID를 만들지 않는다.
+10.3 QuestionScore JSON 예시
+{
+  "question_id": "effectiveness-q2",
+  "rubric_version": "oda-ears-1.0.0",
+  "merit_index": 76.4,
+  "base_score": 3,
+  "recommended_score": 3,
+  "coverage": 0.91,
+  "evidence_dq": 0.82,
+  "confidence": 87.0,
+  "status": "AI_PROPOSED",
+  "caps": [
+    "CAP_E2_01"
+  ],
+  "gates_failed": [
+    "EQ2_CAUSALITY_VERIFIED"
+  ],
+  "red_flags": [],
+  "evidence_gap": [
+    "Outcome 2 종료선",
+    "기여도 교차검증"
+  ],
+  "trace_id": "trace_uuid"
+}
+
+
+11 API 명세
+11.1 공통 규칙
+기본 경로는 /api/v1이며 JSON UTF 8을 사용한다.
+모든 변경 요청은 Idempotency Key를 지원한다.
+비동기 작업은 202와 job_id를 반환하고 GET jobs로 상태와 오류를 조회한다.
+오류는 code message field request_id 구조를 사용한다.
+평가 결과 변경 요청은 If Match 또는 result_version을 사용해 동시수정을 차단한다.
+메서드 | 경로 | 목적
+POST | /projects | 사업과 평가 프로파일 생성
+GET | /projects/{id} | 사업 설정과 평가 상태 조회
+POST | /projects/{id}/documents | 파일 업로드 등록
+POST | /documents/{id}/process | OCR 분류 추출 작업 시작
+GET | /jobs/{job_id} | 비동기 작업 상태 조회
+GET | /projects/{id}/pdm | 구조화 PDM 조회
+PATCH | /projects/{id}/pdm | 검증된 PDM 수정
+POST | /projects/{id}/assessment-runs | 근거검색과 AI 제안 실행
+GET | /runs/{id}/questions | 질문별 점수와 신뢰도 목록
+GET | /runs/{id}/questions/{qid} | 지표 근거 규칙 추적 조회
+PATCH | /runs/{id}/indicators/{iid} | 평가자 판정과 근거 선택
+POST | /runs/{id}/recalculate | 결정론적 재계산
+POST | /runs/{id}/submit | 평가자 제출
+GET | /projects/{id}/consensus | 평가자 편차와 중앙값
+POST | /projects/{id}/consensus/finalize | 합의 점수 잠금
+POST | /results/{id}/reopen | 잠금 결과 새 버전 재개
+POST | /results/{id}/exports | Word Excel PDF 내보내기
+GET | /rubrics/{version} | 루브릭 버전 조회
+POST | /admin/rubrics/{version}/publish | 새 루브릭 발행
+
+11.2 재계산 응답 필수값
+필드 | 형식 | 설명
+calculation_id | UUID | 한 번의 재계산 식별자
+input_snapshot_hash | SHA256 | 입력 재현성
+question_scores | array | 11개 또는 프로파일 질문 결과
+criterion_scores | array | 기준별 점수
+total_score | decimal | 프로파일 총점
+grade | object | 정책 버전 코드 표시명
+blocking_issues | array | 확정을 막는 항목
+score_trace | array | 적용 규칙과 중간값
+
+11.3 오류 코드
+코드 | HTTP | 조건
+FILE_UNSUPPORTED | 415 | 지원하지 않는 형식
+EXTRACTION_FAILED | 422 | OCR 변환 구조화 실패
+RUBRIC_VERSION_LOCKED | 409 | 발행된 루브릭 변경 시도
+INSUFFICIENT_EVIDENCE | 422 | Coverage 60퍼센트 미만인데 확정 시도
+UNRESOLVED_CONFLICT | 409 | 핵심 근거 충돌 미해결
+BLOCKING_RED_FLAG | 409 | 차단 규칙이 활성화된 결과 확정
+VERSION_CONFLICT | 409 | 오래된 결과 버전 수정
+OVERRIDE_REASON_REQUIRED | 422 | 점수 변경 사유 누락
+
+
+12 화면 명세
+ID | 화면 | 필수 표시 | 주요 동작
+S01 | 사업 설정 | 사업명 국가 분야 기간 평가유형 프로파일 언어 | 저장 평가 시작
+S02 | 자료 업로드 | 파일 문서유형 기관 기준일 버전 처리상태 | 업로드 재처리 제외
+S03 | 문서 검증 | OCR 원문 추출문 표 셀 좌표 신뢰도 | 수정 승인 반려
+S04 | PDM 검토 | Goal Outcome Output 지표 기초선 목표 실적 | 연결 수정 확정
+S05 | Evidence Matrix | 질문 지표 근거 극성 DQ 출처 위치 | 채택 배제 추가
+S06 | 질문 평가 | m Merit Coverage Confidence Gate Cap Red Flag | 판정 점수 Override
+S07 | 결과 대시보드 | 기준점수 총점 등급 신뢰도 자료보완 | 드릴다운 내보내기
+S08 | 평가자 합의 | 평가자별 점수 지표차이 근거차이 중앙값 | 합의 보류 확정
+S09 | 품질 준비도 | 평가설계 데이터 분석 제언 보고서 제출물 | 보완담당 기한
+S10 | 관리자 설정 | Rubric Grade Policy 모델 버전 | 복제 검증 발행
+
+12.1 질문 평가 화면
+상단에 질문 원문 AI 추천점수 사람 점수 Confidence와 상태를 표시한다.
+왼쪽에는 Atomic Indicator 가중치 m 값 Gate 여부를 표시한다.
+오른쪽에는 선택한 지표의 긍정 부정 미확인 근거를 원문 위치와 함께 표시한다.
+하단에는 적용된 Rule Trace 4점 미충족 사유 필요한 추가자료를 표시한다.
+원문 열기 동작은 PDF 페이지 XLSX 셀 DOCX 문단으로 직접 이동해야 한다.
+12.2 결과 대시보드
+영역 | 표시 규칙
+기준 요약 | 기준별 Performance Score와 Confidence를 나란히 표시
+총점과 등급 | Grade Policy 버전과 계산시각 표시
+영향력 | 종료평가 공식 20점과 분리된 진단값으로 표시
+보완 우선순위 | 점수 영향 가중치와 자료 확보 난이도로 정렬
+경고 | 판정유보 충돌 Red Flag를 점수와 구분된 상태로 표시
+근거 추적 | 모든 숫자와 판단에서 질문 지표 근거로 이동
+
+12.3 내보내기
+산출물 | 구성
+종료평가 등급표 Excel | 공식 질문 점수 기준평점 총점 등급 판단근거
+결과보고서 Word | 평가개요 방법 성과달성 기준별 결과 교훈 제언 부속
+근거 추적표 Excel | 질문 지표 판정 근거 위치 DQ 규칙 평가자
+평가자 합의표 PDF | 평가자별 점수 차이 원인 최종결정
+JSON Archive | 입력 스냅샷 점수 trace 버전 감사로그
+
+
+13 평가품질 준비도
+사업성과 점수와 평가품질 점수는 분리한다. 품질 준비도는 제출물과 평가설계가 공식 품질검토를 통과할 가능성을 사전에 점검하는 보조 모듈이다.
+영역 | 배점 | MVP 점검 항목
+평가설계와 방법론 | 20 | 평가매트릭스 질문 방법 표본 한계
+데이터 신뢰성 | 20 | 출처 원자료 결측 교차검증 데이터 보호
+분석과 평가결과 | 30 | 질문별 근거 상황요인 대안설명 일관성
+결론과 제언 | 20 | 근거 연결 우선순위 담당 주체 실행가능성
+보고서 구조 | 10 | 양식 분량 표 그림 참고문헌 부속
+
+13.1 품질 상태
+상태 | 조건
+READY | 필수 제출물 완비 중대 오류 없음 내부 기준 이상
+CONDITIONAL | 보완 가능한 누락 또는 낮은 DQ 존재
+NOT_READY | 원자료 핵심질문 윤리서류 등 필수항목 누락
+
+13.2 제출물 체크
+종료평가 결과보고서와 등급결과표
+평가매트릭스와 조사도구
+주요 성과데이터 출처와 원자료
+참고문헌과 문서목록
+평가정보 공개 수용 및 평가윤리 관련 서류
+현지조사 면담 참여자와 필요시 현지 컨설턴트 활용 자료
+
+14 보안 개인정보와 감사
+요건 | 구현 기준
+접근통제 | 기관 프로젝트 역할 기반 권한과 최소권한
+전송과 저장 | TLS와 저장 암호화 키 분리
+개인정보 | 주민번호 연락처 민감정보 자동 탐지와 마스킹
+원본 무결성 | SHA256 해시와 불변 원본 보존
+감사로그 | append only 변경 전후 actor time request id
+AI 데이터 사용 | 기관 승인 없이 사용자 문서를 외부 학습에 사용하지 않음
+삭제와 보존 | 기관 정책별 보존기간 법적보존 예외 삭제증적
+내보내기 | 워터마크 옵션 결과버전 분류등급 다운로드 이력
+
+14.1 민감정보 처리
+원문에서 개인정보를 탐지하더라도 평가에 불필요한 값은 검색 인덱스와 생성 프롬프트에 넣지 않는다.
+평가근거 인용문은 필요한 최소 범위로 제한하고 원문 열람 권한과 별도로 제어한다.
+모델 로그에는 원문 전체 대신 evidence_id와 익명화된 진단정보를 저장한다.
+
+15 비기능 요건
+영역 | MVP 목표 | 검증
+재현성 | 동일 입력과 버전에서 점수와 trace 동일 | 회귀시험
+성능 | 점수 재계산 API p95 2초 이내 | 부하시험
+문서처리 | 100페이지 텍스트 PDF 처리 목표 5분 이내 | 대표문서 시험
+가용성 | 월 99.5퍼센트 목표 | 모니터링
+복구 | RPO 24시간 RTO 8시간 이하 | 복구훈련
+언어 | 한국어 영어 필수 현지어 원문 보존 | 다국어 표본
+접근성 | 키보드 사용 대비와 레이블 기본 준수 | 자동 수동 점검
+관측성 | job trace model rule 오류율과 지연 측정 | 대시보드 알림
+
+성능과 가용성 수치는 MVP 협의 기본값이다. 인프라와 예상 문서량을 확인한 뒤 SLO 문서에서 확정한다.
+15.1 모델 운영
+모델명 제공자 버전 프롬프트 버전 온도와 출력 스키마를 AssessmentRun에 저장한다.
+모델 변경 전 고정된 골든셋으로 근거검색 판정 점수 영향과 비용을 비교한다.
+JSON 스키마 위반 환각 출처불일치는 재시도 후 사람 검토로 전환한다.
+AI 설명문은 점수 계산의 입력이 아니라 계산된 trace를 설명하는 출력으로 생성한다.
+
+16 시험과 인수 기준
+16.1 기능 인수시험
+ID | 시나리오 | 기대 결과
+AT01 | 같은 문서와 루브릭으로 재계산 | 모든 중간값 점수 등급 trace 동일
+AT02 | 근거 없음 | 0점이 아닌 NOT_DEMONSTRATED와 Coverage 감소
+AT03 | Coverage 59.9퍼센트 | NEEDS_EVIDENCE 점수 확정 차단
+AT04 | Coverage 60퍼센트 Merit 90 | 추천점수 최대 3
+AT05 | Coverage 85퍼센트 Merit 80 모든 Gate 통과 | 4점 후보
+AT06 | 4점 Gate 한 항목 미충족 | Merit와 무관하게 최대 3
+AT07 | 예산비율 1.50 타당사유 없음 | 효율성 Q4.1 최대 1
+AT08 | Output 달성률 150퍼센트 | 산식 기여는 120퍼센트에서 상한
+AT09 | 취약계층 분리자료 없음 | Q3.3 최대 3
+AT10 | 제도화 논의만 존재 | Q5.2 최대 3
+AT11 | DQ 높은 긍정 부정 근거 충돌 | CONFLICTED와 확정 차단
+AT12 | 평가자 점수 2점 차이 | 상세 사유와 Reviewer 승인 요구
+AT13 | A F 등급 모든 경계값 | 정책표와 정확히 일치
+AT14 | 잠금 결과 수정 | 직접 수정 거부 새 버전만 허용
+AT15 | 원문 파일 변경 | 해시 불일치 근거 무효 처리
+
+16.2 KNUT 회귀 기준
+첨부 KNUT 분석결과 파일은 현재 시스템의 호환성 회귀셋으로 사용한다. LEGACY 호환 모드에서는 적절성 일관성 효과성 효율성 지속가능성이 각각 3점이며 총점 15점과 성공적 결과를 재현해야 한다. ODA EARS 표준 모드는 세부지표와 Gate 적용으로 결과가 달라질 수 있으므로 동일 결과를 강제하지 않고 차이와 적용 규칙을 비교 보고한다.
+16.3 모델 성능 목표
+지표 | 내부 목표 | 비고
+질문별 weighted kappa | 0.75 이상 | 3인 이상 전문가 합의값 대비
+질문점수 MAE | 0.35점 이하 | 전문가 최종점수 대비
+4점 과대판정률 | 5퍼센트 이하 | 공식 Gate 위반 중점
+Human Override율 | 20퍼센트 이하 | 안정화 이후 목표
+근거 출처 정확도 | 95퍼센트 이상 | 페이지 또는 셀 위치 검증
+
+이 값은 기관 공식 기준이 아니라 제품 검증을 위한 내부 KPI다. 과거 종료평가 50~100건을 3명 이상의 전문가가 독립 재평가한 골든셋으로 보정한다.
+
+17 구현 단계와 완료 산출물
+단계 | 핵심 구현 | 완료 산출물
+1 기반 | 프로젝트 문서 버전 PDM 사용자 권한 | DB 마이그레이션 업로드 화면 API
+2 근거 | OCR 분류 Evidence Atom 위치 추적 | 문서 검증 Evidence Matrix
+3 점수 | Rubric Merit Coverage DQ Gate Cap Grade | 결정론적 엔진 단위시험
+4 검토 | 평가자 Override Consensus Audit | 질문 평가와 합의 화면
+5 출력 | 대시보드 Excel Word PDF JSON | 공식 양식 호환 결과
+6 검증 | KNUT 회귀 골든셋 캘리브레이션 | 성능보고서와 출시 기준
+
+17.1 개발팀 착수 체크리스트
+RubricVersion과 GradePolicy를 코드 밖 설정 데이터로 구현
+Evidence Atom locator의 PDF DOCX XLSX별 스키마 확정
+질문별 indicator_id와 rule_id를 본 문서 기준으로 seed 데이터화
+점수 엔진을 AI 호출과 분리하고 순수 함수 단위시험 작성
+판정유보 Score Cap Blocking 상태를 UI와 API에서 서로 다른 enum으로 구현
+모든 Override와 결과 잠금에 감사로그와 버전 충돌 방지 적용
+KNUT 파일을 LEGACY 회귀 픽스처로 등록
+17.2 착수 전 확정이 필요한 제품 결정
+결정 | 권장 기본값 | 영향
+첫 배포 형태 | 기관별 멀티테넌트 Web | 권한과 데이터 분리
+LLM 운영 | 기관 승인 모델과 교체 가능한 Provider Adapter | 보안 비용 재현성
+HWP 처리 | 서버 변환과 실패 시 PDF 요청 | 추출 정확도
+공식 등급정책 | KOICA 세부등급과 Legacy 동시 제공 | 기존 결과 호환
+평가자 수 | 기본 3명 가변 | 합의 UI와 비용
+문서 보존 | 기관별 설정 기본 5년 | 스토리지와 개인정보
+
+부록 A 현재 분석 파일과 목표 데이터 구조 매핑
+현재 시트 | 현재 역할 | 목표 엔터티 화면
+기준별 결과 | 기준점수 종합판단 근거부족 | CriterionScore 결과 대시보드
+질문별 상세 | 질문점수 AI판단 긍정근거 한계 후속조치 | QuestionScore 질문 평가
+참고 문서 | 질문별 검토 문서와 다운로드 | DocumentVersion Evidence source
+근거 인용문 | 질문별 긍정 부정 인용문 | EvidenceAtom locator와 polarity
+점수 기준 | 질문별 1~4점 내부 기준 | RubricVersion Rule와 Score band
+
+현재 파일의 가장 큰 구조적 공백은 세부 기준 적용 내역인 scoring trace가 없다는 점이다. 목표 구조에서는 질문점수와 함께 각 Atomic Indicator의 판정값 적용 Rule Evidence ID를 저장한다.
+부록 B 자동계산 변수
+BudgetRatio = ActualBudget / PlannedBudget
+TimeRatio = ActualDuration / PlannedDuration
+
+OutputAchievementRate =
+  SUM(Importance_i * MIN(Actual_i / Target_i, 1.20)) / SUM(Importance_i)
+
+EvidenceCoverage =
+  SUM(weight_i * I(valid evidence exists)) / SUM(weight_i)
+
+0으로 나누기 목표 방향성 음수값 비율이 아닌 지표는 명시적 validation_error 또는 indicator_rule로 처리한다. 오류를 0으로 치환하지 않는다.
+부록 C 참고자료
+자료 | 활용
+KOICA 종료평가 등급 예측 로직과 MVP 입력 출력 UI 초안 | 초기 데이터 모델 룰 엔진 UI 방향
+5-2 종료평가 등급 결과표 엑셀버전 | 11개 질문 공식 1~4점 기준과 종료 사후평가 산식
+5-1 종료평가 결과보고서 양식 | 보고서 구조와 평가결과 출력
+KNUT 분석결과 20260916 | 현재 MVP 필드와 Legacy 회귀 기준
+OECD DAC Evaluation Criteria | 6대 기준 정의와 적용 원칙
+
+OECD DAC 평가기준  https://www.oecd.org/en/topics/sub-issues/development-co-operation-evaluation-and-effectiveness/evaluation-criteria.html
+Applying Evaluation Criteria Thoughtfully  https://www.oecd.org/en/publications/applying-evaluation-criteria-thoughtfully_543e84ed-en.html
+부록 D 버전 변경 원칙
+문구 수정이라도 점수 판정에 영향을 줄 수 있으면 patch가 아닌 minor 버전을 올린다.
+가중치 임계값 Gate Red Flag 등 계산변경은 새 Rubric Version을 발행한다.
+과거 결과는 자동 재계산하지 않는다. 비교 재평가는 새 AssessmentRun으로 생성한다.
+모든 결과보고서에 Rubric Version Grade Policy Model Version을 표시한다.

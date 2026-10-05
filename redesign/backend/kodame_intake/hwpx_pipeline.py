@@ -566,7 +566,9 @@ def _pdm_slots(context: dict, raw: str, normalized: str) -> dict[str, str]:
             text = str(value or "").strip()
             return re.sub(r"\bRRC\s+EM\b", "RRCEM", text, flags=re.IGNORECASE)
 
-        return {key: normalize_pdm_value(value) for key, value in source_slots.items()}
+        from .hwpx_layout.pdm_text import activity_display_text, reflow_cell_text
+        return {key: activity_display_text(normalize_pdm_value(value)) if key == "activities"
+                else reflow_cell_text(normalize_pdm_value(value)) for key, value in source_slots.items()}
 
     parsed = read_slot_input("pdm", raw)
     if parsed.detected or not raw.strip():

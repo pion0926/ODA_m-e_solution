@@ -145,6 +145,31 @@ def choose_slot(criterion: str, file_name: str, document_type: str = "", context
 
 
 def document_slot_matches(file_name: str, analysis: dict) -> list[dict]:
+    from .document_classification import VERSION, is_project_plan, pdm_slots
+    classification = analysis.get("content_classification") or {}
+    if classification.get("version") == VERSION:
+        selected = {item["slot_id"].split("-", 1)[0]: dict(item)
+                    for item in classification.get("slot_matches", []) if item.get("confidence", 0) >= 0.45}
+        # These are persisted semantic roles, not filename/keyword guesses.
+        for active, criterion, slot_id in (
+            (is_project_plan(analysis), "relevance", "relevance-pcp"),
+            (bool(pdm_slots(analysis)), "effectiveness", "effectiveness-pdm"),
+        ):
+            if active:
+                if selected.get(criterion, {}).get("slot_id") != slot_id:
+                    selected[criterion] = {"slot_id": slot_id, "confidence": classification.get("role_confidence", 0),
+                                           "reason": classification.get("reason", "")}
+        result = []
+        for criterion, item in selected.items():
+            meta = DOCUMENT_SLOTS.get(criterion)
+            if not meta:
+                continue
+            title = dict(meta["slots"]).get(item["slot_id"])
+            if title:
+                result.append({"criterion": criterion, "criterion_name": meta["name"],
+                               "slot_id": item["slot_id"], "slot_title": title,
+                               "confidence": item["confidence"], "rationale": "LLM 본문 분석: " + item["reason"]})
+        return result
     lowered_name = file_name.lower()
     if any(token in lowered_name for token in (
         "readme", "업로드_안내", "자료요청", "메일초안", "google_drive_생성", "자료없음"

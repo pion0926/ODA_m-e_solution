@@ -8,6 +8,58 @@ from kodame_intake.openrouter import AnalysisError
 
 
 class EvidenceTests(unittest.TestCase):
+    @patch('kodame_intake.pdm_evidence.connection')
+    @patch('kodame_intake.pdm_evidence._request_json')
+    def test_unsupported_ai_suggestion_is_a_recorded_limitation_not_failed_generation(self, request, connection):
+        request.return_value=({'observations':[{'indicator_id':self.row()['id'],'kind':'actual','value':'99%',
+                                              'quote':'합격률 80%','period':''}],
+                              'reviews':[{'indicator_id':self.row()['id'],'status':'found','reason':'수치 제안'}]},'test')
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'result.txt';path.write_text('합격률 80%',encoding='utf-8')
+            doc={'id':'doc','original_name':'result.txt','extracted_path':str(path)}
+            assert extract_measurements(doc,[self.row()])==[]
+        cached=doc['analysis']['pdm_measurements']
+        assert cached['unverified_indicator_ids']==[]
+        assert cached['reviews'][0]['verification_warning'] is True
+        assert cached['reviews'][0]['status']=='no_measurement'
+        assert '수치가' in cached['rejected_observations'][0]['exclusion_reason']
+
+    @patch('kodame_intake.pdm_evidence.connection')
+    @patch('kodame_intake.pdm_evidence._request_json')
+    def test_exact_source_id_supports_categorical_foreign_language_approval(self, request, connection):
+        import json
+        row={'id':'approval','indicator':'표준 교육과정 승인 여부(유/무)','evidence':'교육부 승인서'}
+        def response(system,prompt,title,**kwargs):
+            source=json.loads(prompt)['sources'][0]
+            return {'observations':[{'indicator_id':'approval','kind':'actual','value':'유',
+                    'source_id':source['source_id'],'period':''}],
+                    'reviews':[{'indicator_id':'approval','status':'found','reason':'승인 사실 명시'}]},'test'
+        request.side_effect=response
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'approval.txt'; path.write_text('Ministry approved this curriculum.',encoding='utf-8')
+            document={'id':'doc','original_name':'approval.txt','extracted_path':str(path)}
+            result=extract_measurements(document,[row])
+        self.assertEqual(result[0]['value'],'유')
+        self.assertEqual(result[0]['quote'],'Ministry approved this curriculum.')
+        self.assertEqual(document['analysis']['pdm_measurements']['unverified_indicator_ids'],[])
+
+    @patch('kodame_intake.pdm_evidence.connection')
+    @patch('kodame_intake.pdm_evidence._request_json')
+    def test_equivalent_count_label_preserves_reported_values_and_review(self,request,connection):
+        row={'id':'outputs-3-1-1','indicator':'양성된 지역사회 CPCR 전문 강사 수 (명)','evidence':'강사 자격증 발급 대장'}
+        quote='CPCR 강사 양성여부(명) | 10명 | 6명'
+        observations=[{'indicator_id':row['id'],'kind':kind,'value':value,'quote':quote,'period':''} for kind,value in [('target','10명'),('actual','6명')]]
+        reviews=[{'indicator_id':row['id'],'status':'found','reason':'동일한 강사 양성 인원 보고'}]
+        request.return_value=({'observations':observations,'reviews':reviews},'test')
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'metrics.txt';path.write_text('성과지표 | 목표 | 실적\n'+quote,encoding='utf-8')
+            doc={'id':'doc','original_name':'metrics.txt','extracted_path':str(path)}
+            result=extract_measurements(doc,[row])
+        self.assertEqual([o['value'] for o in result],['10명','6명'])
+        self.assertEqual(doc['analysis']['pdm_measurements']['reviews'][0]['reason'],reviews[0]['reason'])
+        schema=request.call_args.kwargs['response_schema']
+        self.assertEqual(schema['properties']['observations']['items']['properties']['indicator_id']['enum'],[row['id']])
+
     @patch("kodame_intake.pdm_evidence._request_json")
     def test_invalid_model_json_is_retried_with_a_bound(self, request):
         request.side_effect = [AnalysisError("invalid JSON"), ({"observations": []}, "test")]
@@ -71,7 +123,8 @@ class EvidenceTests(unittest.TestCase):
         observation = self.observation()
         observation["quote"] = "합격률 97%"
         fabricated = {**observation, "value": "99%"}
-        request.side_effect = [({"observations": []}, "test"), ({"observations": [observation, fabricated]}, "test")]
+        reviews=[{'indicator_id':self.row()['id'],'status':'no_measurement','reason':'본문에 해당 값 없음'}]
+        request.side_effect = [({"observations": [],'reviews':reviews}, "test"), ({"observations": [observation, fabricated],'reviews':reviews}, "test")]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "result.txt"
             path.write_text("가" * 29000 + "합격률 97%", encoding="utf-8")
@@ -83,7 +136,7 @@ class EvidenceTests(unittest.TestCase):
     @patch("kodame_intake.pdm_evidence.connection")
     @patch("kodame_intake.pdm_evidence._request_json")
     def test_unchanged_content_reuses_cache(self, request, connection):
-        request.return_value = ({"observations": []}, "test")
+        request.return_value = ({"observations": [],'reviews':[{'indicator_id':self.row()['id'],'status':'no_measurement','reason':'직접 측정값 없음'}]}, "test")
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "result.txt"
             path.write_text("자료 본문", encoding="utf-8")

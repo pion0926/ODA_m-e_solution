@@ -59,6 +59,10 @@ def report_writing_policy_issues(content: object) -> list[str]:
     narrative_layout = profile.get("narrative_detail_layout") or {}
     maximum_characters = int(narrative_layout.get("maximum_characters") or 360)
     for line in text.replace("\r", "").splitlines():
+        # Indexed PDM records are multiple table cells, not one prose paragraph.
+        # Their row wrapping/splitting is validated by the HWPX table pipeline.
+        if re.match(r'^\s*-\s*\[(?:outcome|outputs?)[-\s][\w.-]+\]\s*[:：]?\s*성과지표\s*[:：]', line, re.IGNORECASE):
+            continue
         if line.lstrip().startswith("- ") and len(line.strip()) > maximum_characters:
             issues.append(
                 f"서술형 세부 문단 시각 예산 초과: {len(line.strip())}자 > {maximum_characters}자"

@@ -1,48 +1,71 @@
-# Korea ODA M&E Solution (KODAME)
+# K-ODAME
 
-KODAME의 프로젝트별 ODA 자료 관리·PDM/DAC 분석·평가보고서 생성 서비스입니다.
+개발 원칙: [AGENTS.md](AGENTS.md) · [Playwright·MCP·문서 엔진 관리](docs/service/development-tooling.md)
 
-## V1.0.0 운영·개발 분리
+프로젝트별 ODA 자료 등록, PDM 성과 모니터링, DAC 평가, 종료평가 보고서 작성 서비스입니다.
+현재 소스 기준선은 **V2.4.23 (2026-10-06)**입니다. 운영 이미지 기준은 웹 V2.4.23 / API V2.4.21이며, 작업공간 수정이나 GitHub push만으로 운영 환경이 배포되지는 않습니다.
 
-- 운영: `http://127.0.0.1:8000/`, Docker 프로젝트 `odame-prod`. 빈 업무 데이터로 시작하며 V1.0.0 릴리스 이미지 ID에 고정됨.
-- 개발: `http://127.0.0.1:8002/`, Docker 프로젝트 `odame`. 기존 계정·자료·보고서를 유지함.
-- DB, 업로드/생성 파일, Docker 네트워크, 로그인 쿠키가 분리됨. 운영에는 현재 작업 디렉터리를 마운트하지 않음.
-- 실행·정지·백업·버전 고정 절차: [운영 배포 안내](docs/service/deployment-v1.0.0.md).
-- 아래 기본 `docker compose` 명령은 **개발 환경만** 제어함.
+최근 변경과 검증 범위는 [변경 이력](CHANGELOG.md)을 참고합니다.
 
-## 실행
+## 환경과 실행
 
-`.env.example`을 `.env`로 복사하고 `OPENROUTER_API_KEY`를 설정합니다. 키가 없어도 업로드와 안전 파싱까지 수행되며, AI 분석 단계에서 재개 가능한 상태로 대기합니다.
+| 환경 | Compose 프로젝트 | 주소 | 저장소 |
+| --- | --- | --- | --- |
+| 개발 | `docker-compose.yml` / `odame` | http://127.0.0.1:8002 | 기존 DB 볼륨, `data-redesign/` |
+| 운영 | 고정 릴리스의 `compose.production.yml` / `odame-prod` | https://app.kodame.kr | 독립 DB·파일 볼륨 |
+| 합성 QA | `compose.qa.yml` / `odame-qa` | http://127.0.0.1:8004 | QA 전용 DB·파일 볼륨 |
+
+`.env.example`을 `.env`로 복사하고 개발용 설정을 채웁니다. 비밀번호·API 키는 Git에 저장하지 않습니다.
 
 ```powershell
-docker compose up -d --build
+docker compose up -d --build --wait --wait-timeout 180
+./tools/ops/Test-Service.ps1
 ```
 
-브라우저에서 `http://127.0.0.1:8002/`로 접속합니다. API는 동일한 호스트의 `/api/v2` 경로로 제공됩니다.
+첫 명령은 개발 환경만 변경합니다. 초기 관리자는 `admin`이며 실제 비밀번호는 해당 환경 설정을 사용합니다.
+공개 서비스에서는 예제 비밀번호를 사용하면 안 됩니다. 관리자가 프로젝트와 사용자 계정을 발급합니다.
+운영 상태는 `./tools/ops/Server.ps1 -Environment production -Action status`로 확인합니다.
 
-## 초기 계정
+## 서비스 흐름
 
-- 새 운영 관리자: `admin`. 초기 비밀번호는 로컬 `.runtime/production.env`의 `PROD_BOOTSTRAP_PASSWORD`에서 확인함. Git에 저장하지 않음.
-- 기존 개발 계정은 그대로 유지됨. 새 DB에서는 테스트 계정을 자동 생성하지 않음.
+1. **사업계획서**와 **PDM**을 지정된 영역에 등록합니다. 사업개요는 사업계획서, 지표·목표는 PDM을 기준으로 만듭니다.
+2. 두 기준 문서가 완료되면 일반 자료를 등록합니다. 원본 저장 → 텍스트 추출 → 성격 판단 → 역할·요약·원문 사실 추출 → PDM/DAC/보고서 매핑을 저장합니다.
+3. **성과지표 분석**에서 신규 문서·신규 매핑 조합을 검토하고 실행합니다. 기존 평가와 신규 근거를 함께 검토합니다.
+4. **DAC 평가진단**에서 질문별 대상 자료와 검토 범위를 확인하고 별도로 평가합니다. 등록 사실·매핑·저장된 PDM 결과를 활용합니다.
+   저장된 평가 근거를 바탕으로 기준별 보완 팁을 제공하며, 팁 조회가 점수를 변경하지는 않습니다.
+5. 평가 입력의 변경 여부를 확인하면서 보고서 섹션을 생성합니다. 중단 작업은 유효한 기존 섹션을 보존하고 이어서 실행합니다.
+6. HWPX 생성 시 내용·표·쪽수·목차를 검증합니다. 생성된 초안은 평가자의 검토가 필요합니다.
+   전체 보고서 미리보기는 화면에 맞춰 시작하며 필요한 페이지만 렌더링하고 원문 텍스트 선택·복사를 지원합니다.
 
-관리자는 프로젝트·사용자 관리만 사용합니다. 프로젝트 생성 후 연결 계정을 발급하며 고객별 데이터는 프로젝트로 격리합니다. 빈 운영 DB에는 관리자 1명과 빈 시스템 기본 프로젝트만 준비되며, 문서·평가·작성 본문은 없습니다.
+일반 자료의 매칭 근거가 검증되지 않으면 해당 제안을 제외합니다. 실패·중지된 일반 자료가 프로젝트 전체를 잠그지 않습니다.
+기준 문서 교체는 확인을 요구하며, 기존 보고서는 삭제하지 않고 최신 입력 반영 여부를 구분합니다.
 
-## 구성
+## 코드와 서버 구성
 
-- `kodame-redesign-web`: HTML 디자인 제공 및 API 프록시
-- `kodame-redesign-api`: 업로드·큐 조회·슬롯 검토를 포함한 v2 API
-- `kodame-intake-worker`: 문서를 한 번에 한 건씩 파싱·분석·다중 분류
-- `postgres`: 처리 큐, 단계 이력, 분석 결과와 슬롯 제안 저장
-- `data-redesign/`: 새 시스템 전용 로컬 데이터 저장소
+Nginx, FastAPI, 업로드 워커, PDM·DAC 워커, 보고서·출력 워커, PostgreSQL, HWPX 변환 서비스를 분리합니다.
+일회성 마이그레이션이 성공해야 API가 시작됩니다. 긴 AI 작업은 DB에 저장한 뒤 별도 워커에서 실행합니다.
+일반 업로드는 최대 4건 동시 처리하고, 기준 문서 갱신은 기존 직렬화 규칙을 유지합니다.
 
-분류 검토 기준은 `docs/section_classification_criteria.md`, 백엔드 구조는 `docs/redesign_backend_architecture.md`를 참고하세요.
+| 역할 | 위치 |
+| --- | --- |
+| 화면 HTML | `frontend/index.html` |
+| 스타일 / 기본 동작 / 서버 연결 | `assets/app-styles.css`, `app-shell.js`, `app-controller.js` |
+| 기능별 UI | `assets/service-*.js`, `foundation-upload.js`, `*-analysis-review.js` |
+| API 라우트·인증·시작/종료 | `redesign/backend/kodame_intake/api/` |
+| AI 전송·스키마 처리 | `ai_gateway.py`, `structured_output.py`, `ai/request_limits.py` |
+| 핵심 / 보고서 프롬프트 | `ai/prompts/`, 루트 `prompts/` |
+| 영속 작업 / 워커 | `workflow_queue.py`, `workflow_worker.py`, `worker.py` |
+| 보고서 분량 / 생성 / 조판 | `report_content_policy.py`, `report_generator.py`, `hwpx_layout/` |
 
-## AI 분석 운영 기준
+이전 `0821_OoooDaon_v1.0.html`은 진입 안내입니다. `main.py`와 `openrouter.py`는 기존 import 호환용입니다.
 
-현재 서비스는 업로드 자료를 외부 AI 서비스(OpenRouter의 계정별 설정 모델)로 분석하는 것을 전제로 운영합니다. PDM 증빙으로 연결된 문서의 추출 본문 전체를 분할 분석하고, 원문으로 확인된 목표·실적과 출처를 성과지표 모니터링에 반영합니다. 문서 처리 완료 및 ‘지표 갱신’에서 같은 분석 경로를 사용하며, 내용이 변경되지 않은 문서의 분석 결과는 재사용합니다. 값의 충돌과 분석 미완료는 별도로 표시합니다.
+## 문서와 QA
 
-DAC 재평가는 슬롯 연결 또는 문서 분류상 해당 평가기준과 관련된 문서의 추출 본문 전체를 구간별로 분석한 후, 질문별 긍정·반대 근거와 원문 인용을 모두 종합하여 점수를 산정합니다. 기존의 문서당 2,600자 키워드 발췌 제한은 사용하지 않습니다. 문서 내용·평가질문·모델이 같으면 검증된 구간 분석을 재사용합니다. 본문을 읽지 못하거나 구간 분석이 실패하면 재평가를 완료로 처리하지 않으며, 최종 질문별 결과에 검토 문서·구간 수와 인용 출처를 기록합니다.
+- [구조와 설계 결정](docs/service/architecture-20260925.md)
+- [운영·배포·복구 절차](docs/service/operations-20260925.md)
+- [QA 결과와 개선 과제](docs/service/qa-refactor-20260925.md)
+- [범위와 시작 기준선](docs/service/refactor-plan-20260925.md)
+- [기존 고정 릴리스 배포 안내](docs/service/deployment-v1.0.0.md)
 
-DAC 재평가 시작 시 PDM을 최신 증빙으로 갱신하고, 논리구조·지표별 목표/실적/달성도·가정·검증수단·증빙 연결·위험 분석 전체를 평가 입력에 포함합니다. 사용한 PDM 상태는 평가 실행에 고정 저장하므로 이후 PDM이 변경돼도 과거 평가의 근거를 추적할 수 있습니다. 질문별 활용 지표와 원문 출처를 남기며, PDM 달성률을 DAC 점수로 단순 환산하지 않고 각 평가질문의 루브릭과 다른 증빙을 함께 적용합니다.
-
-기밀 문서를 대상으로 하는 별도 서비스는 향후 온프레미스 모델을 사용하는 구성으로 구축할 예정입니다. 현재 서비스에 온프레미스 추론이 구현되어 있다는 의미는 아닙니다.
+자동 검사에는 외부 AI 키를 전달하지 않습니다. 실제 AI 검증은 합성 QA 전용
+`tools/ops/Run-SyntheticQAProbe.ps1`로 단계별 실행하며 API 사용료가 발생합니다.

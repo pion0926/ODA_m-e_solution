@@ -3,26 +3,36 @@ name: odame-prod
 
 x-app-environment: &app-environment
   DATA_DIR: /app/data
-  DATABASE_URL: postgresql://kodame_app:${PROD_POSTGRES_PASSWORD:?Initialize production environment first}@postgres:5432/kodame
-  ADMIN_DATABASE_URL: postgresql://kodame:${PROD_POSTGRES_PASSWORD:?Initialize production environment first}@postgres:5432/kodame
+  DATABASE_URL: postgresql://kodame_app:${PROD_APP_DATABASE_PASSWORD:?Application DB password required}@postgres:5432/kodame
+
   OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
   OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-3.5-flash-lite}
-  OPENROUTER_PRESENTATION_MODEL: ${OPENROUTER_PRESENTATION_MODEL:-anthropic/claude-opus-5}
+  OPENROUTER_PRESENTATION_MODEL: ${OPENROUTER_PRESENTATION_MODEL:-openai/gpt-6-astra}
   OPENROUTER_REFERER: ${PROD_PUBLIC_URL:-http://127.0.0.1:8000}
   PRESENTATION_REFERENCE_PROFILE_PATH: /app/config/presentation_reference_profile.json
   PRESENTATION_MIN_QUALITY_SCORE: "90"
   PRESENTATION_MAX_GENERATION_ATTEMPTS: "3"
   MAX_FILE_BYTES: "134217728"
-  KODAME_BOOTSTRAP_PASSWORD: ${PROD_BOOTSTRAP_PASSWORD:?Initialize production environment first}
+
   KODAME_BOOTSTRAP_NAME: K-ODAME 운영 관리자
   KODAME_BOOTSTRAP_PROJECT_NAME: 운영자 기본 프로젝트
   KODAME_SEED_DEMO_ACCOUNTS: "false"
   ALLOW_REGISTRATION: "false"
   SESSION_COOKIE_NAME: kodame_production_session
   SESSION_TTL_HOURS: "12"
-  AUTH_COOKIE_SECURE: ${PROD_COOKIE_SECURE:-false}
+  AUTH_COOKIE_SECURE: ${PROD_COOKIE_SECURE:-true}
   WORKER_POLL_SECONDS: "3"
+  WORKER_CONCURRENCY: "4"
   WORKER_STEP_DELAY_SECONDS: "1"
+  AI_MAX_IN_FLIGHT: "4"
+  AI_GLOBAL_BUDGET_ENABLED: "true"
+  AI_USAGE_LIMITS_ENABLED: "false"
+  AI_JOB_SECONDS: "0"
+  AI_GLOBAL_IN_FLIGHT: "4"
+  PARSER_ISOLATION: "true"
+  PARSER_TIMEOUT_SECONDS: "240"
+  PARSER_MEMORY_MB: "512"
+  RUN_MIGRATIONS_ON_START: "false"
 
 x-logging: &logging
   driver: json-file
@@ -31,6 +41,17 @@ x-logging: &logging
     max-file: "3"
 
 services:
+  kodame-data-permissions:
+    image: ${PROD_API_IMAGE:?Release lock required}
+    user: "0:0"
+    command: [sh, -c, "chown -R 10001:10001 /app/data && chmod -R u+rwX,go-rwx /app/data"]
+    volumes: ["app-data:/app/data"]
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    restart: "no"
+    healthcheck: {disable: true}
+
   postgres:
     image: ${PROD_POSTGRES_IMAGE:?Release lock required}
     environment:
@@ -49,16 +70,23 @@ services:
 
   kodame-kordoc:
     image: ${PROD_KORDOC_IMAGE:?Release lock required}
+    user: "1000:1000"
+    cap_drop: [ALL]
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
     logging: *logging
 
   kodame-redesign-api:
+    mem_limit: 1536m
+    cpus: 2
     image: ${PROD_API_IMAGE:?Release lock required}
     environment: *app-environment
     volumes:
       - app-data:/app/data
     depends_on:
+      kodame-data-permissions: {condition: service_completed_successfully}
+      kodame-migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       kodame-kordoc:
@@ -69,6 +97,9 @@ services:
     logging: *logging
 
   kodame-intake-worker:
+    mem_limit: 2560m
+    cpus: 2
+    pids_limit: 256
     image: ${PROD_API_IMAGE:?Release lock required}
     command: [python, -m, kodame_intake.worker]
     environment: *app-environment
@@ -82,7 +113,73 @@ services:
     cap_drop: [ALL]
     logging: *logging
     healthcheck:
+      test: [CMD, python, -m, kodame_intake.worker_health, intake]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    stop_grace_period: 60s
+
+  kodame-migrate:
+    image: ${PROD_API_IMAGE:?Release lock required}
+    command: [python, -m, kodame_intake.migrate]
+    environment:
+      <<: *app-environment
+      ADMIN_DATABASE_URL: postgresql://kodame:${PROD_POSTGRES_PASSWORD:?Initialize production environment first}@postgres:5432/kodame
+      KODAME_BOOTSTRAP_PASSWORD: ${PROD_BOOTSTRAP_PASSWORD:?Initialize production environment first}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    logging: *logging
+    healthcheck:
       disable: true
+
+  kodame-analysis-worker: &workflow-worker
+    mem_limit: 3072m
+    cpus: 2
+    pids_limit: 256
+    image: ${PROD_API_IMAGE:?Release lock required}
+    command: [python, -m, kodame_intake.workflow_worker]
+    environment:
+      <<: *app-environment
+      WORKFLOW_QUEUE: analysis
+    volumes:
+      - app-data:/app/data
+    depends_on:
+      kodame-redesign-api:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 60s
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+    healthcheck:
+      test: [CMD, python, -m, kodame_intake.worker_health, workflow]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  kodame-report-worker:
+    <<: *workflow-worker
+    environment:
+      <<: *app-environment
+      WORKFLOW_QUEUE: reports
+
+  kodame-analysis-worker-2:
+    <<: *workflow-worker
+    environment:
+      <<: *app-environment
+      WORKFLOW_QUEUE: analysis
+      WORKFLOW_SLOT: "1"
+
+  kodame-report-worker-2:
+    <<: *workflow-worker
+    environment:
+      <<: *app-environment
+      WORKFLOW_QUEUE: reports
+      WORKFLOW_SLOT: "1"
 
   kodame-redesign-web:
     image: ${PROD_WEB_IMAGE:?Release lock required}
@@ -90,7 +187,7 @@ services:
       kodame-redesign-api:
         condition: service_healthy
     ports:
-      - "${PROD_BIND_IP:-127.0.0.1}:${PROD_PORT:-8000}:80"
+      - "${PROD_BIND_IP:-127.0.0.1}:${PROD_PORT:-8000}:8080"
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
     logging: *logging

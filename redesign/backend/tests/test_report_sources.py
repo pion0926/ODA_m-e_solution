@@ -30,6 +30,17 @@ class ReportSourcePolicyTests(unittest.TestCase):
         self.assertIn("\n", normalized)
         self.assertEqual(source_artifact_issues(normalized, [self.raw_name]), [])
 
+    def test_numbered_drive_folder_does_not_leak_into_authoritative_pdm_notice(self) -> None:
+        from kodame_intake.report_sources import ensure_authoritative_pdm_notice
+        for prefix in ('01_사업기본자료', '05_DAC_PDM_평가자료'):
+            name = prefix + '__사업기본자료_PDM 1차 수정_2026-06-23_교통대.pdf'
+            label = reader_source_label(name)
+            self.assertEqual(label, '사업설계매트릭스(PDM) 1차 수정')
+            content = ensure_authoritative_pdm_notice('ㅇ 분석\n- 실적을 확인함.', {
+                'authoritative_pdm': {'source_label': label}})
+            self.assertEqual(source_artifact_issues(content, [name]), [])
+        self.assertEqual(reader_source_label('2026년_실적_보고서.pdf'), '2026년 실적 보고서')
+
     def test_operational_upload_artifacts_are_not_report_evidence(self) -> None:
         for name in (
             "README.md",

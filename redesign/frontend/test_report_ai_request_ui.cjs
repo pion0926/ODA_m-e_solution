@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { createFlow, generationBlock } = require('../../assets/report-section-flow.js');
-const live = fs.readFileSync('assets/odaon-v1-live.js', 'utf8');
-const html = fs.readFileSync('0821_OoooDaon_v1.0.html', 'utf8');
+const live = fs.readFileSync('assets/app-controller.js', 'utf8');
+const html = fs.readFileSync('frontend/index.html', 'utf8');
 const renderer = live.slice(live.indexOf('  function renderSectionAssistant(section) {'), live.indexOf('  async function loadReportSection('));
 const submitter = live.slice(live.indexOf('  async function generateSection() {'), live.indexOf('  function renderGeneration(status) {'));
 function fixture() {

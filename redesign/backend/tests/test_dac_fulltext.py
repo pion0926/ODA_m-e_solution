@@ -11,6 +11,54 @@ from kodame_intake.parsers import parse_document
 
 
 class DACFulltextTests(unittest.TestCase):
+    @patch('kodame_intake.parsers._pdf_ocr',return_value='실제 OCR 본문')
+    @patch('kodame_intake.parsers.PdfReader')
+    def test_page_markers_do_not_hide_image_only_document(self, reader, ocr):
+        from unittest.mock import MagicMock
+        reader.return_value.is_encrypted=False
+        reader.return_value.pages=[MagicMock() for _ in range(12)]
+        for page in reader.return_value.pages:
+            page.extract_text.return_value=''
+        self.assertEqual(parse_document(Path('/unused.pdf'),'.pdf',full_text=True)[0],'실제 OCR 본문')
+        ocr.assert_called_once()
+
+    def test_long_citation_is_split_without_losing_original_evidence(self):
+        text='\n'.join(['가'*1000,'나'*1000,'다'*1000,'부정적 결과 '+ '라'*1000])
+        result=_validate_chunk({'evidence':[{'question_id':'effectiveness-q3','kind':'context',
+            'start_line':1,'end_line':4,'finding':'전체 구간을 대조한 제안'}]},text,{'effectiveness-q3'})
+        self.assertGreater(len(result),1)
+        self.assertTrue(all(len(e['quote'])<=2000 and e['quote'] in text for e in result))
+        self.assertEqual(''.join(e['quote'].replace('\n','').replace(' ','') for e in result),text.replace('\n','').replace(' ',''))
+        self.assertEqual(len({e['quote_group'] for e in result}),1)
+        self.assertTrue(any('부정적 결과' in e['quote'] for e in result))
+
+    def test_long_ellipsis_quotes_resolve_to_real_spans_and_false_quotes_still_fail(self):
+        text='가'*2200+' 생략 구간 '+'나'*2200
+        item={'question_id':'effectiveness-q3','kind':'context','quote':'가'*2200+' ... '+'나'*2200,'finding':'두 구간 대조'}
+        result=_validate_chunk({'evidence':[item]},text,{'effectiveness-q3'})
+        self.assertTrue(all(e['quote'] in text and len(e['quote'])<=2000 for e in result))
+        with self.assertRaises(AnalysisError):
+            _validate_chunk({'evidence':[{**item,'quote':'가'*2200+'없는 원문'+'나'*2200}]},text,{'effectiveness-q3'})
+
+    @patch('kodame_intake.dac_evidence.connection')
+    @patch('kodame_intake.dac_evidence._request_json')
+    def test_bad_large_response_retries_smaller_windows_without_skipping_text(self, call, conn):
+        import json
+        def response(system,prompt,*args,**kwargs):
+            data=json.JSONDecoder().raw_decode(prompt)[0]
+            if data['chunk_end']-data['chunk_start']>6000:
+                raise AnalysisError('잘못된 응답 형식')
+            return {'evidence':[]},'test'
+        call.side_effect=response
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'long.txt';path.write_text('가'*12000,encoding='utf-8')
+            result=analyze_document(self.document(path))
+        ranges=sorted((c['start'],c['end']) for c in result['chunks'])
+        self.assertEqual(ranges[0][0],0)
+        self.assertEqual(ranges[-1][1],12000)
+        self.assertTrue(all(a[1]>=b[0] for a,b in zip(ranges,ranges[1:])))
+        self.assertTrue(all(end-start<=6000 for start,end in ranges))
+
     def test_citations_are_copied_from_validated_source_line_ranges(self):
         item = {"question_id": "effectiveness-q2", "kind": "positive", "start_line": 2, "end_line": 2,
                 "finding": "합격률 97%", "quote": "model paraphrase must not be used"}
@@ -78,7 +126,10 @@ class DACFulltextTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "인용 근거"):
                 analyze_document(self.document(path))
         self.assertEqual(call.call_count, 3)
-        connection.assert_not_called()
+        saved = connection.return_value.__enter__.return_value.execute.call_args.args[1][0].obj
+        self.assertEqual(saved['status'],'partial')
+        self.assertEqual(saved['chunks'],[])
+        self.assertEqual(len(saved['failed_windows']),1)
 
     def test_missing_linked_body_blocks_scoring(self):
         doc = self.document("/does-not-exist.txt")
@@ -109,6 +160,21 @@ class DACFulltextTests(unittest.TestCase):
         corpus, refs = _corpus("effectiveness", [doc])
         self.assertFalse(corpus[0]["relevant_slot_assignment"])
         self.assertEqual(refs, {})
+
+    @patch('kodame_intake.dac_evidence.connection')
+    @patch('kodame_intake.dac_evidence._request_json')
+    def test_new_intake_reviews_unassigned_document_against_all_criteria(self, call, connection):
+        call.return_value=({'evidence':[self.evidence('합격률 97%')]},'test')
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'new-evidence.txt'
+            path.write_text('합격률 97%',encoding='utf-8')
+            doc=self.document(path);doc.update(assigned_criteria=[],review_all=True)
+            prepare_documents([doc])
+            corpus,refs=_corpus('effectiveness',[doc])
+        self.assertEqual(refs,{'D001':'doc'})
+        self.assertEqual(len(doc['fulltext_review']['reviewed_criteria']),5)
+        self.assertIn('effectiveness-q2',doc['fulltext_review']['question_ids'])
+        self.assertEqual(corpus[0]['question_evidence'][0]['quote'],'합격률 97%')
 
 
 if __name__ == "__main__":

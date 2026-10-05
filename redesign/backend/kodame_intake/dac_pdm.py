@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 from .db import connection
-from .pdm_monitoring import refresh_pdm_model
+from .project_lifecycle import capture_input_snapshot, snapshots_match
 
 
 def build_context(row, assignments, documents):
-    model = row["model"]
+    from .document_eligibility import filter_performance_model
+    allowed = {str(doc['id']) for doc in documents}
+    model = filter_performance_model(row['model'], allowed)
+    assignments = [item for item in assignments if str(item['document_id']) in allowed]
     source_ids = {str(row["source_document_id"])}
     if model.get("performance_source_document_id"):
         source_ids.add(str(model["performance_source_document_id"]))
@@ -30,18 +33,23 @@ def build_context(row, assignments, documents):
 
 
 def refresh_context(documents):
-    if not any("pdm" in doc["name"].lower() and doc["name"].lower().endswith(".pdf") for doc in documents):
-        return {"status": "unavailable", "reason": "분석 가능한 PDM 원본 PDF가 업로드되지 않았습니다.",
-                "model": {}, "evidence_document_refs": {}}
-    model_id = refresh_pdm_model(analyze_risks=True)
+    """Capture the saved performance state; DAC never triggers performance analysis."""
     with connection() as conn:
-        row = conn.execute("SELECT * FROM pdm_models WHERE id=%s", (model_id,)).fetchone()
+        row = conn.execute("SELECT * FROM pdm_models ORDER BY created_at DESC LIMIT 1").fetchone()
         if not row:
-            raise RuntimeError("PDM이 동시에 갱신되었습니다. DAC 재평가를 다시 실행하세요.")
+            return {'status': 'unavailable', 'reason': '저장된 PDM이 없습니다.',
+                    'model': {}, 'evidence_document_refs': {}}
         assignments = conn.execute(
             "SELECT document_id,indicator_id,tier,requirement_title,confidence,rationale FROM pdm_document_assignments"
         ).fetchall()
-    return build_context(row, assignments, documents)
+        snapshot = capture_input_snapshot(conn)
+    context = build_context(row, assignments, documents)
+    saved = row['model'].get('monitoring', {}).get('input_snapshot')
+    context['performance_analysis_status'] = ('current' if snapshots_match(saved, snapshot, include_evaluation=False)
+                                               else 'stale' if saved else 'not_run')
+    context['performance_analysis_note'] = ('성과지표 모니터링에서 저장한 결과를 사용합니다. '
+        '미실행 또는 최신 자료 미반영 상태의 성과 수치를 현재 실적으로 단정하지 말고 이번 DAC 원문 근거와 대조하세요.')
+    return context
 
 
 def attach_question_context(question, pdm_context):

@@ -78,10 +78,11 @@ def build_grade_overview_bmp(context: dict, profile: dict[str, Any]) -> bytes:
             continue
         evaluation = criterion.get("evaluationResult") if isinstance(criterion.get("evaluationResult"), dict) else {}
         try:
-            score = float(evaluation.get("score") or criterion.get("currentScore4") or 0)
+            value = evaluation.get('score', criterion.get('currentScore4'))
+            score = float(value) if value is not None else None
         except (TypeError, ValueError):
-            score = 0.0
-        rows.append((str(criterion.get("name") or criterion.get("id") or "평가기준"), max(0.0, min(4.0, score))))
+            score = None
+        rows.append((str(criterion.get("name") or criterion.get("id") or "평가기준"), max(0.0, min(4.0, score)) if score is not None else None))
     rows = rows[:5]
 
     left, top, bar_width, row_gap = 260, 225, 950, 112
@@ -89,19 +90,22 @@ def build_grade_overview_bmp(context: dict, profile: dict[str, Any]) -> bytes:
         y = top + index * row_gap
         _text(draw, (78, y + 7), label, 28, colors["ink"], bold=True)
         draw.rounded_rectangle((left, y, left + bar_width, y + 48), radius=20, fill="#E5E9EB")
+        if score is None:
+            _text(draw, (left + 25, y + 2), '자료보완 · 판정보류', 28, colors['muted'])
+            continue
         color = colors["green"] if score >= 3.5 else colors["yellow"] if score >= 2.5 else colors["red"]
         draw.rounded_rectangle((left, y, left + int(bar_width * score / 4), y + 48), radius=20, fill=color)
         _text(draw, (left + bar_width + 28, y + 2), f"{score:.1f} / 4.0", 28, color, bold=True)
 
     overall = context.get("overall") if isinstance(context.get("overall"), dict) else {}
-    score = float(overall.get("score") or 0)
+    score = float(overall['score']) if overall.get('score') is not None else None
     max_score = float(overall.get("maxScore") or 20)
     grade = str(overall.get("koicaGrade") or "-")
     government = str(overall.get("governmentGrade") or "-")
     badge = (1235, 208, 1530, 760)
     draw.rounded_rectangle(badge, radius=28, fill="#FFFFFF", outline=colors["line"], width=3)
     _text(draw, (1302, 252), "종합 결과", 26, colors["muted"], bold=True)
-    _text(draw, (1288, 332), f"{score:.1f}", 70, colors["navy"], bold=True)
+    _text(draw, (1288, 332), f"{score:.1f}" if score is not None else '보류', 70, colors["navy"], bold=True)
     _text(draw, (1405, 373), f"/ {max_score:g}", 28, colors["muted"])
     _text(draw, (1308, 482), f"KOICA {grade}", 34, colors["teal"], bold=True)
     _text(draw, (1318, 548), government, 31, colors["ink"], bold=True)

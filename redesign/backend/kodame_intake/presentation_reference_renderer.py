@@ -13,6 +13,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Pt
+from pptx.oxml.xmlchemy import OxmlElement
 from .presentation_profiles import table_widths
 
 
@@ -46,6 +47,10 @@ def rectangle(slide, x, y, w, h, color):
     shape.fill.solid()
     shape.fill.fore_color.rgb = RGBColor.from_string(color)
     shape.line.fill.background()
+    # Suppress the template theme's default drop shadow on flat rules/bands.
+    shape._element.spPr.append(OxmlElement('a:effectLst'))
+    for effect in shape._element.xpath('./p:style/a:effectRef'):
+        effect.set('idx', '0')
     return shape
 
 
@@ -58,7 +63,7 @@ def picture(slide, photo, x, y, w, h):
 def table(slide, columns, rows, w, brief, top=104):
     count = len(columns)
     widths = table_widths(columns, w)
-    size = 13 if count <= 3 else 12
+    size = 16 if count <= 3 else 15
     heights = [max(38, max(lines(c, widths[j]-14, size) for j, c in enumerate(row))*size*1.25+16) for row in rows]
     if sum(heights) > 356:
         raise ValueError("표 본문이 356pt를 초과합니다. 근거를 유지하며 각 셀을 더 짧게 작성해 주세요.")
@@ -74,7 +79,7 @@ def table(slide, columns, rows, w, brief, top=104):
             cell.margin_top = cell.margin_bottom = Pt(5)
             cell.vertical_anchor = MSO_ANCHOR.MIDDLE
             cell.fill.solid()
-            cell.fill.fore_color.rgb = RGBColor.from_string(("315E91" if brief else "83C4E2") if i == 0 else ("EAF1F7" if i % 2 else "FFFFFF"))
+            cell.fill.fore_color.rgb = RGBColor.from_string(("24466A" if brief else "DCEAF3") if i == 0 else ("F1F5F8" if i % 2 else "FFFFFF"))
             for p in cell.text_frame.paragraphs:
                 p.font.name = "나눔고딕"
                 p.font.size = Pt(size)
@@ -137,7 +142,7 @@ def build_reference_deck(profile, slides, source, photos, partial=False):
                 for i, block in enumerate(blocks):
                     y = 109+i*(180 if has_photo else 128)
                     text(slide, 30, y, body_w, 30, block["heading"], 17, True, "176598")
-                    text(slide, 32, y+34, body_w-4, 131 if has_photo else 90, block["text"], 14)
+                    text(slide, 32, y+34, body_w-4, 131 if has_photo else 90, block["text"], 16)
                 if has_photo:
                     picture(slide, photos[item["photo_id"]], width/2+12, 116, body_w-10, 287)
                     text(slide, width/2+12, 421, body_w-10, 63, item.get("caption", ""), 12, color="454545")

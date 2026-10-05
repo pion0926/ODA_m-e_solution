@@ -39,7 +39,7 @@ class FinalizationTests(unittest.TestCase):
         final, meta = finalize_toc_with_rhwp(self.template, render=render)
         self.assertEqual(len(calls), 3)
         self.assertEqual(meta["source_sha256"], hashlib.sha256(final).hexdigest())
-        self.assertEqual(meta["page_map"]["summary_ko_page"], "4")
+        self.assertEqual(meta["page_map"]["summary_ko_page"], "6")
         self.assertTrue(meta["visible_validation"]["ok"])
 
     def test_nonconverging_pagination_never_claims_complete(self):

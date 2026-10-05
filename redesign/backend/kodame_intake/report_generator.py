@@ -1,4 +1,13 @@
 from __future__ import annotations
+from .report_cancellation import ReportCancelled, check_cancelled, generation_run, current_generation_run_id
+from .ai.job_budget import BudgetExceeded
+from .ai_gateway import BillingError, ConfigurationError, ProviderTransientError, MissingApiKey, RefusalError
+from .model_catalog import prepare_model_payload
+from .koica_guidance import GUIDANCE_PROMPT, GUIDANCE_VERSION
+from .ai.prompt_registry import prompt_manifest
+from .report_evaluation_context import for_report as evaluation_context_for_report
+from .evaluation_identity import evaluator_identity
+from .report_performance import performance_context, bind_achievement, source_ids as performance_source_ids
 
 import argparse
 import json
@@ -33,7 +42,7 @@ from backend.oda_me.reports.context import (
 
 from .assessment_context import assessment_scope
 from .db import connection, open_pool, pool, tenant_context
-from .evaluation_criteria import grade
+from .evaluation_criteria import grade, KOICA_GRADES
 from .hwpx_pipeline import hwpx_authoring_contract
 from .llm_models import current_llm_model, llm_model_context
 from .report_evidence import evidence_packet
@@ -47,12 +56,16 @@ from .report_sources import (
 )
 from .report_text import sanitize_report_text
 from .report_response import section_response_content, normalize_achievement_structure
+from .report_grade_scores import bind_grade_question_slots
 from .report_policy import REPORT_TITLE
 from .report_expansion import expand_short_section
 from .report_recovery import repair_recovery_response
 from .report_sources import ensure_authoritative_pdm_notice
 from .settings import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, OPENROUTER_REFERER
 from .usage import record_token_usage
+
+STOP_GENERATION_ERRORS = (ReportCancelled, BudgetExceeded, BillingError, ConfigurationError,
+                          ProviderTransientError, MissingApiKey, RefusalError)
 
 
 CONTENT_DEPENDENCIES: dict[str, list[str]] = {
@@ -84,18 +97,7 @@ GENERATION_ORDER = [
     "grade", "summary-ko", "toc",
 ]
 
-QUALITY_TARGETS = {
-    "cover": (50, 250), "toc": (100, 1200), "notice": (250, 1400), "grade": (900, 5000),
-    "summary-ko": (5200, 9000), "project-background": (1600, 5000), "project-overview": (900, 3500),
-    "pdm": (1500, 7000), "eval-purpose": (900, 3000), "eval-matrix": (1800, 9000),
-    "eval-methods": (1400, 5000), "eval-limitations": (900, 3500), "eval-team": (500, 2200),
-    "achievement": (2200, 9000), "criteria-relevance": (1900, 6500), "criteria-coherence": (1900, 6500),
-    "criteria-effectiveness": (2400, 8000), "criteria-efficiency": (1900, 6500),
-    "criteria-sustainability": (1900, 6500), "criteria-crosscutting": (1200, 4500),
-    "criteria-other": (700, 2800), "conclusion": (1600, 5000), "working-factors": (1500, 5200),
-    "nonworking-factors": (1500, 5200), "theory": (1600, 5500), "feedback": (1800, 7500),
-    "lessons": (1600, 6500),
-}
+from .report_content_policy import QUALITY_TARGETS
 
 CRITERION_BY_PART = {
     "criteria-relevance": "relevance", "criteria-coherence": "coherence",
@@ -171,40 +173,30 @@ def _call_json(
     *,
     few_shot_messages: list[dict[str, str]] | None = None,
 ) -> dict:
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json",
-        "HTTP-Referer": OPENROUTER_REFERER, "X-Title": title,
-    }
-    messages = [
-        {"role": "system", "content": system},
-        *(few_shot_messages or []),
-        {"role": "user", "content": prompt},
-    ]
+    from .ai_gateway import _request_json, AnalysisError
+    from .report_review_policy import review_schema
     last_error: Exception | None = None
     for attempt in range(2):
-        payload = {
-            "model": current_llm_model(), "messages": messages, "temperature": temperature,
-            "response_format": {"type": "json_object"}, "max_tokens": 12000,
-        }
-        with httpx.Client(timeout=httpx.Timeout(timeout, connect=30.0)) as client:
-            response = client.post(f"{OPENROUTER_BASE_URL}/chat/completions", headers=headers, json=payload)
-        if response.status_code >= 400:
-            raise RuntimeError(f"OpenRouter 호출 실패: HTTP {response.status_code} {response.text[:300]}")
+        check_cancelled()
         try:
-            body = response.json()
-            record_token_usage(body, payload["model"])
-            choice = body["choices"][0]
-            return _extract_json(choice["message"]["content"])
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+            result, _ = _request_json(system, prompt, title, temperature=temperature,
+                                      timeout=timeout, output_tokens=12000,
+                                      response_schema=review_schema() if title == 'KODAME Senior Report QA' else None,
+                                      few_shot_messages=few_shot_messages)
+            check_cancelled()
+            return result
+        except AnalysisError as exc:
             last_error = exc
-            messages = messages + [{
-                "role": "user",
-                "content": "직전 응답이 중간에 잘리거나 JSON 문자열 이스케이프가 잘못되었다. 핵심 내용은 유지하되 더 간결하게 작성하고, 줄바꿈을 올바르게 이스케이프한 완전한 JSON 객체 하나만 다시 반환하라.",
-            }]
+            prompt += "\n직전 응답의 JSON을 해석하지 못했다. 핵심을 유지하고 더 간결한 완전한 JSON 객체를 반환하라."
     raise RuntimeError("OpenRouter 응답을 두 차례 모두 유효한 JSON으로 해석하지 못했습니다.") from last_error
 
 
 def _context_for(part_id: str, section_number: int) -> tuple[dict, list[dict], list[dict]]:
+    if part_id == 'cover':
+        from .project_overview import latest_plan_overview
+        with connection() as conn:
+            current = latest_plan_overview(conn)
+        return (current['overview'] if current else {}), [], []
     with connection() as conn:
         overview_row = conn.execute("SELECT overview FROM project_overviews ORDER BY created_at DESC LIMIT 1").fetchone()
         run = conn.execute("SELECT id FROM evaluation_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1").fetchone()
@@ -222,7 +214,10 @@ def _context_for(part_id: str, section_number: int) -> tuple[dict, list[dict], l
         evaluations = [row for row in evaluations if row["criterion_id"] == criterion]
     elif part_id not in {"grade", "summary-ko", "achievement", "conclusion", "working-factors", "nonworking-factors", "theory", "feedback", "lessons", "eval-matrix", "eval-limitations"}:
         evaluations = []
-    return (overview_row["overview"] if overview_row else {}), evaluations, dependencies
+    from .project_identity import current_project_identity, project_title_overview
+    with connection() as conn:
+        overview = project_title_overview(overview_row["overview"] if overview_row else {}, current_project_identity(conn))
+    return overview, evaluations, dependencies
 
 
 def _reference_context(examples: list[dict]) -> list[dict]:
@@ -258,7 +253,7 @@ def _official_grade_context(evaluations: list[dict]) -> dict:
         row for row in evaluations
         if row.get("criterion_id") in {"relevance", "coherence", "effectiveness", "efficiency", "sustainability"}
     ]
-    if len(rows) != 5:
+    if len(rows) != 5 or any(row.get('score') is None for row in rows):
         return {}
     total = round(sum(float(row.get("score") or 0) for row in rows), 1)
     koica_grade, government_grade = grade(total)
@@ -275,14 +270,14 @@ def _official_grade_context(evaluations: list[dict]) -> dict:
 def _verified_execution_scope(overview: dict) -> dict:
     with connection() as conn:
         rows = conn.execute(
-            """SELECT original_name,extracted_path,completed_at
-                 FROM intake_documents WHERE status='completed'
+            """SELECT id,original_name,extracted_path,completed_at
+                 FROM evaluation_intake_documents WHERE status='completed'
                  ORDER BY completed_at DESC NULLS LAST,queue_position DESC"""
         ).fetchall()
         pdm_row = conn.execute(
             """SELECT p.source_file_name,p.pdm_version,p.model,d.extracted_path
                  FROM pdm_models p
-                 LEFT JOIN intake_documents d ON d.id=p.source_document_id
+                 LEFT JOIN evaluation_intake_documents d ON d.id=p.source_document_id
                 ORDER BY
                   CASE
                     WHEN p.source_file_name ILIKE '%%최신%%PDM%%'
@@ -297,34 +292,7 @@ def _verified_execution_scope(overview: dict) -> dict:
     interview = bool(re.search(r"면담(?:록|결과|조사)|인터뷰|FGI|KII", names, re.IGNORECASE))
     fieldwork = bool(re.search(r"(?:평가|조사).*(?:현지조사|현장조사)|(?:현지조사|현장조사).*결과|출장결과", names, re.IGNORECASE))
     new_survey = bool(re.search(r"(?:종료평가|평가).*(?:설문조사|만족도조사).*결과", names, re.IGNORECASE))
-    evaluation_manager = ""
-    evaluation_institution = ""
-    evaluation_identity_source = ""
-    for row in rows:
-        name = str(row.get("original_name") or "")
-        if not re.search(r"(?:자체)?평가(?:결과)?보고서", name):
-            continue
-        path_value = str(row.get("extracted_path") or "")
-        try:
-            raw_text = Path(path_value).read_text(encoding="utf-8", errors="replace")
-            source_text = raw_text[:15000] + "\n" + raw_text[-15000:]
-        except OSError:
-            continue
-        manager_match = re.search(
-            r"확인자\s*사업책임자\s*([가-힣](?:\s*[가-힣]){1,5})\s*(?:\(|$)",
-            source_text,
-        )
-        institution_match = re.search(
-            r"제출\s*:?\s*\d{4}\s*[.]\s*\d{1,2}\s*[.]?\s*([가-힣]{2,30}(?:대학교|대학|기관|재단))",
-            source_text,
-        )
-        if manager_match:
-            evaluation_manager = re.sub(r"\s+", "", manager_match.group(1))
-        if institution_match:
-            evaluation_institution = re.sub(r"\s+", "", institution_match.group(1))
-        if evaluation_manager or evaluation_institution:
-            evaluation_identity_source = name
-            break
+    identity = evaluator_identity(rows)
 
     authoritative_pdm: dict[str, Any] = {}
     official_acronyms: list[dict[str, str]] = []
@@ -356,10 +324,9 @@ def _verified_execution_scope(overview: dict) -> dict:
         "allowed_description": "등록 문서와 기존 정량·정성자료의 문헌검토·교차대조. 별도 면담·현지조사·신규 설문은 증빙 파일이 있을 때만 수행 사실로 기술한다.",
         "commissioning_agency": str((overview.get("donor") or {}).get("text") or ""),
         "implementing_agency": str((overview.get("implementer") or {}).get("text") or ""),
-        "evaluation_manager": evaluation_manager,
-        "evaluation_institution": evaluation_institution,
-        "evaluation_identity_source": evaluation_identity_source,
+        **identity,
         "authoritative_pdm": authoritative_pdm,
+        "performance_analysis": performance_context((pdm_row or {}).get('model') or {}, [row['id'] for row in rows]),
         "official_acronyms": official_acronyms,
         **scope,
     }
@@ -399,7 +366,8 @@ def _editor_revision_context(current_content: str, user_request: str, max_conten
 def _quality_prompt(section: dict, evidence: list[dict], examples: list[dict], overview: dict,
                     evaluations: list[dict], dependencies: list[dict], execution_scope: dict,
                     draft: str, current_content: str = "", user_request: str = "") -> str:
-    minimum, maximum = QUALITY_TARGETS[section["part_id"]]
+    from .report_content_policy import evidence_targets
+    minimum, maximum, _ = evidence_targets(section['part_id'], evidence)
     return f"""다음 ODA 평가보고서 섹션 초안을 수석 평가자 겸 품질검토위원 관점에서 전면 교정하라.
 
 [절대 원칙]
@@ -444,7 +412,8 @@ def _quality_prompt(section: dict, evidence: list[dict], examples: list[dict], o
 {json.dumps(execution_scope, ensure_ascii=False, default=str)}
 
 [최신 평가결과]
-{json.dumps(evaluations, ensure_ascii=False, default=str)}
+score=null은 0점이나 1점이 아니라 자료 부족·충돌로 인한 판정보류다. 보류된 질문·기준 점수를 임의로 만들거나 평균·총점·등급을 확정하지 않는다. 부족한 자료와 판단 가능한 사실을 구분한다.
+{json.dumps(evaluation_context_for_report(evaluations), ensure_ascii=False, default=str)}
 
 [공식 5대 기준 종합점수·등급]
 {json.dumps(_official_grade_context(evaluations), ensure_ascii=False, default=str)}
@@ -466,17 +435,33 @@ def _quality_prompt(section: dict, evidence: list[dict], examples: list[dict], o
 [반환 JSON]
 {{
   "revised_content":"제출용 최종 섹션 본문. 적절한 소제목과 표는 Markdown으로 작성",
-  "quality_score":0,
+  "quality_score":null,
   "dimension_scores":{{"grounding":0,"analysis":0,"specificity":0,"structure":0,"professional_style":0,"completeness":0}},
   "quality_issues":["남아 있는 실질적 한계"],
   "evidence_coverage":["본문에서 실제 활용한 현재 사업 근거 ID"],
-  "unresolved_evidence_gaps":["추가 확보가 필요한 구체 자료"]
+  "unresolved_evidence_gaps":["추가 확보가 필요한 구체 자료"],
+  "claim_checks":[{{"claim":"핵심 주장", "evidence_ids":[], "counterevidence_ids":[], "verdict":"deferred"}}]
 }}
 점수는 각 0~100이다. JSON 객체만 반환한다."""
 
 
+def _narrative_reader_content(part_id: str, content: str) -> str:
+    """Validate the narrative slot's visible prose, never its JSON envelope."""
+    if part_id in NARRATIVE_OUTLINE_PART_IDS:
+        slots = parse_structured_section_slots(content, part_id)
+        keys = STRUCTURED_SECTION_SLOT_KEYS.get(part_id, ())
+        if keys and slots is not None and set(slots) == set(keys) and all(
+            isinstance(value, str) for value in slots.values()
+        ):
+            return "\n\n".join(slots[key] for key in keys)
+    return content
+
+
 def _validate_reader_content(part_id: str, content: str, current_country: str, execution_scope: dict) -> list[str]:
+    content = _narrative_reader_content(part_id, content)
     issues: list[str] = []
+    if part_id == 'notice' and re.search(r'"(?:schema|slots)"\s*:', content):
+        issues.append('공지 본문에 내부 JSON 구조가 남아 있음. 독자용 공지 문단만 작성해야 함')
     if part_id == "summary-ko":
         try:
             parse_summary_ko_section(content)
@@ -507,18 +492,21 @@ def _validate_reader_content(part_id: str, content: str, current_country: str, e
         if leaked:
             issues.append("우수사례 사실이 본문에 혼입됨: " + ", ".join(leaked))
     minimum, maximum = QUALITY_TARGETS[part_id]
-    if len(content) < minimum:
-        issues.append(f"목표 최소 분량 미달: {len(content)}/{minimum}자")
+    # A word-count target is a quality signal, not evidence of invalid content.
+    # Structure, unsupported claims and summary layout remain hard checks below.
+    # Keep short grounded drafts instead of repeatedly asking the model for filler.
+    if not content.strip():
+        issues.append("본문이 비어 있음")
     if len(content) > int(maximum * 1.35):
         issues.append(f"본문이 지나치게 김: {len(content)}자")
     if re.search(r"\(\s*~?(?:\s*[,;/·]\s*)*\)|(?:[;,]\s*)+\)|(?<!\d),{2,}(?!\d)", content):
         issues.append("내부 근거표시 제거 후 문장부호 파편이 남음")
     if not execution_scope.get("interviews_verified") and re.search(
-        r"(?:면담을\s*(?:실시|수행|진행)|이해관계자\s*(?:심층\s*)?면담을?\s*(?:실시|수행)|현장\s*면담\s*등을\s*바탕|(?:•|<br>|\|)\s*(?:심층\s*)?면담(?:조사)?\s*(?:<br>|\|))", content
+        r"(?:면담을\s*(?:실시|수행|진행)(?!\s*(?:하지|되지))|이해관계자\s*(?:심층\s*)?면담을?\s*(?:실시|수행)(?!\s*(?:하지|되지))|현장\s*면담\s*등을\s*바탕|(?:•|<br>|\|)\s*(?:심층\s*)?면담(?:조사)?\s*(?:<br>|\|))", content
     ):
         issues.append("증빙되지 않은 평가 면담 수행을 사실로 기술함")
     if not execution_scope.get("evaluation_fieldwork_verified") and re.search(
-        r"(?:현장\s*(?:조사|점검)을?\s*(?:실시|수행|진행)|현장\s*조사\s*결과를?\s*바탕)", content
+        r"(?:현장\s*(?:조사|점검)(?:을|를)?\s*(?:실시|수행|진행)(?!\s*(?:하지|되지))|현장\s*조사\s*결과를?\s*바탕)", content
     ):
         issues.append("증빙되지 않은 평가 현장조사 수행을 사실로 기술함")
     if not execution_scope.get("mixed_methods_verified") and re.search(
@@ -558,7 +546,7 @@ def _validate_reader_content(part_id: str, content: str, current_country: str, e
             # has an official KOICA grade column. Permit only that narrow
             # classification label; project/institution claims remain barred.
             koica_check_text = re.sub(
-                r"(?:KOICA|코이카)\s*(?:종합\s*)?등급\s*[A-D](?:\s*등급)?",
+                rf"(?:KOICA|코이카)\s*(?:종합\s*)?등급\s*(?:{'|'.join(map(re.escape, KOICA_GRADES))})(?![A-Za-z0-9+\-])(?:\s*등급)?",
                 "",
                 koica_check_text,
                 flags=re.IGNORECASE,
@@ -709,7 +697,7 @@ def _quantitative_consistency_issues(part_id: str, content: str, evaluations: li
                     break
     if part_id in {"grade", "conclusion"} and evaluations:
         score_rows = [row for row in evaluations if row.get("criterion_id") in {"relevance", "coherence", "effectiveness", "efficiency", "sustainability"}]
-        if len(score_rows) == 5:
+        if len(score_rows) == 5 and all(row.get('score') is not None for row in score_rows):
             total = round(sum(float(row.get("score") or 0) for row in score_rows), 1)
             koica_grade, government_grade = grade(total)
             total_match = re.search(r"(\d+(?:\.\d+)?)\s*/\s*20\s*점", content)
@@ -747,7 +735,7 @@ def _repair_hard_issues(section: dict, content: str, issues: list[str], overview
 
 [교정 원칙]
 - 축약하거나 새로 요약하지 말고, 현재 본문을 보존하면서 실패한 항목만 수정한다.
-- 분량 미달인 경우 최종 본문을 최소 {int(QUALITY_TARGETS[section['part_id']][0] * 1.2)}자 이상으로 구성한다. 근거-해석-한계-확인 방법을 구분한 200~300자 문단을 충분히 작성하고, 각 상위 항목에 분량을 배분한다. 숫자·사실은 추가로 만들어내지 않는다.
+- 분량을 늘리기 위해 사실이나 해석을 추가하지 않는다. 근거가 적으면 짧은 본문과 확인할 한계를 유지한다.
 - 섹션별 필수 구조와 슬롯 이름을 유지한다. 아래 전용 기준을 따른다.
 {section['prompt']}
 - 문서 고정 제목 '종료평가 결과보고서'는 유지한다. 진행 중 사업의 본문에서는 실제 수행범위를 현재시점 문헌검토로 설명하고, 아직 발생하지 않은 성과를 완료 사실처럼 쓰지 않는다.
@@ -761,7 +749,7 @@ def _repair_hard_issues(section: dict, content: str, issues: list[str], overview
 - 최신 공식 PDM 1건의 기관 약어와 지표 목록을 우선한다. 성과달성도는 최신 PDM의 Outcome·Output 지표를 모두 포함하고 과거 PDM 목표를 섞지 않는다.
 - 근거 문서명·쪽수·표·추출 항목은 사실 검증에만 사용하고 최종 본문에는 괄호 인용으로 표기하지 않는다. 원본 파일명, 확장자, 관리용 접두어, 밑줄, 업로드일도 제거한다.
 - 환류과제는 각 항목에 우선순위, 완료기한, 점검주기, 후속 확인자료를 모두 둔다.
-- 섹션 목표 최소 분량 {QUALITY_TARGETS[section['part_id']][0]}자를 충족한다. 반복 문장으로 채우지 않는다.
+- 분량은 참고 기준이다. 반복 문장으로 채우지 않는다.
 - {_detail_paragraph_rule(section['part_id'])}
 - 새 사실은 추가하지 않는다.
 
@@ -860,12 +848,14 @@ def _finalize_generated_section_content(
                     raise ValueError(f"{part_id}: {key} 슬롯 값은 문자열이어야 합니다.")
                 text = _normalize_project_phase_labels(text, execution_scope)
                 normalized[key] = _apply_reader_normalizations(
-                    "slot-value", text, execution_scope, source_names
+                    part_id if part_id in NARRATIVE_OUTLINE_PART_IDS else "slot-value",
+                    text, execution_scope, source_names
                 )
             return structured_slots_to_json(part_id, normalized)
     value = _normalize_project_phase_labels(value, execution_scope)
     if part_id == "achievement":
         value = normalize_achievement_structure(value)
+        value = bind_achievement(value, execution_scope.get('performance_analysis') or {})
     if part_id == "summary-ko" and not value.lstrip().startswith("{"):
         value = "\n".join(nominalize_report_sentences(line) for line in value.splitlines())
     value = _apply_reader_normalizations(part_id, value, execution_scope, source_names)
@@ -877,17 +867,36 @@ def _finalize_generated_section_content(
 def _project_source_names() -> list[str]:
     with connection() as conn:
         rows = conn.execute(
-            "SELECT original_name FROM intake_documents WHERE status='completed' ORDER BY queue_position"
+            "SELECT original_name FROM evaluation_intake_documents WHERE status='completed' ORDER BY queue_position"
         ).fetchall()
     return [str(row["original_name"]) for row in rows if row.get("original_name")]
 
 
-def _ensure_official_grade_statement(part_id: str, content: str, evaluations: list[dict]) -> str:
+def _ensure_official_grade_statement(part_id: str, content: str, evaluations: list[dict], execution_scope: dict | None = None) -> str:
     """Deterministically attach the stored official grade to summary sections."""
     if part_id not in {"grade", "conclusion"}:
         return content
+    if part_id == 'grade' and evaluations:
+        slots = parse_structured_section_slots(content, 'grade')
+        if slots:
+            scope = execution_scope or {}
+            slots = bind_grade_question_slots(slots, evaluations, lambda value:
+                _apply_reader_normalizations('slot-value', _normalize_project_phase_labels(value, scope), scope))
+            content = structured_slots_to_json('grade', slots)
     official = _official_grade_context(evaluations)
     if not official:
+        if evaluations and any(row.get('score') is None for row in evaluations):
+            notice = '일부 DAC 기준의 근거가 부족하거나 상충하여 종합점수와 등급은 판정보류 상태임. 자료 보완 후 재평가가 필요함.'
+            if part_id == 'grade':
+                slots = parse_structured_section_slots(content, 'grade')
+                if slots:
+                    for key in ('overall_score', 'koica_grade', 'government_grade'):
+                        slots[key] = '판정보류'
+                    for key in list(slots):
+                        if key.endswith('_total_reason'):
+                            slots[key] = ''
+                    return structured_slots_to_json('grade', slots)
+            return f"{content.rstrip()}\n\n- {notice}"
         return content
     total = float(official["total_score"])
     koica_grade = str(official["koica_grade"])
@@ -956,8 +965,11 @@ def _deterministic_quality_cap(
     content: str,
     review_result: dict,
     fallback_used: bool,
+    minimum_chars: int | None = None,
 ) -> tuple[float, list[str]]:
     minimum, _maximum = QUALITY_TARGETS[part_id]
+    if minimum_chars is not None:
+        minimum = minimum_chars
     issues: list[str] = []
     cap = 92.0
     if fallback_used:
@@ -979,15 +991,20 @@ def _deterministic_quality_cap(
 
 def _deterministic_safe_section(part_id: str, overview: dict, execution_scope: dict) -> str:
     value = lambda key, fallback="확인 필요": str((overview.get(key) or {}).get("text") or fallback)
-    if part_id == "cover":
-        label = REPORT_TITLE
-        report_month = str(execution_scope.get("assessment_as_of") or "")[:7].replace("-", ". ")
-        manager = str(execution_scope.get("evaluation_manager") or "확인 필요")
-        institution = str(execution_scope.get("evaluation_institution") or "확인 필요")
+    if part_id == 'notice':
         return (
-            f"{value('project_name', '사업명 확인 필요')}\n{label}\n\n{report_month}\n\n"
-            f"평가책임자 {manager}\n평가수행기관 {institution}"
+            '본 보고서는 등록된 사업자료와 기존 실적·평가 기록을 바탕으로 작성한 문헌기반 평가 초안임. '
+            '평가결과는 확인 가능한 자료와 평가 기준시점의 범위에 한정되며, 지원기관 또는 수행기관의 공식 입장을 대신하지 않음.\n\n'
+            '문서에 수록된 기존 조사·회의·자체평가 기록과 이번 보고서의 작성 절차는 구분하여 해석해야 함. '
+            '별도의 현지조사·신규 면담·외부 품질심의 수행 여부는 명시적인 증빙자료에 따라 확인해야 함.\n\n'
+            '근거가 부족하거나 상충하는 평가 질문은 판정보류로 표시함. 자료의 기준시점·예산 변경·측정단위를 확인하고, '
+            '부족한 증빙을 보완한 뒤 재평가해야 함.\n\n'
+            '최종 제출 또는 대외 활용 전 평가책임자와 관계기관의 사실확인 및 품질검토가 필요함. '
+            '인용 시 사업명·작성 기준일·출처를 명시하고, 원자료의 개인정보 및 공개범위를 확인해야 함.'
         )
+    if part_id == "cover":
+        from .project_cover import cover_text
+        return cover_text(overview)
     if part_id == "toc":
         return """목 차
 
@@ -1045,7 +1062,8 @@ def _grounded_fallback(
             "key_claims": ["현재 프로젝트 메타데이터와 고정 보고서 구조로 안전 복구"],
             "evidence_gaps": [],
         }
-    minimum, maximum = QUALITY_TARGETS[section["part_id"]]
+    from .report_content_policy import evidence_targets
+    minimum, maximum, _ = evidence_targets(section["part_id"], evidence)
     prompt = f"""현재 프로젝트 자료만으로 아래 ODA 평가보고서 섹션을 안전하게 다시 작성하라.
 
 [필수 원칙]
@@ -1078,7 +1096,8 @@ def _grounded_fallback(
 {json.dumps(execution_scope, ensure_ascii=False, default=str)}
 
 [저장된 평가결과]
-{json.dumps(evaluations, ensure_ascii=False, default=str)}
+score=null은 판정보류이며 0점·1점으로 대체하거나 총점·등급을 임의로 산정하지 않는다.
+{json.dumps(evaluation_context_for_report(evaluations), ensure_ascii=False, default=str)}
 
 [선행 섹션]
 {json.dumps(dependencies, ensure_ascii=False, default=str)}
@@ -1119,19 +1138,25 @@ def _generate_report_section(
     try:
         from .project_lifecycle import capture_input_snapshot
         input_snapshot = capture_input_snapshot()
-        # The cover and TOC are fixed-format metadata, never creative AI work.
+        # Cover/TOC and the default notice are fixed-format publication text.
         # Visible TOC numbers are filled only after final HWPX pagination.
-        if part_id in {"cover", "toc"}:
+        if part_id in {"cover", "toc"} or (part_id == 'notice' and not user_request.strip()):
             overview, _, _ = _context_for(part_id, section["section_number"])
-            content = _deterministic_safe_section(part_id, overview, _verified_execution_scope(overview))
+            content = _deterministic_safe_section(part_id, overview, {} if part_id == 'cover' else _verified_execution_scope(overview))
             metadata = {"pipeline": "fixed-format-metadata-v1", "input_snapshot": input_snapshot,
+                        "generation_run_id": current_generation_run_id(),
                         "toc_numbers": "final-render-only" if part_id == "toc" else None}
+            cover_sources = [doc['id'] for doc in section_documents('cover')] if part_id == 'cover' else []
+            if part_id == 'cover':
+                metadata.update({'source_policy': 'project-basic-info-only-v1', 'source_document_ids': cover_sources})
+            check_cancelled()
             with connection() as conn, conn.transaction():
                 conn.execute(
                     """UPDATE report_sections SET content=%s,status='draft',generation_model='fixed-format',
                        generation_metadata=%s,quality_score=NULL,quality_report=%s,error_message=NULL,
+                       source_document_ids=CASE WHEN part_id='cover' THEN %s ELSE source_document_ids END,
                        generated_at=now(),updated_at=now() WHERE part_id=%s""",
-                    (content, Jsonb(metadata), Jsonb({"format_generated": True, "ai_quality_score": None}), part_id),
+                    (content, Jsonb(metadata), Jsonb({"format_generated": True, "ai_quality_score": None}), Jsonb(cover_sources), part_id),
                 )
             return {"part_id": part_id, "status": "draft", "quality_score": None, "chars": len(content)}
         if not OPENROUTER_API_KEY:
@@ -1142,7 +1167,8 @@ def _generate_report_section(
         overview, evaluations, dependencies = _context_for(part_id, section["section_number"])
         execution_scope = _verified_execution_scope(overview)
         source_names = _project_source_names()
-        minimum, maximum = QUALITY_TARGETS[part_id]
+        from .report_content_policy import evidence_targets
+        minimum, maximum, evidence_level = evidence_targets(part_id, evidence)
         layout_contract = hwpx_authoring_contract(part_id)
         current_content = str(
             section.get("content") if current_content_override is None else current_content_override
@@ -1174,6 +1200,8 @@ def _generate_report_section(
 
 {report_writing_policy_prompt()}
 
+{GUIDANCE_PROMPT}
+
 [대상]
 {section['title']} ({part_id})
 
@@ -1195,7 +1223,8 @@ def _generate_report_section(
 {json.dumps(execution_scope, ensure_ascii=False, default=str)}
 
 [최신 평가결과]
-{json.dumps(evaluations, ensure_ascii=False, default=str)}
+score=null은 판정보류다. 보류된 점수를 0점·1점으로 대체하지 않고, 기준·총점·등급 확정에 필요한 자료를 명시한다.
+{json.dumps(evaluation_context_for_report(evaluations), ensure_ascii=False, default=str)}
 
 [공식 5대 기준 종합점수·등급]
 {json.dumps(_official_grade_context(evaluations), ensure_ascii=False, default=str)}
@@ -1248,17 +1277,17 @@ JSON 객체만 반환한다."""
             )
             if part_id in {"cover", "toc"}:
                 content = _deterministic_safe_section(part_id, overview, execution_scope)
-            content = _ensure_official_grade_statement(part_id, content, evaluations)
+            content = _ensure_official_grade_statement(part_id, content, evaluations, execution_scope)
             if not content:
                 raise RuntimeError("품질검토 결과가 빈 본문입니다.")
-            if not user_request.strip() and (part_id in NARRATIVE_OUTLINE_PART_IDS or part_id == "summary-ko"):
+            if evidence_level != 'limited' and not user_request.strip() and (part_id in NARRATIVE_OUTLINE_PART_IDS or part_id == "summary-ko"):
                 content = expand_short_section(
                     part_id, content, minimum,
                     {"overview": overview, "scope": execution_scope, "evidence": evidence, "evaluations": evaluations},
                     _call_json, _section_few_shot_messages(part_id, examples, output_key="content"),
                 )
                 content = _finalize_generated_section_content(part_id, content, execution_scope, source_names, user_request)
-                content = _ensure_official_grade_statement(part_id, content, evaluations)
+                content = _ensure_official_grade_statement(part_id, content, evaluations, execution_scope)
             hard_issues = (
                 _validate_reader_content(part_id, content, current_country, execution_scope)
                 + _quantitative_consistency_issues(part_id, content, evaluations)
@@ -1289,7 +1318,7 @@ JSON 객체만 반환한다."""
                 )
                 if part_id in {"cover", "toc"}:
                     content = _deterministic_safe_section(part_id, overview, execution_scope)
-                content = _ensure_official_grade_statement(part_id, content, evaluations)
+                content = _ensure_official_grade_statement(part_id, content, evaluations, execution_scope)
                 repair_attempts += 1
                 hard_issues = (
                     _validate_reader_content(part_id, content, current_country, execution_scope)
@@ -1299,6 +1328,8 @@ JSON 객체만 반환한다."""
                 raise RuntimeError("; ".join(hard_issues))
             if part_id == "summary-ko":
                 content = render_summary_ko_document(parse_summary_ko_section(content))
+        except STOP_GENERATION_ERRORS:
+            raise
         except Exception as primary_exc:
             fallback_used = True
             primary_error = str(primary_exc)[:1000]
@@ -1317,7 +1348,7 @@ JSON 객체만 반환한다."""
             )
             if part_id in {"cover", "toc"}:
                 content = _deterministic_safe_section(part_id, overview, execution_scope)
-            content = _ensure_official_grade_statement(part_id, content, evaluations)
+            content = _ensure_official_grade_statement(part_id, content, evaluations, execution_scope)
             if not content:
                 raise RuntimeError(f"현재 사업 근거 전용 자동복구가 빈 본문을 반환했습니다: {primary_error}")
             content, hard_issues, recovery_repairs = repair_recovery_response(
@@ -1342,6 +1373,7 @@ JSON 객체만 반환한다."""
                         part_id, value, execution_scope, source_names, user_request
                     ),
                     evaluations,
+                    execution_scope,
                 ),
             )
             repair_attempts += recovery_repairs
@@ -1350,27 +1382,32 @@ JSON 객체만 반환한다."""
             if part_id == "summary-ko":
                 content = render_summary_ko_document(parse_summary_ko_section(content))
             review_result = {
-                "quality_score": 92 if part_id in {"cover", "toc"} else 82,
+                "quality_score": None,
                 "dimension_scores": {
-                    "grounding": 90, "analysis": 78, "specificity": 78,
-                    "structure": 84, "professional_style": 82, "completeness": 80,
+                    "grounding": None, "analysis": None, "specificity": None,
+                    "structure": None, "professional_style": None, "completeness": None,
                 },
                 "quality_issues": ["일반 생성 경로 오류로 현재 사업 근거 전용 자동복구를 사용함"],
                 "evidence_coverage": fallback_result.get("used_evidence_ids", []),
                 "unresolved_evidence_gaps": fallback_result.get("evidence_gaps", []),
             }
-        try:
-            model_quality_score = max(0.0, min(100.0, float(review_result.get("quality_score", 0))))
-        except (TypeError, ValueError):
-            model_quality_score = 0.0
+        from .report_review_policy import score_or_none, claim_audit
+        model_quality_score = score_or_none(review_result.get('quality_score'))
         deterministic_cap, deterministic_quality_issues = _deterministic_quality_cap(
-            part_id, content, review_result, fallback_used
+            part_id, content, review_result, fallback_used, minimum
         )
-        quality_score = min(model_quality_score, deterministic_cap)
-        source_ids = list(dict.fromkeys(item["document_id"] for item in evidence))
+        quality_score = min(model_quality_score, deterministic_cap) if model_quality_score is not None else None
+        source_ids = list(dict.fromkeys([*(item["document_id"] for item in evidence),
+            *performance_source_ids(execution_scope.get('performance_analysis') or {})]))
         reference_ids = [item["id"] for item in examples]
         metadata = {
+            'submission_status': 'human_review_required',
+            'evidence_level': evidence_level,
+            'claim_audit': claim_audit(review_result, evidence),
             "input_snapshot": input_snapshot,
+            "generation_run_id": current_generation_run_id(),
+            "guidance_version": GUIDANCE_VERSION,
+            "prompt_versions": prompt_manifest(),
             "pipeline": "evidence-only-recovery-v2" if fallback_used else "expert-two-pass-v5",
             "operation": "revision" if user_request.strip() else "full-regeneration",
             "user_request": user_request.strip(),
@@ -1404,12 +1441,13 @@ JSON 객체만 반환한다."""
             "hard_validation": {
                 "passed": True,
                 "issues": [],
-                "minimum_chars": QUALITY_TARGETS[part_id][0],
+                "minimum_chars": minimum,
                 "actual_chars": len(content),
             },
             "model_quality_score": model_quality_score,
             "deterministic_cap": deterministic_cap,
         }
+        check_cancelled()
         with connection() as conn, conn.transaction():
             conn.execute(
                 """UPDATE report_sections SET content=%s,status='draft',source_document_ids=%s,
@@ -1419,6 +1457,12 @@ JSON 객체만 반환한다."""
                  Jsonb(quality_report), part_id),
             )
         return {"part_id": part_id, "status": "draft", "quality_score": quality_score, "chars": len(content)}
+    except ReportCancelled:
+        with connection() as conn, conn.transaction():
+            conn.execute("UPDATE report_sections SET status=%s,error_message=%s,updated_at=now() WHERE part_id=%s",
+                         (section['status'] if section['status'] != 'generating' else ('draft' if section['content'] else 'empty'),
+                          section.get('error_message'), part_id))
+        raise
     except Exception as exc:
         # Preserve the attempted response separately, never as a valid draft.
         # A subsequent diagnosis can inspect the actual defect without another
@@ -1433,6 +1477,7 @@ JSON 객체만 반환한다."""
 
 def report_export_readiness(project_id: uuid.UUID | None = None) -> dict:
     """Run the same hard checks used by generation before creating an HWPX."""
+    from .project_lifecycle import DOCUMENT_BLOCKS_WORKFLOW_SQL
     with tenant_context(project_id, system=project_id is None):
         with connection() as conn:
             overview_row = conn.execute(
@@ -1446,9 +1491,10 @@ def report_export_readiness(project_id: uuid.UUID | None = None) -> dict:
                 (run["id"],),
             ).fetchall() if run and run["status"] == "completed" else []
             document_stats = conn.execute(
-                """SELECT count(*) AS total,
-                          count(*) FILTER (WHERE status='completed') AS completed
-                     FROM intake_documents"""
+                f"""SELECT count(*) AS total,
+                          count(*) FILTER (WHERE status='completed') AS completed,
+                          count(*) FILTER (WHERE {DOCUMENT_BLOCKS_WORKFLOW_SQL}) AS processing
+                     FROM evaluation_intake_documents"""
             ).fetchone()
             sections = conn.execute(
                 """SELECT part_id,title,status,content,generation_model,quality_score
@@ -1462,13 +1508,16 @@ def report_export_readiness(project_id: uuid.UUID | None = None) -> dict:
         warnings: list[dict] = []
         total_documents = int(document_stats["total"] or 0)
         completed_documents = int(document_stats["completed"] or 0)
-        if total_documents == 0:
+        pending_documents = int(document_stats.get('processing', total_documents - completed_documents) or 0)
+        if completed_documents == 0:
             issues.append({"scope": "documents", "message": "분석할 문서가 없습니다."})
-        elif total_documents != completed_documents:
+        elif pending_documents:
             issues.append({
                 "scope": "documents",
-                "message": f"문서 분석이 완료되지 않았습니다: {completed_documents}/{total_documents}",
+                "message": f"문서 {pending_documents}건을 처리 중입니다.",
             })
+        elif total_documents > completed_documents:
+            warnings.append({'scope':'documents','message':f'실패·중지 문서 {total_documents-completed_documents}건은 보고서에서 제외됩니다.'})
         if not run or run["status"] != "completed":
             issues.append({"scope": "evaluation", "message": "완료된 평가분석이 없습니다."})
         if len(sections) != len(GENERATION_ORDER):
@@ -1480,7 +1529,7 @@ def report_export_readiness(project_id: uuid.UUID | None = None) -> dict:
             content = str(section.get("content") or "").strip()
             part_id = section["part_id"]
             validation_content = (
-                canonical_narrative_outline_text(part_id, content)
+                canonical_narrative_outline_text(part_id, _narrative_reader_content(part_id, content))
                 if part_id in NARRATIVE_OUTLINE_PART_IDS and content
                 else content
             )
@@ -1538,19 +1587,39 @@ def generate_all_report_sections(
     run_id: uuid.UUID | None = None, project_id: uuid.UUID | None = None,
     model: str | None = None,
 ) -> list[dict]:
-    with tenant_context(project_id, system=project_id is None), llm_model_context(model):
-        return _generate_all_report_sections(run_id)
+    with tenant_context(project_id, system=project_id is None), llm_model_context(model), generation_run(run_id):
+        try:
+            check_cancelled()
+            return _generate_all_report_sections(run_id)
+        except Exception as exc:
+            if run_id:
+                cancelled = isinstance(exc, ReportCancelled)
+                with connection() as conn, conn.transaction():
+                    conn.execute("""UPDATE report_generation_runs SET status=%s,current_part_id=NULL,
+                        message=%s,error_message=%s,completed_at=now(),updated_at=now() WHERE id=%s""",
+                        ('cancelled' if cancelled else 'failed', str(exc)[:1000],
+                         None if cancelled else str(exc)[:1000], run_id))
+            if isinstance(exc, ReportCancelled):
+                return []
+            raise
 
 
 def _generate_all_report_sections(run_id: uuid.UUID | None = None) -> list[dict]:
     results = []
+    preserved = set()
     if run_id:
         with connection() as conn, conn.transaction():
+            run = conn.execute("SELECT resume_part_ids FROM report_generation_runs WHERE id=%s", (run_id,)).fetchone()
+            preserved = set(run.get("resume_part_ids") or []) if run else set()
+            results = [{"part_id": part, "status": "preserved"} for part in GENERATION_ORDER if part in preserved]
             conn.execute(
                 """UPDATE report_generation_runs SET status='running',message='전문가 2단계 생성을 시작합니다.',
                    updated_at=now() WHERE id=%s""", (run_id,),
             )
     for index, part_id in enumerate(GENERATION_ORDER, 1):
+        check_cancelled()
+        if part_id in preserved:
+            continue
         print(f"[{index}/{len(GENERATION_ORDER)}] {part_id}", flush=True)
         if run_id:
             with connection() as conn, conn.transaction():
@@ -1561,9 +1630,11 @@ def _generate_all_report_sections(run_id: uuid.UUID | None = None) -> list[dict]
                 )
         try:
             result = _generate_report_section(part_id)
+        except STOP_GENERATION_ERRORS:
+            raise
         except Exception as exc:
             result = {"part_id": part_id, "status": "failed", "error": str(exc)}
-        print(json.dumps(result, ensure_ascii=False), flush=True)
+        print(json.dumps({key:value for key,value in result.items() if key != 'error'}, ensure_ascii=False), flush=True)
         results.append(result)
         if run_id:
             failed = sum(1 for item in results if item["status"] == "failed")
@@ -1574,6 +1645,7 @@ def _generate_all_report_sections(run_id: uuid.UUID | None = None) -> list[dict]
                     (len(results), failed, f"{len(results)}/27 완료 · 실패 {failed}개", run_id),
                 )
     if run_id:
+        check_cancelled()
         failed = sum(1 for item in results if item["status"] == "failed")
         status = "completed" if failed == 0 else "completed_with_errors"
         with connection() as conn, conn.transaction():

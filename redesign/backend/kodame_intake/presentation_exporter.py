@@ -1,4 +1,6 @@
 from __future__ import annotations
+from .llm_models import current_llm_model
+from .model_catalog import prepare_model_payload
 
 import json
 import re
@@ -38,12 +40,12 @@ from .report_text import sanitize_report_text
 from .settings import (
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
-    OPENROUTER_PRESENTATION_MODEL,
     OPENROUTER_REFERER,
     PRESENTATION_MAX_GENERATION_ATTEMPTS,
     PRESENTATION_MIN_QUALITY_SCORE,
 )
 from .usage import record_token_usage
+from .ai.request_limits import request_slot
 
 
 PRESENTATION_DIR = Path("/app/data/presentation_exports")
@@ -290,7 +292,7 @@ def _collect_presentation_source() -> tuple[dict[str, Any], dict[str, Any], list
 
 def _message_content(response: httpx.Response) -> str:
     body = response.json()
-    record_token_usage(body, OPENROUTER_PRESENTATION_MODEL)
+    record_token_usage(body, current_llm_model())
     content = body["choices"][0]["message"]["content"]
     if isinstance(content, list):
         return "".join(str(item.get("text") or "") for item in content if isinstance(item, dict))
@@ -324,7 +326,7 @@ def request_presentation_plan(
             except ValueError:
                 generation_seed = 0
             payload = {
-                "model": OPENROUTER_PRESENTATION_MODEL,
+                "model": current_llm_model(),
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
@@ -336,7 +338,10 @@ def request_presentation_plan(
                 "response_format": response_format,
             }
             try:
-                response = client.post(f"{OPENROUTER_BASE_URL}/chat/completions", headers=headers, json=payload)
+                with request_slot(payload) as reservation:
+                    response = client.post(f"{OPENROUTER_BASE_URL}/chat/completions", headers=headers, json=prepare_model_payload(payload))
+                    from .ai.global_budget import settle
+                    settle(reservation, response.json())
                 if response.status_code >= 400:
                     raise RuntimeError(f"OpenRouter Claude 호출 실패: HTTP {response.status_code} {response.text[:300]}")
                 return _extract_json(_message_content(response))
@@ -605,8 +610,9 @@ def _render_score_bars(slide, item, context, p):
         score = max(0.0, min(4.0, float(criterion.get("currentScore4") or 0)))
         _text(slide, 0.85, y, 1.45, 0.42, str(criterion.get("name") or "기준"), size=16, color=p["ink"], bold=True)
         _shape(slide, 2.34, y + 0.06, 5.15, 0.25, p["line"], radius=True)
-        _shape(slide, 2.34, y + 0.06, max(0.08, 5.15 * score / 4), 0.25, p[item["accent"]], radius=True)
-        _text(slide, 7.68, y - 0.05, 0.75, 0.42, f"{score:.1f}", size=17, color=p[item["accent"]], bold=True, align=PP_ALIGN.RIGHT)
+        if criterion.get('currentScore4') is not None:
+            _shape(slide, 2.34, y + 0.06, max(0.08, 5.15 * score / 4), 0.25, p[item["accent"]], radius=True)
+        _text(slide, 7.68, y - 0.05, 0.75, 0.42, f"{score:.1f}" if criterion.get('currentScore4') is not None else '보류', size=17, color=p[item["accent"]], bold=True, align=PP_ALIGN.RIGHT)
     _shape(slide, 8.72, 1.94, 3.88, 4.65, p["white"], radius=True, line=p["line"])
     _text(slide, 9.08, 2.26, 3.15, 1.42, _clean_text(item["headline"], 78), size=18.5, color=p["ink"], bold=True)
     _bullets(
@@ -805,7 +811,7 @@ def run_presentation_export(export_id: uuid.UUID, project_id: uuid.UUID | None =
             validation["source_document_count"] = len({
                 document for slide in plan["slides"] for document in slide.get("source_documents", [])
             })
-            validation["model"] = OPENROUTER_PRESENTATION_MODEL
+            validation["model"] = current_llm_model()
             validation["reasoning_effort"] = "high"
             _update(
                 export_id, 94, "saving",

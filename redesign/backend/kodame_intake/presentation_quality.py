@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from pptx import Presentation
+from pypdf import PdfReader
 
 from .presentation_prompt import SLIDE_COUNT
 
@@ -131,6 +132,18 @@ def validate_presentation_bytes(data: bytes, plan: dict[str, Any]) -> dict[str, 
     }
 
 
+def missing_rendered_content(required: list[str], page_readings: list[str]) -> list[str]:
+    """Accept a complete phrase in either reading order of the same PDF page.
+
+    Poppler can interleave adjacent table cells when a cell wraps. pypdf's
+    content-stream order preserves those cells. Do not join readings or match
+    individual words: that could conceal a genuinely missing sentence.
+    """
+    readings = [re.sub(r"\s+", "", text) for text in page_readings]
+    return [text for text in required
+            if not any(re.sub(r"\s+", "", text) in visible for visible in readings)]
+
+
 def render_and_validate_presentation(data: bytes, plan: dict[str, Any]) -> dict[str, Any]:
     """Render with LibreOffice/Poppler and fail before delivery on broken output."""
     expected_count = plan.get("slide_count", SLIDE_COUNT)
@@ -164,29 +177,35 @@ def render_and_validate_presentation(data: bytes, plan: dict[str, Any]) -> dict[
             text=True,
             timeout=60,
         )
-        normalized = re.sub(r"\s+", "", extracted.stdout or "")
+        if extracted.returncode != 0:
+            raise RuntimeError(f"PPTX 렌더링 텍스트 추출 실패: {extracted.stderr[-500:]}")
+        pages = (extracted.stdout or "").split("\f")
+        stream_pages = [page.extract_text() or "" for page in PdfReader(pdf_path).pages]
+        readings = [[pages[i] if i < len(pages) else "", stream_pages[i]]
+                    for i in range(len(stream_pages))]
+        if len(readings) != expected_count:
+            raise RuntimeError(f"PPTX 텍스트 페이지 완전성 실패: {len(readings)}/{expected_count}")
         missing_rendered_titles = [
             item["slide_number"]
-            for item in plan["slides"]
+            for index, item in enumerate(plan["slides"])
             if item.get("layout") not in {"cover", "closing"}
-            and re.sub(r"\s+", "", str(item.get("title") or "")) not in normalized
+            and missing_rendered_content([str(item.get("title") or "")], readings[index])
         ]
-        if extracted.returncode != 0 or missing_rendered_titles:
+        if missing_rendered_titles:
             raise RuntimeError(f"PPTX 렌더링 텍스트 검증 실패: 제목 누락 {missing_rendered_titles}")
         if plan.get("slide_count") in (15, 30):
-            pages = (extracted.stdout or "").split("\f")
             for index, item in enumerate(plan["slides"]):
-                visible = re.sub(r"\s+", "", pages[index] if index < len(pages) else "")
                 required = [cell for row in item.get("rows", []) for cell in row]
                 required += [b.get("text", "") for b in item.get("blocks", [])]
                 # Cover/TOC content is supplied by the profile, not model blocks.
                 if item.get("layout") in ("cover", "toc"):
                     continue
-                missing = [s[:50] for s in required if re.sub(r"\s+", "", s) not in visible]
+                missing = [s[:50] for s in missing_rendered_content(required, readings[index])]
                 if missing:
                     raise RuntimeError(f"{index+1}페이지 실제 렌더링에서 본문 누락: {missing[:3]}")
         return {
             "render_engine": "LibreOffice Impress + Poppler",
+            "text_readers": ["Poppler", "pypdf content-stream order"],
             "rendered_slide_count": len(images),
             "rendered_titles_verified": expected_count,
             "smallest_rendered_png_bytes": min(path.stat().st_size for path in images),
