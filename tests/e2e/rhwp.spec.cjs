@@ -48,6 +48,11 @@ test('rHWP opens, renders and round-trips the report template offline', async ({
 
 test('rHWP service save shortcut delegates to the host', async ({ page }) => {
   await page.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:8317' ? route.continue() : route.abort());
+  // Force the real cold-load race: iframe load can precede dynamic Studio import.
+  await page.route('**/assets/rhwp/assets/index-*.js', async route => {
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    await route.continue();
+  });
   await page.goto('/assets/rhwp/');
   await rpc(page, 'ready');
   await page.evaluate(() => {

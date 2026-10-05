@@ -61,6 +61,7 @@ Nginx, FastAPI, 업로드 워커, PDM·DAC 워커, 보고서·출력 워커, Pos
 
 ## 문서와 QA
 
+- [현재 소스 전체 QA — 2026-10-06](docs/service/qa-20261006.md)
 - [구조와 설계 결정](docs/service/architecture-20260925.md)
 - [운영·배포·복구 절차](docs/service/operations-20260925.md)
 - [QA 결과와 개선 과제](docs/service/qa-refactor-20260925.md)
