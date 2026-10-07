@@ -48,7 +48,8 @@ test('full report proof has return and original HWPX download, no edit toolbar',
   expect(box).toBeTruthy();
   await page.mouse.move(box.x+1,box.y+box.height/2);
   await page.mouse.down();await page.mouse.move(box.x+Math.max(60,box.width)-1,box.y+box.height/2,{steps:15});await page.mouse.up();
-  await expect.poll(()=>page.evaluate(()=>window.getSelection()?.toString())).not.toBe('');
+  // A selected newline is not evidence that report text can be copied.
+  await expect.poll(()=>page.evaluate(()=>window.getSelection()?.toString().trim() || '')).toMatch(/[A-Za-z0-9가-힣]/);
   const before = await page.locator('.reader-page').first().textContent();
   await page.keyboard.press('Backspace');
   expect(await page.locator('.reader-page').first().textContent()).toBe(before);

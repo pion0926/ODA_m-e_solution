@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from .rhwp_geometry import SVG_GEOMETRY_SCRIPT, validate_rendered_geometry
+
 _RENDER_LOCK = threading.BoundedSemaphore(1)
 ASSET_ROOT = Path(os.getenv("RHWP_ASSET_ROOT", "/app/rhwp"))
 
@@ -89,6 +91,7 @@ def analyze_rhwp(data: bytes, *, include_svgs: bool = False) -> dict:
                       }
                       return {page_number:number+1,text:lines.join('\\n'),svg};
                     }""", number)
+                    row['geometry'] = page.evaluate(SVG_GEOMETRY_SCRIPT, row['svg'])
                     if not include_svgs:
                         row.pop("svg", None)
                     rows.append(row)
@@ -113,9 +116,10 @@ def finalize_toc_with_rhwp(data: bytes, *, render=analyze_rhwp, max_passes: int 
         visible = validate_toc_page_numbers(current, page_map)
         history.append({"pass":attempt+1,"page_count":analysis["page_count"],"page_map":page_map})
         if visible.get("ok"):
+            geometry = validate_rendered_geometry(analysis)
             return current, {"ok":True,"source":"rhwp_final_render","page_map":page_map,
                              "page_count":analysis["page_count"],"source_sha256":analysis["source_sha256"],
-                             "passes":history,"visible_validation":visible,"analysis":analysis}
+                             "passes":history,"visible_validation":visible,"geometry_validation":geometry,"analysis":analysis}
         current, changed = patch_toc_page_numbers(current, page_map)
         if not changed:
             raise RuntimeError("목차 표시값을 최종 rHWP 조판에 반영하지 못했습니다.")

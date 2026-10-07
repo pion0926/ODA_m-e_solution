@@ -4,6 +4,10 @@ name: odame-prod
 x-app-environment: &app-environment
   DATA_DIR: /app/data
   DATABASE_URL: postgresql://kodame_app:${PROD_APP_DATABASE_PASSWORD:?Application DB password required}@postgres:5432/kodame
+  # Completed HWPX reuse is valid only for the exact application and document
+  # engine images that validated it, including their fonts and dependencies.
+  REPORT_API_IMAGE_REVISION: ${PROD_API_IMAGE:?Release lock required}
+  REPORT_KORDOC_IMAGE_REVISION: ${PROD_KORDOC_IMAGE:?Release lock required}
 
   OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
   OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-3.5-flash-lite}

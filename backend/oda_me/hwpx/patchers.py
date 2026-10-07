@@ -28,6 +28,7 @@ from .adapters.summary_ko import (
 )
 from .adapters.lesson_records import parse_lesson_outline
 from .formatting import compact_report_sentence, criterion_grade_rows, format_score, infer_report_people
+from .grade_reasons import readable_grade_reason
 from report_writing_policy import writing_profile
 
 
@@ -114,7 +115,9 @@ def grade_reason_sentence(reason: object, limit: int = 90) -> str:
 
 def grade_question_reason(reason: object, limit: int = 90) -> str:
     """Keep the saved question-level 핵심 판단 for grade-table reason cells."""
-    text = strip_inline_page_citations(reason)
+    original = strip_inline_page_citations(reason)
+    text = readable_grade_reason(original)
+    projected_diagnostic = text != original
     text = re.sub(r"(?:\*\*|__|`|#{1,6})", "", text)
     text = re.sub(r"(?m)^\s*(?:[-*•ㅇ❍∙ㆍ]|\d+(?:\.\d+)*[.)])\s*", "", text)
     text = re.sub(r"\b(?:E|D|S)\d{2,}\b", "", text)
@@ -127,7 +130,9 @@ def grade_question_reason(reason: object, limit: int = 90) -> str:
     text = re.sub(r"\s+", " ", text).strip(" .")
     if not text:
         return grade_reason_sentence(reason, limit)
-    if len(text) <= limit:
+    if projected_diagnostic or len(text) <= limit:
+        # The reader limitation introduces a sentence boundary. Do not let
+        # the legacy two-sentence summary then drop the following real facts.
         return text.rstrip(".") + "."
     # The character target is advisory. Keep at least the first two complete
     # sentences so an initial positive finding retains its following limit.
@@ -2755,6 +2760,13 @@ from .toc_registry import TOC_LABELS as TOC_SECTION2_LABELS
 
 def normalize_hwpx_manifest_value(section_number: int, value_key: str, value: object) -> object:
     """Apply outline-safe normalization to values written into fixed slots."""
+    if section_number == 4 and value_key in GRADE_QUESTION_REASON_SLOT_KEYS and isinstance(value, str):
+        return readable_grade_reason(value)
+    if section_number == 7 and value_key == "pcp_feasibility_review" and isinstance(value, str):
+        # The legacy template's PCP list marker is a private-use font glyph.
+        # Keep authored facts intact while using a portable Unicode circle in
+        # the exported slot. Do not discard other private-use source characters.
+        return value.replace("\U000f006f", "○")
     if section_number == 6 and value_key in SECTION6_PROJECT_BACKGROUND_SLOT_KEYS:
         return normalize_project_background_slot(value_key, value)
     if section_number != 5:

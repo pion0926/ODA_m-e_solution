@@ -24,6 +24,25 @@ LESSONS_ROWS_PER_PAGE = int(_PROFILE["lessons_rows_per_page"])
 LESSONS_MAX_TABLE_HEIGHT = int(_PROFILE["lessons_max_table_height"])
 
 
+def recommendation_page_budget(xml: str, configured: int | None = None) -> int:
+    """Reserve the visible section/subsection headings above a landscape table."""
+    budget = configured or 60000
+    page = re.search(r'<hp:pagePr\b([^>]*)>', xml)
+    margin = re.search(r'<hp:margin\b([^>]*)/?>', xml)
+    if not page or not margin:
+        return budget
+    page_values = dict(re.findall(r'(\w+)="([^"]*)"', page[1]))
+    margins = dict(re.findall(r'(\w+)="(\d+)"', margin[1]))
+    width, height = int(page_values.get('width', 0)), int(page_values.get('height', 0))
+    if not width or not height:
+        return budget
+    physical_height = min(width, height) if page_values.get('landscape') == 'NARROWLY' else max(width, height)
+    available = physical_height - sum(int(margins.get(k, 0)) for k in ('top', 'bottom', 'header', 'footer'))
+    # Two visible headings plus their paragraph spacing must remain on the
+    # first table page. A portrait-only 60000 budget orphaned those headings.
+    return min(budget, max(3000, available - 6000))
+
+
 def _text_units(value: str) -> float:
     return sum(1.0 if ord(char) > 127 else 0.55 for char in value)
 
@@ -208,7 +227,7 @@ def style_recommendation_tables_xml(xml: str) -> tuple[str, dict[str, int | bool
             continue
         start, end, table = target
         row_count = len(find_hwpx_tag_spans(table, 'hp:tr'))
-        budget = max_table_height or 60000
+        budget = recommendation_page_budget(xml, max_table_height)
         groups = [tuple(range(header_rows)) + (i,) for i in range(header_rows, row_count)]
         table, details = fit_table_details(table, lambda value: oversized_group_cells(
             _style_rows_xml(value, header_rows), groups, budget), '환류과제' if name == 'feedback' else '교훈')

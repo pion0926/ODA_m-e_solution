@@ -259,6 +259,11 @@ def start_report_export(background_tasks: BackgroundTasks, request: Request):
         active = conn.execute("SELECT id FROM report_exports WHERE status IN ('queued','running') LIMIT 1").fetchone()
         if active:
             raise HTTPException(409, "HWPX 내보내기가 이미 진행 중입니다.")
+        from ..report_export_cache import find_reusable_export
+        cached = find_reusable_export(conn, snapshot=lifecycle['input_snapshot'], export_dir=EXPORT_DIR,
+                                      model=_request_llm_model(request))
+        if cached:
+            return {**serialize_report_export(cached), 'reused': True}
         export_id = uuid.uuid4()
         conn.execute(
             """INSERT INTO report_exports(id,status,progress,stage,message)

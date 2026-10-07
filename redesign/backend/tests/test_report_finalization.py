@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from kodame_intake.rhwp_renderer import analyze_rhwp, finalize_toc_with_rhwp
+from kodame_intake.rhwp_geometry import GEOMETRY_VERSION
 from kodame_intake.report_rhwp_verification import DESTINATIONS, rhwp_page_map
 from kodame_intake.report_generator import GENERATION_ORDER, _deterministic_safe_section, _normalize_project_phase_labels
 from kodame_intake.report_policy import REPORT_TITLE
@@ -17,7 +18,8 @@ from kodame_intake.db import tenant_context
 def rendered(data, shift=0):
     texts = ["표지", "목차"] + ["빈 쪽"] * shift + [title for _, title in DESTINATIONS]
     return {"page_count": len(texts), "page_texts": [
-        {"page_number": index+1, "text": value} for index, value in enumerate(texts)],
+        {"page_number": index+1, "text": value, "geometry": {"version": GEOMETRY_VERSION, "ok": True}}
+        for index, value in enumerate(texts)],
         "source_sha256": hashlib.sha256(data).hexdigest()}
 
 
@@ -54,6 +56,17 @@ class FinalizationTests(unittest.TestCase):
         for payload in ({}, {"page_count": 201, "page_texts": []}, {"page_count": 3, "page_texts": [{"page_number": i, "text": ""} for i in (1, 3, 2)]}):
             with self.assertRaises(ValueError):
                 rhwp_page_map(payload)
+
+    def test_correct_toc_never_certifies_clipped_or_unchecked_pages(self):
+        for geometry in ({}, {'version': GEOMETRY_VERSION, 'ok': False,
+                              'errors': [{'kind': 'text_outside_page'}]}):
+            with self.subTest(geometry=geometry):
+                def render(data):
+                    value = rendered(data)
+                    value['page_texts'][4]['geometry'] = geometry
+                    return value
+                with self.assertRaisesRegex(RuntimeError, '잘린 보고서'):
+                    finalize_toc_with_rhwp(self.template, render=render)
 
     def test_empty_rhwp_input_rejected_before_browser_start(self):
         with self.assertRaises(ValueError):

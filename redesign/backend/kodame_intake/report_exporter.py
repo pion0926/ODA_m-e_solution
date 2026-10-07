@@ -12,6 +12,7 @@ from pathlib import Path
 
 from psycopg.types.json import Jsonb
 from .report_policy import REPORT_TITLE
+from .report_export_cache import export_runtime_fingerprint
 from .project_lifecycle import capture_input_snapshot, snapshots_match
 from .project_identity import current_project_identity, project_title_overview, project_title_section
 
@@ -1026,6 +1027,7 @@ def _run_report_export(export_id: uuid.UUID, queued_snapshot: dict | None = None
     try:
         _update(export_id, 5, "preparing", "저장된 27개 섹션과 최신 평가결과를 불러오는 중")
         input_snapshot = _validate_export_start(queued_snapshot)
+        export_runtime = export_runtime_fingerprint()
         if not TEMPLATE_PATH.exists():
             raise RuntimeError("원본 HWPX 양식을 찾을 수 없습니다.")
         template_digest = hashlib.sha256(TEMPLATE_PATH.read_bytes()).hexdigest()
@@ -1308,6 +1310,7 @@ def _run_report_export(export_id: uuid.UUID, queued_snapshot: dict | None = None
         theory_pptx_path.write_bytes(theory_visual["pptx"])
         theory_png_path.write_bytes(theory_visual["png"])
         validation = {
+            "export_runtime": export_runtime if export_runtime == export_runtime_fingerprint() else None,
             "local": local_validation,
             "input_snapshot": input_snapshot,
             "source_sections_sha256": source_sections_digest,

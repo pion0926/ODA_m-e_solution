@@ -14,6 +14,7 @@ from backend.oda_me.hwpx.patchers import (
 )
 
 from ..quality_profile import layout_profile
+from .overflow import append_table_details, fit_table_details, oversized_group_cells
 
 
 _GRADE_PROFILE = layout_profile("grade_table")
@@ -40,7 +41,9 @@ GRADE_HEADER_ROW_HEIGHT = (
     + GRADE_CELL_MARGIN_VERTICAL * 2
 )
 GRADE_QUESTION_MIN_HEIGHT = GRADE_QUESTION_LINE_HEIGHT * 2 + GRADE_CELL_MARGIN_VERTICAL * 2
-GRADE_QUESTION_MAX_HEIGHT = GRADE_QUESTION_LINE_HEIGHT * 9 + GRADE_CELL_MARGIN_VERTICAL * 2
+# A long rationale is measured in full. This is an acceptance bound after
+# lossless overflow handling, never a cap on the measured content height.
+GRADE_QUESTION_MAX_HEIGHT = 65000 - GRADE_HEADER_ROW_HEIGHT * 2
 GRADE_SUBTOTAL_ROW_HEIGHT = GRADE_HEADER_ROW_HEIGHT
 GRADE_SUMMARY_ROW_HEIGHT = GRADE_HEADER_ROW_HEIGHT
 
@@ -172,13 +175,8 @@ def grade_question_row_height(row_xml: str) -> int:
             continue
         chars_per_line = 18 if address.group(1) == "1" else 17
         line_count = max(line_count, _grade_cell_line_count(cell, chars_per_line))
-    return max(
-        GRADE_QUESTION_MIN_HEIGHT,
-        min(
-            GRADE_QUESTION_MAX_HEIGHT,
-            line_count * GRADE_QUESTION_LINE_HEIGHT + GRADE_CELL_MARGIN_VERTICAL * 2,
-        ),
-    )
+    return max(GRADE_QUESTION_MIN_HEIGHT,
+               line_count * GRADE_QUESTION_LINE_HEIGHT + GRADE_CELL_MARGIN_VERTICAL * 2)
 
 
 def _resize_grade_table_rows_xml(table_xml: str) -> str:
@@ -344,6 +342,19 @@ def style_grade_table_xml(xml: str) -> tuple[str, bool]:
     for cell_index in GRADE_SUBTOTAL_REASON_CELLS:
         updated, _ = set_hwpx_table_cell_text_xml(updated, cell_index, "")
 
+    # Merged criterion cells must stay together. If even one complete criterion
+    # cannot fit, preserve its full oversized cell in paginated detail prose.
+    # Measuring before relocation prevents the old nine-line height clamp from
+    # hiding overflow from both page packing and validation.
+    groups = [(0, *group) for group in GRADE_CRITERION_ROW_GROUPS]
+    def overflowing(value):
+        measured = _resize_grade_table_rows_xml(value)
+        return (oversized_group_cells(measured, groups[:1], 58000)
+                | oversized_group_cells(measured, groups[1:], 65000))
+    updated, details = fit_table_details(
+        updated, overflowing, '평가등급',
+    )
     updated = _resize_grade_table_rows_xml(updated)
     updated = _split_grade_table_into_pages_xml(updated)
+    updated = append_table_details(updated, details)
     return xml[:start] + updated + xml[end:], updated != table

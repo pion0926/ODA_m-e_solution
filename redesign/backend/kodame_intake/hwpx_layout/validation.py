@@ -712,7 +712,9 @@ def validate_report_layout_contract(data: bytes) -> dict:
             LESSONS_MAX_TABLE_HEIGHT,
         ),
     )
+    from .recommendations import recommendation_page_budget
     for label, needles, header_rows, rows_per_page, max_table_height in recommendation_specs:
+        max_table_height = recommendation_page_budget(recommendations, max_table_height)
         tables = [
             recommendations[start:end]
             for start, end in find_hwpx_tag_spans(recommendations, "hp:tbl")
