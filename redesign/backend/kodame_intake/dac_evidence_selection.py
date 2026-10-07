@@ -64,12 +64,19 @@ def batches(groups):
 
 def select_batch(question, facts, *, run_id, saved):
     payload = {'question': question, 'evidence': facts}
-    digest = hashlib.sha256(encoded([VERSION, current_llm_model(), payload]).encode()).hexdigest()
+    identity = [VERSION, current_llm_model(), payload]
+    # PostgreSQL JSONB reorders object keys. A cache identity describes values,
+    # never the incidental key order of a freshly generated Python dictionary.
+    digest = hashlib.sha256(json.dumps(identity, ensure_ascii=False, sort_keys=True,
+                                      separators=(',', ':')).encode()).hexdigest()
+    # Only the exact legacy serialization of these inputs is eligible. Do not
+    # guess historical key orders, drop fields, or search for similar sources.
+    legacy_digest = hashlib.sha256(encoded(identity).encode()).hexdigest()
     allowed = {f['evidence_id']:f for f in facts}
     schema = {'type':'object','additionalProperties':False,'required':['evidence_ids'],
         'properties':{'evidence_ids':{'type':'array','maxItems':20,'items':{'type':'string'}}}}
     def validate(raw):
-        ids = raw.get('evidence_ids')
+        ids = raw.get('evidence_ids') if isinstance(raw, dict) else None
         if not isinstance(ids, list) or any(not isinstance(i,str) or i not in allowed for i in ids) or len(ids)>20:
             raise AnalysisError('DAC 근거 선별 ID가 제공된 원문 목록과 일치하지 않습니다.')
         # Preserve at least one explicit limitation whenever a batch contains it.
@@ -81,12 +88,19 @@ def select_batch(question, facts, *, run_id, saved):
             if any(f['evidence_id'] in chosen for f in group):
                 chosen.update(f['evidence_id'] for f in group)
         return chosen
-    cached = saved.get(digest)
-    if cached:
+    for cache_key in dict.fromkeys((digest, legacy_digest)):
+        cached = saved.get(cache_key)
+        if cached is None:
+            continue
         try:
-            return validate(cached)
+            selected = validate(cached)
         except AnalysisError:
-            pass
+            continue
+        if run_id:
+            # Promote exact legacy hits and carry accepted selections into this
+            # run, so bounded run-history retention does not evict live inputs.
+            save_selection(run_id, digest, cached)
+        return selected
     feedback = ''
     for attempt in range(3):
         try:

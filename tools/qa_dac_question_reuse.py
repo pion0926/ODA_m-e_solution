@@ -4,6 +4,7 @@ No AI requests, credentials, uploaded files, or production data. All synthetic
 rows are rolled back after checking actual PostgreSQL JSONB storage and scope.
 """
 import copy
+import hashlib
 import json
 import os
 import uuid
@@ -24,6 +25,33 @@ from kodame_intake.workflow_models import bind_claimed_model
 
 class RollbackFixture(Exception):
     pass
+
+
+def verify_selection_jsonb(conn, run_id):
+    """Real JSONB round-trip must preserve the semantic selection identity."""
+    from kodame_intake import dac_evidence_selection as selection
+    question = {'question_id': 'synthetic-q', 'definition': {'name': '합성 질문', 'checks': ['a', 'b']}}
+    facts = [{'evidence_id': 'E1', 'question_id': 'synthetic-q', 'kind': 'positive',
+              'quote': '합성 사업의 실행 기록만 검토합니다.', 'finding': '합성 실행 기록',
+              'file_name': 'synthetic.txt', 'locator': {'section': '본문', 'chunk_start': 0, 'chunk_end': 20}}]
+    payload = {'question': question, 'evidence': facts}
+    loaded = conn.execute('SELECT %s::jsonb AS payload', (Jsonb(payload),)).fetchone()['payload']
+    assert payload == loaded and selection.encoded(payload) != selection.encoded(loaded)
+    with patch.object(selection, '_request_json', return_value=({'evidence_ids': ['E1']}, 'synthetic')) as request:
+        selection.select_batch(question, facts, run_id=run_id, saved={})
+        stored = conn.execute('SELECT input_snapshot FROM evaluation_runs WHERE id=%s', (run_id,)).fetchone()['input_snapshot']['evidence_selections']
+        selection.select_batch(loaded['question'], loaded['evidence'], run_id=run_id, saved=stored)
+        assert request.call_count == 1
+    legacy = hashlib.sha256(selection.encoded([selection.VERSION, selection.current_llm_model(),
+        {'question': loaded['question'], 'evidence': loaded['evidence']}]).encode()).hexdigest()
+    with patch.object(selection, '_request_json') as request:
+        selection.select_batch(loaded['question'], loaded['evidence'], run_id=run_id,
+                               saved={legacy: {'evidence_ids': ['E1']}})
+        request.assert_not_called()
+    after = conn.execute('SELECT input_snapshot FROM evaluation_runs WHERE id=%s', (run_id,)).fetchone()['input_snapshot']['evidence_selections']
+    assert len(after) == 1 and legacy not in after
+    return ['fresh source selection survives actual PostgreSQL JSONB key reordering',
+            'exact legacy selection is validated and persisted under its canonical identity']
 
 
 def verify_repeated_runner(conn, owner, shared_connection):
@@ -175,6 +203,7 @@ with psycopg.connect(os.environ['DATABASE_URL'], row_factory=dict_row) as conn:
                 checks.append('reused judgment and provenance persist in JSONB')
                 assert conn.execute('SELECT id FROM evaluation_runs WHERE id=%s', (foreign,)).fetchone() is None
                 checks.append('RLS excludes other project runs')
+                checks.extend(verify_selection_jsonb(conn, current))
                 # Exercise the model binding against real task/receipt rows in
                 # the same rollback-only fixture, without claiming other jobs.
                 conn.execute("UPDATE evaluation_runs SET status='completed' WHERE id=%s", (current,))

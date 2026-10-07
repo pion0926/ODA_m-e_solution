@@ -62,10 +62,17 @@ def capture_input_snapshot(conn=None) -> dict:
             return capture_input_snapshot(current)
     documents = conn.execute("SELECT id,sha256,status,updated_at,upload_role FROM evaluation_intake_documents ORDER BY id").fetchall()
     evaluation = conn.execute(
-        "SELECT id,completed_at FROM evaluation_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1"
+        """SELECT id,project_id,model,status,completed_at,
+                  jsonb_build_object('replay_basis',input_snapshot->'replay_basis',
+                    'assessment_fingerprint',input_snapshot->'assessment_fingerprint',
+                    'document_digest',input_snapshot->'document_digest',
+                    'workflow_digest',input_snapshot->'workflow_digest',
+                    'reused_from_run_id',input_snapshot->'reused_from_run_id') AS input_snapshot
+           FROM evaluation_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1"""
     ).fetchone()
-    from .evaluation_versions import project_inputs, digest
+    from .evaluation_versions import project_inputs, digest, canonical_evaluation_id
     return {**input_snapshot_from_rows(documents, evaluation),
+            'evaluation_basis_id': canonical_evaluation_id(conn, evaluation) if evaluation else None,
             'workflow_digest': digest(project_inputs(conn))}
 
 
@@ -74,7 +81,8 @@ def snapshots_match(before: dict | None, after: dict | None, *, include_evaluati
         return False
     return before["document_digest"] == after["document_digest"] and (
         before.get('workflow_digest') == after.get('workflow_digest')) and (
-        not include_evaluation or before.get("evaluation_run_id") == after.get("evaluation_run_id")
+        not include_evaluation or (before.get('evaluation_basis_id') or before.get('evaluation_run_id')) ==
+                                  (after.get('evaluation_basis_id') or after.get('evaluation_run_id'))
     )
 
 

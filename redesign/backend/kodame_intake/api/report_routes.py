@@ -264,7 +264,7 @@ def start_report_export(background_tasks: BackgroundTasks, request: Request):
             """INSERT INTO report_exports(id,status,progress,stage,message)
                VALUES (%s,'queued',0,'queued','내보내기 작업 대기 중')""", (export_id,)
         )
-        enqueue(conn, 'report_export', [export_id, current_project_id()], _request_llm_model(request))
+        enqueue(conn, 'report_export', [export_id, current_project_id(), lifecycle['input_snapshot']], _request_llm_model(request))
     return {"id": str(export_id), "status": "queued", "progress": 0}
 
 

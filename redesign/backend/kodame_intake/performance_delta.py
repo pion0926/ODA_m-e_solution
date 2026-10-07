@@ -294,5 +294,6 @@ def enrich(performance, documents, plan, previous):
                 indicator['note'] = (indicator.get('note', '') + ' · ' + notice).strip(' ·')
     return {'mapped_document_count':len({d for ids in plan['new_mappings'].values() for d in ids}),
             'new_pair_count':sum(map(len,plan['new_mappings'].values())),
+            'restored_pair_count':sum(map(len,plan.get('restored_mappings', {}).values())),
             'observation_count':sum(len(i.get('measurement_sources',[])) for i in performance),
             'incomplete_indicator_count':sum(i.get('measurement_status')=='incomplete' for i in performance),'pair_results':records,'changed_indicator_ids':sorted(changed)}

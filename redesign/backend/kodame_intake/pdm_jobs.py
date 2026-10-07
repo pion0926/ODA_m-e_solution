@@ -22,9 +22,12 @@ def finish_refresh(conn, run_id, snapshot_id, model):
     result = {'risk_status':risk.get('status'), 'indicator_count':len(model.get('performance_indicators',[])),
               'incomplete_indicator_count':incomplete,
               'mapped_document_count':evidence.get('mapped_document_count',0),
+              'restored_pair_count':evidence.get('restored_pair_count',0),
               'observation_count':evidence.get('observation_count',0),
               'message':'PDM 저장 완료 · 일부 AI 분석 재시도 필요' if partial else
                   f"성과 분석 저장 완료 · 신규 문서 {evidence.get('mapped_document_count',0)}건 검토 · 측정값 {evidence.get('observation_count',0)}건"}
+    if evidence.get('restored_pair_count'):
+        result['message'] += f" · 기존 분석 {evidence['restored_pair_count']}개 조합 재사용·연결 복원"
     conn.execute("""UPDATE pdm_refresh_runs SET status=%s,snapshot_id=%s,result=%s,completed_at=now()
                     WHERE id=%s""", ('partial' if partial else 'completed',snapshot_id,Jsonb(result),run_id))
 

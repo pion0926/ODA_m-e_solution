@@ -42,6 +42,8 @@ def replay_if_identical(run_id, digest, snapshot):
             SELECT %s,%s,model,document_count,overview,source_document_ids,conflicts FROM project_overviews
             WHERE run_id=%s ORDER BY created_at DESC LIMIT 1''',(uuid.uuid4(),run_id,old['id']))
         old_snapshot = old['input_snapshot'] or {}
+        from .evaluation_versions import whole_run_replay_basis
+        replay_basis = whole_run_replay_basis(conn, old, run_id, digest, snapshot)
         saved = {**snapshot,'assessment_fingerprint':digest, 'rubric_digest':RULE_DIGEST,
                  'reused_from_run_id':str(old['id']), 'pdm_context':old_snapshot.get('pdm_context',{}),
                  'assessment':old_snapshot.get('assessment',{}),
@@ -49,6 +51,8 @@ def replay_if_identical(run_id, digest, snapshot):
                  'question_reuse': {qid: {'reused': True, 'source_run_id': str(old['id'])}
                                     for qid in old_snapshot.get('question_checkpoints', {})},
                  'evidence_selections':old_snapshot.get('evidence_selections',{})}
+        if replay_basis:
+            saved['replay_basis'] = replay_basis
         conn.execute("UPDATE evaluation_runs SET status='completed',completed_at=now(),input_snapshot=%s WHERE id=%s",
                      (Jsonb(saved),run_id))
     return True

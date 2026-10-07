@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 from unittest.mock import patch
 import pytest
@@ -67,3 +68,78 @@ def test_assessor_prompt_upgrade_reuses_source_selection_without_reselecting():
         second = selection.prepare_prompt(prompt, run_id='new-run', saved=saved, force=True)
     assert first['allowed_evidence_ids'] == second['allowed_evidence_ids'] == ['E1']
     assert request.call_count == 1
+
+
+def reordered(value):
+    if isinstance(value, dict):
+        return {key: reordered(value[key]) for key in sorted(value, key=lambda key: (len(key.encode()), key))}
+    if isinstance(value, list):
+        return [reordered(item) for item in value]
+    return value
+
+
+def legacy_key(question, facts):
+    return hashlib.sha256(selection.encoded([selection.VERSION, selection.current_llm_model(),
+        {'question': question, 'evidence': facts}]).encode()).hexdigest()
+
+
+def test_fresh_to_jsonb_key_order_roundtrip_reuses_exact_facts():
+    question = {'question_id': 'effectiveness-q1', 'definition': {'name': '성과', 'checks': ['a', 'b']}}
+    facts = [fact('E1', locator={'section': '본문', 'chunk_start': 0, 'chunk_end': 12}), fact('E2', kind='limitation')]
+    loaded_question, loaded_facts = reordered(question), reordered(facts)
+    assert facts == loaded_facts and question == loaded_question
+    assert legacy_key(question, facts) != legacy_key(loaded_question, loaded_facts)
+    saved = {}
+    with patch.object(selection, '_request_json', return_value=({'evidence_ids': ['E1', 'E2']}, 'test')) as request, \
+         patch.object(selection, 'save_selection', side_effect=lambda run, digest, raw: saved.update({digest: raw})):
+        assert selection.select_batch(question, facts, run_id='fresh', saved={}) == {'E1', 'E2'}
+        assert selection.select_batch(loaded_question, loaded_facts, run_id='jsonb', saved=saved) == {'E1', 'E2'}
+    assert request.call_count == 1
+    assert len(saved) == 1
+
+
+def test_exact_legacy_hit_is_validated_and_promoted_then_survives_key_reordering():
+    question, facts = {'id': 'q', 'question': '검토'}, [fact('E1')]
+    old_key = legacy_key(question, facts)
+    saved = {old_key: {'evidence_ids': ['E1']}}
+    with patch.object(selection, '_request_json') as request, \
+         patch.object(selection, 'save_selection', side_effect=lambda run, digest, raw: saved.update({digest: raw})) as save:
+        assert selection.select_batch(question, facts, run_id='migration', saved=saved) == {'E1'}
+        canonical_key = save.call_args.args[1]
+        assert canonical_key != old_key
+        assert selection.select_batch(reordered(question), reordered(facts), run_id='next', saved=saved) == {'E1'}
+    request.assert_not_called()
+    assert save.call_count == 2
+
+
+@pytest.mark.parametrize('ids', [['invented'], []])
+def test_legacy_selection_must_still_preserve_allowed_ids_and_counterevidence(ids):
+    facts = [fact('E1', kind='limitation')]
+    saved = {legacy_key({}, facts): {'evidence_ids': ids}}
+    with patch.object(selection, '_request_json', return_value=({'evidence_ids': ['E1']}, 'test')) as request:
+        assert selection.select_batch({}, facts, run_id=None, saved=saved) == {'E1'}
+    assert request.call_count == 1
+
+
+def test_different_legacy_key_order_is_not_guessed_or_promoted():
+    facts = [fact('E1')]
+    saved = {legacy_key({}, facts): {'evidence_ids': ['E1']}}
+    loaded = reordered(facts)
+    assert legacy_key({}, facts) != legacy_key({}, loaded)
+    with patch.object(selection, '_request_json', return_value=({'evidence_ids': ['E1']}, 'test')) as request:
+        assert selection.select_batch({}, loaded, run_id=None, saved=saved) == {'E1'}
+    assert request.call_count == 1
+
+
+@pytest.mark.parametrize('change', ['quote', 'question', 'model'])
+def test_canonical_cache_still_invalidates_changed_evaluation_inputs(change):
+    facts, question, saved = [fact('E1')], {'id': 'q'}, {}
+    with patch.object(selection, '_request_json', return_value=({'evidence_ids': ['E1']}, 'test')) as request, \
+         patch.object(selection, 'save_selection', side_effect=lambda run, digest, raw: saved.update({digest: raw})), \
+         patch.object(selection, 'current_llm_model', return_value='model-one') as model:
+        selection.select_batch(question, facts, run_id='first', saved={})
+        if change == 'quote': facts[0]['quote'] += ' 추가 원문'
+        elif change == 'question': question['id'] = 'different-question'
+        else: model.return_value = 'model-two'
+        selection.select_batch(question, facts, run_id='second', saved=saved)
+    assert request.call_count == 2

@@ -995,15 +995,37 @@ def _validate_embedded_report_visuals(
     return {"ok": True, "count": len(expected), "sha256": digests}
 
 
-def run_report_export(export_id: uuid.UUID, project_id: uuid.UUID | None = None) -> None:
+def run_report_export(export_id: uuid.UUID, project_id: uuid.UUID | None = None,
+                      queued_snapshot: dict | None = None) -> None:
     with tenant_context(project_id, system=project_id is None):
-        _run_report_export(export_id)
+        _run_report_export(export_id, queued_snapshot)
 
 
-def _run_report_export(export_id: uuid.UUID) -> None:
+def _validate_export_start(queued_snapshot=None):
+    """Recheck queued exports before any AI/render work; keep old files intact."""
+    from .db import current_project_id
+    from .project_lifecycle import project_lifecycle
+    from .report_generator import report_export_readiness
+    with connection() as conn:
+        lifecycle = project_lifecycle(conn)
+    if not lifecycle['report_current']:
+        raise RuntimeError('내보내기 대기 중 자료·평가·보고서 상태가 변경되었습니다. 최신 평가와 27개 본문을 확인한 뒤 다시 내보내 주세요.')
+    snapshot = lifecycle['input_snapshot']
+    if queued_snapshot is not None and not snapshots_match(queued_snapshot, snapshot):
+        raise RuntimeError('내보내기 접수 이후 자료 또는 평가가 변경되었습니다. 최신 보고서로 다시 내보내 주세요.')
+    readiness = report_export_readiness(current_project_id())
+    if not readiness['ready']:
+        raise RuntimeError('HWPX 생성 전 본문 재점검이 필요합니다: ' + ' / '.join(
+            item['message'] for item in readiness.get('issues', [])[:3]))
+    if not snapshots_match(snapshot, capture_input_snapshot()):
+        raise RuntimeError('내보내기 사전 점검 중 자료 또는 평가가 변경되었습니다. 다시 내보내 주세요.')
+    return snapshot
+
+
+def _run_report_export(export_id: uuid.UUID, queued_snapshot: dict | None = None) -> None:
     try:
         _update(export_id, 5, "preparing", "저장된 27개 섹션과 최신 평가결과를 불러오는 중")
-        input_snapshot = capture_input_snapshot()
+        input_snapshot = _validate_export_start(queued_snapshot)
         if not TEMPLATE_PATH.exists():
             raise RuntimeError("원본 HWPX 양식을 찾을 수 없습니다.")
         template_digest = hashlib.sha256(TEMPLATE_PATH.read_bytes()).hexdigest()

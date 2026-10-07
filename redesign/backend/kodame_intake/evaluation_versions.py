@@ -10,6 +10,58 @@ from .ai.prompt_compatibility import compatible_input_manifest
 from .dac_rules import RULE_DIGEST
 from .report_content_policy import QUALITY_TARGETS
 
+REPLAY_BASIS_VERSION = 'verified-whole-run-replay-v1'
+REPLAY_INPUT_KEYS = ('assessment_fingerprint', 'document_digest', 'workflow_digest')
+
+
+def canonical_evaluation_id(conn, evaluation):
+    """Only server-recorded whole-run copies can share a report evaluation basis."""
+    ident = str(evaluation['id'])
+    snapshot = evaluation.get('input_snapshot') or {}
+    proof = snapshot.get('replay_basis') or {}
+    if not isinstance(proof, dict) or proof.get('version') != REPLAY_BASIS_VERSION:
+        return ident
+    if (evaluation.get('status') != 'completed' or not evaluation.get('project_id')
+            or proof.get('run_id') != ident or proof.get('project_id') != str(evaluation['project_id'])
+            or not snapshot.get('reused_from_run_id') or proof.get('source_run_id') != snapshot['reused_from_run_id']
+            or proof.get('source_run_id') == ident or proof.get('model') != evaluation.get('model')):
+        return ident
+    if any(not snapshot.get(key) or proof.get(key) != snapshot[key] for key in REPLAY_INPUT_KEYS):
+        return ident
+    try:
+        root_id = uuid.UUID(proof.get('canonical_run_id', ''))
+    except (ValueError, TypeError, AttributeError):
+        return ident
+    if str(root_id) == ident:
+        return ident
+    # Never trust a copied/AI-supplied root ID alone. The original completed run
+    # must exist in this project and certify the same source, policy and model.
+    root = conn.execute('''SELECT id,project_id,model,
+        jsonb_build_object('assessment_fingerprint',input_snapshot->'assessment_fingerprint',
+            'document_digest',input_snapshot->'document_digest',
+            'workflow_digest',input_snapshot->'workflow_digest') AS input_snapshot FROM evaluation_runs
+        WHERE id=%s AND project_id=%s AND status='completed' ''',
+        (root_id, evaluation['project_id'])).fetchone()
+    if (not root or str(root['id']) != str(root_id)
+            or str(root.get('project_id')) != str(evaluation['project_id'])
+            or root.get('model') != evaluation.get('model')
+            or any((root.get('input_snapshot') or {}).get(key) != proof[key] for key in REPLAY_INPUT_KEYS)):
+        return ident
+    return str(root_id)
+
+
+def whole_run_replay_basis(conn, old, run_id, assessment_fingerprint, snapshot):
+    """Build provenance only in the exact whole-run copy path, never from AI JSON."""
+    original = old.get('input_snapshot') or {}
+    inputs = {**snapshot, 'assessment_fingerprint': assessment_fingerprint}
+    if (old.get('status') != 'completed' or not old.get('project_id') or not old.get('model')
+            or any(not inputs.get(key) or original.get(key) != inputs[key] for key in REPLAY_INPUT_KEYS)):
+        return None
+    return {'version': REPLAY_BASIS_VERSION, 'run_id': str(run_id),
+            'project_id': str(old['project_id']), 'source_run_id': str(old['id']),
+            'canonical_run_id': canonical_evaluation_id(conn, old), 'model': old['model'],
+            **{key: inputs[key] for key in REPLAY_INPUT_KEYS}}
+
 
 def canonical(value):
     return json.loads(json.dumps(value, ensure_ascii=False, sort_keys=True, default=str))

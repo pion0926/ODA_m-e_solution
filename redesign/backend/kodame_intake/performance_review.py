@@ -97,6 +97,8 @@ def build_plan(conn=None):
             indicators.append({**indicator, 'tier': tier['id'], 'tier_name': tier['name'],
                 'mapping_details': {str(doc['id']): decision(doc,indicator['id'],source['id']) for doc in rows if str(doc['id']) in selected},
                 'document_ids':[id for id in selected if id not in analyzed],
+                'restorable_document_ids':[str(doc['id']) for doc in rows if doc['status'] == 'completed'
+                                           and str(doc['id']) in analyzed and str(doc['id']) not in selected],
                 'deferred_document_ids':deferred.get(indicator['id'], []),
                 'retained_document_ids':[id for id in selected if id in analyzed], 'analyzed_document_ids':analyzed})
     documents = [{'id': str(row['id']), 'file_name': row['original_name'], 'status': row['status'],
@@ -154,21 +156,28 @@ def validate_selection(current, revision, selections):
     allowed = {doc['id'] for doc in current['documents'] if doc['status'] == 'completed'}
     mappings = {}
     new_mappings={}
+    restored_mappings = {}
     for indicator, ids in selections.items():
         if len(ids) != len(set(ids)) or not set(ids) <= allowed:
             raise HTTPException(422, '분석이 완료된 현재 프로젝트 문서만 중복 없이 연결할 수 있습니다.')
         item=next(i for i in current['indicators'] if i['id']==indicator)
-        if set(ids)&set(item.get('analyzed_document_ids',[])):
+        analyzed = set(item.get('analyzed_document_ids', []))
+        restorable = set(item.get('restorable_document_ids', [])) & analyzed
+        if set(ids) & (analyzed - restorable):
             raise HTTPException(409,'이미 분석한 문서–지표 조합입니다. 분석 대상을 새로 확인해 주세요.')
-        new_mappings[indicator]=sorted(ids)
+        restored_mappings[indicator] = sorted(set(ids) & restorable)
+        new_mappings[indicator]=sorted(set(ids) - restorable)
         mappings[indicator] = sorted(set(ids)|set(item.get('retained_document_ids',[])))
-    if not any(new_mappings.values()) and not current.get('mapping_changed_indicator_ids'):
+    changed = set(current.get('mapping_changed_indicator_ids', []))
+    changed.update(key for key, ids in restored_mappings.items() if ids)
+    if not any(new_mappings.values()) and not changed:
         raise HTTPException(409,'신규 문서 또는 신규 매핑이 없습니다. 기존 분석 결과를 유지합니다.')
     return {'revision': revision, 'source_document_id': current['source_document_id'],
             'source_file_name': current['source_file_name'], 'input_snapshot': current['input_snapshot'],
             'indicators': current['indicators'], 'mappings': mappings, 'new_mappings':new_mappings,
-            'mapping_changed_indicator_ids': current.get('mapping_changed_indicator_ids', []),
-            'deferred_mappings':current.get('deferred_mappings', {}),
+            'restored_mappings':restored_mappings, 'mapping_changed_indicator_ids':sorted(changed),
+            'deferred_mappings':{key:[id for id in ids if id not in mappings.get(key, [])]
+                                 for key,ids in current.get('deferred_mappings', {}).items()},
             'baseline_model_id':current.get('baseline_model_id')}
 
 

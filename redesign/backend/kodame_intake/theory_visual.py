@@ -114,12 +114,13 @@ def theory_visual_source(context: dict, sections_by_id: dict[str, str]) -> dict:
 
 def theory_visual_input_digest(context: dict, sections_by_id: dict[str, str], input_snapshot: dict) -> str:
     # Include full relevant text, not only the prompt excerpts. Uploading or
-    # re-evaluating documents must invalidate a previously rendered diagram.
+    # re-evaluating documents must invalidate a previously rendered diagram;
+    # a verified copy of the same complete evaluation may reuse it.
     relevant = {key: sections_by_id.get(key, "") for key in (
         "theory", "working-factors", "nonworking-factors", "pdm", "project-overview", "achievement", "conclusion")}
     payload = {"project": context.get("project"), "sections": relevant, "model": current_llm_model(),
                "document_digest": input_snapshot.get("document_digest"),
-               "evaluation_run_id": input_snapshot.get("evaluation_run_id"),
+               "evaluation_run_id": input_snapshot.get("evaluation_basis_id") or input_snapshot.get("evaluation_run_id"),
                "design_version": THEORY_VISUAL_DESIGN_VERSION}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()
 
