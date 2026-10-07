@@ -1,7 +1,7 @@
 """Synthetic SVG geometry checks; no user reports, network or AI requests."""
 import pytest
 
-from kodame_intake.rhwp_geometry import GEOMETRY_VERSION, SVG_GEOMETRY_SCRIPT, validate_rendered_geometry
+from kodame_intake.rhwp_geometry import GEOMETRY_VERSION, PAGE_LABEL_VERSION, SVG_GEOMETRY_SCRIPT, validate_rendered_geometry
 
 
 @pytest.fixture(scope='module')
@@ -79,6 +79,44 @@ def test_final_geometry_contract_rejects_missing_or_failed_proof():
             validate_rendered_geometry({'page_count': 1, 'page_texts': [{'page_number': 1, 'geometry': geometry}]})
     assert validate_rendered_geometry({'page_count': 1, 'page_texts': [{'page_number': 1,
         'geometry': {'version': GEOMETRY_VERSION, 'ok': True}}]})['ok'] is True
+
+
+def printed_svg(body):
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300">'+body+'</svg>'
+
+
+def footer_digits(y=287, *, hidden='', transform=''):
+    # rHWP emits individual glyphs; their page label is 18, not 1 or 8.
+    return f'<g {hidden} {transform}>'+''.join(
+        f'<text x="{x}" y="{y}" font-size="12">{value}</text>'
+        for x,value in ((80,'-'),(90,'1'),(98,'8'),(110,'-')))+'</g>'
+
+
+@pytest.mark.parametrize('transform',['','transform="translate(2,-2)"'])
+def test_printed_page_label_joins_split_glyphs_in_page_coordinates(page, transform):
+    result=page.evaluate(SVG_GEOMETRY_SCRIPT,printed_svg(footer_digits(transform=transform)))
+    assert result['page_label_version']==PAGE_LABEL_VERSION
+    assert result['printed_page_label']=='18'
+    assert result['printed_page_label_candidates']==1
+
+
+@pytest.mark.parametrize('body',[
+    footer_digits(hidden='style="display:none"'),
+    footer_digits(y=140),
+    '<defs><clipPath id="cell-clip-1"><rect x="0" y="0" width="200" height="300"/></clipPath></defs>'
+        '<g clip-path="url(#cell-clip-1)">'+footer_digits()+'</g>',
+    '<text x="95" y="287">18</text>',  # no configured page-number delimiters
+])
+def test_hidden_body_or_table_numbers_are_not_guessed_as_printed_labels(page,body):
+    result=page.evaluate(SVG_GEOMETRY_SCRIPT,printed_svg(body))
+    assert result['printed_page_label'] is None
+    assert result['printed_page_label_candidates']==0
+
+
+def test_multiple_printed_footer_candidates_fail_closed(page):
+    result=page.evaluate(SVG_GEOMETRY_SCRIPT,printed_svg(footer_digits(287)+footer_digits(299)))
+    assert result['printed_page_label'] is None
+    assert result['printed_page_label_candidates']==2
 
 
 @pytest.mark.parametrize('total,numbers', [

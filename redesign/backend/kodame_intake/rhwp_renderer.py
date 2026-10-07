@@ -106,18 +106,21 @@ def analyze_rhwp(data: bytes, *, include_svgs: bool = False) -> dict:
 
 def finalize_toc_with_rhwp(data: bytes, *, render=analyze_rhwp, max_passes: int = 4) -> tuple[bytes, dict]:
     """Compute TOC last; re-render the exact patched bytes until stable."""
-    from .report_rhwp_verification import rhwp_page_map
+    from .report_rhwp_verification import rhwp_page_map, rhwp_printed_page_map
     from .hwpx_layout.toc import patch_toc_page_numbers, validate_toc_page_numbers
     current = data
     history = []
     for attempt in range(max_passes):
         analysis = render(current)
-        page_map = rhwp_page_map(analysis)
+        physical_page_map = rhwp_page_map(analysis)
+        page_map = rhwp_printed_page_map(analysis, physical_page_map)
         visible = validate_toc_page_numbers(current, page_map)
-        history.append({"pass":attempt+1,"page_count":analysis["page_count"],"page_map":page_map})
+        history.append({"pass":attempt+1,"page_count":analysis["page_count"],"page_map":page_map,
+                        "physical_page_map":physical_page_map})
         if visible.get("ok"):
             geometry = validate_rendered_geometry(analysis)
             return current, {"ok":True,"source":"rhwp_final_render","page_map":page_map,
+                             "physical_page_map":physical_page_map,"page_number_basis":"printed_footer",
                              "page_count":analysis["page_count"],"source_sha256":analysis["source_sha256"],
                              "passes":history,"visible_validation":visible,"geometry_validation":geometry,"analysis":analysis}
         current, changed = patch_toc_page_numbers(current, page_map)

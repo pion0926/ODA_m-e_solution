@@ -24,6 +24,45 @@ LESSONS_ROWS_PER_PAGE = int(_PROFILE["lessons_rows_per_page"])
 LESSONS_MAX_TABLE_HEIGHT = int(_PROFILE["lessons_max_table_height"])
 
 
+def _feedback_label_projection(value: str, labels: tuple[str, ...]) -> str:
+    """Collapse repeated field prefixes, never labels inside ordinary prose."""
+    names = "|".join(re.escape(label) for label in labels)
+    pattern = re.compile(
+        rf"(^|\|\s*)(?P<label>{names})(?P<separator>\s*[:：]\s*)"
+        rf"(?:(?P=label)\s*[:：]\s*)+"
+    )
+    return pattern.sub(
+        lambda match: match[1] + match["label"] + match["separator"], value
+    )
+
+
+def _project_feedback_table_labels(table_xml: str) -> str:
+    """Reader projection only for the two server-composed feedback columns."""
+    rows = find_hwpx_tag_spans(table_xml, "hp:tr")
+    for start, end in reversed(rows[1:]):
+        row = table_xml[start:end]
+        cells = find_hwpx_tag_spans(row, "hp:tc")
+        if len(cells) != 5:
+            continue
+        for index, labels in (
+            (4, ("완료기한", "점검주기", "확인자료")),
+            (3, ("우선순위", "선정 사유")),
+        ):
+            cell_start, cell_end = cells[index]
+            cell = row[cell_start:cell_end]
+            # Work inside intact text nodes so formatting, line breaks and
+            # every other byte of the value survive. Split/unknown forms
+            # remain unchanged rather than flattening the cell's content.
+            projected = re.sub(
+                r"(<hp:t>)([^<]*)(</hp:t>)",
+                lambda match: match[1] + _feedback_label_projection(match[2], labels) + match[3],
+                cell,
+            )
+            row = row[:cell_start] + projected + row[cell_end:]
+        table_xml = table_xml[:start] + row + table_xml[end:]
+    return table_xml
+
+
 def recommendation_page_budget(xml: str, configured: int | None = None) -> int:
     """Reserve the visible section/subsection headings above a landscape table."""
     budget = configured or 60000
@@ -226,6 +265,8 @@ def style_recommendation_tables_xml(xml: str) -> tuple[str, dict[str, int | bool
             checks[f"{name}_table_pages"] = 0
             continue
         start, end, table = target
+        if name == "feedback":
+            table = _project_feedback_table_labels(table)
         row_count = len(find_hwpx_tag_spans(table, 'hp:tr'))
         budget = recommendation_page_budget(xml, max_table_height)
         groups = [tuple(range(header_rows)) + (i,) for i in range(header_rows, row_count)]

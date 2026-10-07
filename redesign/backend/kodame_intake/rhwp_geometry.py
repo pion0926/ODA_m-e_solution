@@ -1,6 +1,7 @@
 """Read actual SVG glyph/cell bounds; text presence alone cannot prove visibility."""
 
 GEOMETRY_VERSION = 'rhwp-visible-geometry-v1'
+PAGE_LABEL_VERSION = 'rhwp-printed-page-label-v1'
 
 # Executed in the isolated offline renderer after its fonts are loaded. getBBox
 # ignores clipping, which is intentional: compare the full glyph to its viewport
@@ -47,6 +48,24 @@ SVG_GEOMETRY_SCRIPT = r"""svg => {
       t.box.y > page.y+page.height*.9 && t.box.x > page.x+page.width*.35 &&
       t.box.x+t.box.width < page.x+page.width*.65);
     const footerTop=footers.length ? Math.min(...footers.map(t=>t.box.y)) : null;
+    // Printed numbering can restart after the cover or at a section. Read
+    // the actual centred footer, including split digit glyphs, rather than
+    // assuming its value equals the physical page index or a fixed offset.
+    const footerLines=[];
+    for (const t of texts.filter(t => !t.owner &&
+      t.box.y > page.y+page.height*.9 && t.box.x > page.x+page.width*.3 &&
+      t.box.x+t.box.width < page.x+page.width*.7)) {
+      const first=t.node.getStartPositionOfChar(0);
+      const baseline=new DOMPoint(first.x,first.y)
+        .matrixTransform(inverse.multiply(t.node.getScreenCTM())).y;
+      let line=footerLines.find(line=>Math.abs(line.y-baseline)<1);
+      if (!line) {line={y:baseline,nodes:[]};footerLines.push(line);}
+      line.nodes.push(t);
+    }
+    const pageLabels=footerLines.map(line=>line.nodes.sort((a,b)=>a.box.x-b.box.x)
+      .map(t=>t.node.textContent).join('').replace(/\s+/g,''))
+      .map(text=>text.match(/^[-–—](\d{1,4})[-–—]$/)?.[1])
+      .filter(Boolean);
     const errors=[],seen=new Set(),cells=new Map();
     let violationCount=0;
     const add=(kind,identity,box) => {
@@ -77,6 +96,9 @@ SVG_GEOMETRY_SCRIPT = r"""svg => {
     }
     return {version:'rhwp-visible-geometry-v1',ok:violationCount===0,
       page,visible_text_count:texts.length,cell_count:cells.size,footer_detected:footerTop!==null,
+      page_label_version:'rhwp-printed-page-label-v1',
+      printed_page_label:pageLabels.length===1 ? pageLabels[0] : null,
+      printed_page_label_candidates:pageLabels.length,
       violation_count:violationCount,errors};
   } finally { root.remove(); }
 }"""

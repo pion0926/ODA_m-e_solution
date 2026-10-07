@@ -6,8 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from kodame_intake.rhwp_renderer import analyze_rhwp, finalize_toc_with_rhwp
-from kodame_intake.rhwp_geometry import GEOMETRY_VERSION
-from kodame_intake.report_rhwp_verification import DESTINATIONS, rhwp_page_map
+from kodame_intake.rhwp_geometry import GEOMETRY_VERSION, PAGE_LABEL_VERSION
+from kodame_intake.report_rhwp_verification import DESTINATIONS, rhwp_page_map, rhwp_printed_page_map
 from kodame_intake.report_generator import GENERATION_ORDER, _deterministic_safe_section, _normalize_project_phase_labels
 from kodame_intake.report_policy import REPORT_TITLE
 from kodame_intake.theory_visual import PALETTE, theory_visual_input_digest
@@ -18,7 +18,9 @@ from kodame_intake.db import tenant_context
 def rendered(data, shift=0):
     texts = ["표지", "목차"] + ["빈 쪽"] * shift + [title for _, title in DESTINATIONS]
     return {"page_count": len(texts), "page_texts": [
-        {"page_number": index+1, "text": value, "geometry": {"version": GEOMETRY_VERSION, "ok": True}}
+        {"page_number": index+1, "text": value, "geometry": {"version": GEOMETRY_VERSION, "ok": True,
+            "page_label_version":PAGE_LABEL_VERSION,"printed_page_label_candidates":1,
+            "printed_page_label":str(index+1)}}
         for index, value in enumerate(texts)],
         "source_sha256": hashlib.sha256(data).hexdigest()}
 
@@ -52,6 +54,33 @@ class FinalizationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "안정화"):
             finalize_toc_with_rhwp(self.template, render=render, max_passes=4)
 
+    def test_toc_uses_observed_printed_numbers_while_navigation_stays_physical(self):
+        def render(data):
+            payload=rendered(data)
+            for index,row in enumerate(payload['page_texts']):
+                # Cover/TOC hide their counters; the later chapter resets to
+                # 1. A global subtraction cannot produce these printed labels.
+                row['geometry']['printed_page_label']=str(index if index<12 else index-11)
+            return payload
+        final,meta=finalize_toc_with_rhwp(self.template,render=render)
+        self.assertEqual(meta['page_number_basis'],'printed_footer')
+        self.assertEqual(meta['page_map']['grade_page'],'2')
+        self.assertEqual(meta['physical_page_map']['grade_page'],'3')
+        self.assertEqual(meta['page_map']['evaluation_methods_page'],'1')
+        self.assertEqual(meta['physical_page_map']['evaluation_methods_page'],'13')
+        self.assertTrue(meta['visible_validation']['ok'])
+        self.assertEqual(meta['source_sha256'],hashlib.sha256(final).hexdigest())
+
+    def test_missing_or_ambiguous_printed_destination_never_falls_back_to_index(self):
+        for patch_values in ({'printed_page_label':None,'printed_page_label_candidates':0},
+                             {'printed_page_label':None,'printed_page_label_candidates':2},
+                             {'page_label_version':'old'}, {'printed_page_label':True}):
+            with self.subTest(patch_values=patch_values):
+                payload=rendered(self.template)
+                payload['page_texts'][2]['geometry'].update(patch_values)
+                with self.assertRaisesRegex(RuntimeError,'인쇄 쪽번호'):
+                    rhwp_printed_page_map(payload)
+
     def test_missing_out_of_order_and_invalid_pages_rejected(self):
         for payload in ({}, {"page_count": 201, "page_texts": []}, {"page_count": 3, "page_texts": [{"page_number": i, "text": ""} for i in (1, 3, 2)]}):
             with self.assertRaises(ValueError):
@@ -63,7 +92,9 @@ class FinalizationTests(unittest.TestCase):
             with self.subTest(geometry=geometry):
                 def render(data):
                     value = rendered(data)
-                    value['page_texts'][4]['geometry'] = geometry
+                    value['page_texts'][4]['geometry'].update(geometry)
+                    if not geometry:
+                        value['page_texts'][4]['geometry']['version']='unverified'
                     return value
                 with self.assertRaisesRegex(RuntimeError, '잘린 보고서'):
                     finalize_toc_with_rhwp(self.template, render=render)

@@ -17,6 +17,7 @@ DESTINATIONS = tuple((key, destination_title(key, label)) for key, label, _ in T
 
 
 def rhwp_page_map(payload: dict) -> dict[str, str]:
+    """Return physical destinations for navigation; never printed labels."""
     total = payload.get('page_count')
     pages = payload.get('page_texts')
     if type(total) is not int or not 3 <= total <= 200 or not isinstance(pages, list) or len(pages) != total:
@@ -32,6 +33,24 @@ def rhwp_page_map(payload: dict) -> dict[str, str]:
         if found is None:
             raise ValueError(f'rHWP 목차 목적지를 찾을 수 없습니다: {title}')
         result[key], minimum = str(found), found
+    return result
+
+
+def rhwp_printed_page_map(payload: dict, physical_page_map: dict | None = None) -> dict[str, str]:
+    """Bind each visible TOC number to its destination's observed footer."""
+    from .rhwp_geometry import PAGE_LABEL_VERSION
+    physical = physical_page_map if physical_page_map is not None else rhwp_page_map(payload)
+    pages = payload['page_texts']
+    result = {}
+    for key, destination in physical.items():
+        geometry = pages[int(destination) - 1].get('geometry') or {}
+        label = geometry.get('printed_page_label')
+        if (geometry.get('page_label_version') != PAGE_LABEL_VERSION or
+                geometry.get('printed_page_label_candidates') != 1 or
+                not isinstance(label, str) or not re.fullmatch(r'\d{1,4}', label)):
+            raise RuntimeError(f'rHWP 목차 목적지 {destination}쪽의 인쇄 쪽번호를 확정할 수 없습니다. '
+                               '숨김·중복 번호를 확인해야 하며 물리 쪽수로 추정하지 않았습니다.')
+        result[key] = label
     return result
 
 
