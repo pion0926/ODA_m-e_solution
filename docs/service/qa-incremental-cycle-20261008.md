@@ -19,6 +19,8 @@
 
 DAC 범위 탐색·증분·재개·컨텍스트 비용 관련 회귀 **32개 통과**.
 
+최종 2.4.29 후보(API 폴링 응답 축소, DAC 예산 비교범위 검증, 보고서 판정보류 검증 포함)로 QA API 이미지를 다시 빌드한 뒤 동일 실제 HTTP 통합 **39개** 및 PostgreSQL **6개**를 재실행하여 모두 통과했다. 최종 로그는 `.runtime/qa-cycle-20261008/integration-final29.log`, `checkpoint-rls-final29.log`다.
+
 ## 발견 및 수정
 
 1. 이전 통합 fixture의 v3 자동 매핑이 현재 v4 목적 구분 계약과 달랐다. 현재 매핑 버전과 `reported_result` 의미를 사용하도록 수정했다.

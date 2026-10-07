@@ -13,6 +13,7 @@ from ..project_lifecycle import lock_project_workflow, project_lifecycle
 from ..workflow_queue import enqueue
 from .dependencies import _clean_risk_payload, _request_llm_model
 from .schemas import PerformanceReviewRequest, ProjectLocaleUpdate
+from .read_projections import PDM_DOCUMENT_COLUMNS, public_monitoring
 from .evaluation_routes import latest_evaluations
 from fastapi import APIRouter
 router = APIRouter()
@@ -91,9 +92,8 @@ def dashboard():
                  FROM report_sections"""
         ).fetchone()
         lifecycle = project_lifecycle(conn)
-        from ..evaluation_versions import current_bundle
-        approved = bool(conn.execute('SELECT 1 FROM evaluation_versions WHERE revision=%s',
-            (current_bundle(conn)['revision'],)).fetchone()) if lifecycle['report_current'] else False
+        from ..evaluation_versions import has_current_approval
+        approved = has_current_approval(conn) if lifecycle['report_current'] else False
 
     total = document_stats["total"]
     completed = document_stats["completed"]
@@ -245,7 +245,7 @@ def pdm_monitoring():
                 "assignments": [],
             }
         documents = conn.execute(
-            "SELECT id,original_name,size_bytes,summary,analysis FROM evaluation_intake_documents ORDER BY queue_position"
+            f"SELECT {PDM_DOCUMENT_COLUMNS} FROM evaluation_intake_documents ORDER BY queue_position"
         ).fetchall()
         assignments = conn.execute(
             """SELECT a.*,d.original_name,d.size_bytes,d.summary
@@ -302,7 +302,7 @@ def pdm_monitoring():
         "source_file_name": row["source_file_name"], "pdm_version": row["pdm_version"],
         "source_cells": model.get("source_cells", {}), "tiers": tiers,
         "performance_indicators": performance, "performance_source_document": performance_source,
-        "monitoring": model.get("monitoring", {}),
+        "monitoring": public_monitoring(model.get("monitoring")),
         "risk_analysis": model.get("risk_analysis", {}),
         "coverage": {
             "filled": filled, "total": total,

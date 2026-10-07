@@ -53,3 +53,17 @@ def test_durable_selection_reuses_identical_model_question_and_sources():
         assert selection.select_batch({},[fact('E1')],run_id='run',saved={})=={'E1'}
         assert selection.select_batch({},[fact('E1')],run_id='retry',saved=saved)=={'E1'}
         assert request.call_count==1
+
+
+def test_assessor_prompt_upgrade_reuses_source_selection_without_reselecting():
+    saved = {}
+    prompt = {'prompt_version': 'dac-fact-judgement-v14-contextual',
+              'questions': [{'id': 'effectiveness-q1'}],
+              'evidence': [fact('E1')], 'allowed_evidence_ids': ['E1']}
+    with patch.object(selection, '_request_json', return_value=({'evidence_ids': ['E1']}, 'test')) as request, \
+         patch.object(selection, 'save_selection', side_effect=lambda run, digest, raw: saved.update({digest: raw})):
+        first = selection.prepare_prompt(prompt, run_id='old-run', force=True)
+        prompt['prompt_version'] = 'dac-fact-judgement-v15-scope-conflict'
+        second = selection.prepare_prompt(prompt, run_id='new-run', saved=saved, force=True)
+    assert first['allowed_evidence_ids'] == second['allowed_evidence_ids'] == ['E1']
+    assert request.call_count == 1

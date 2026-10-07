@@ -43,6 +43,17 @@ def current_bundle(conn):
     return {'revision': digest(bundle), 'payload': bundle}
 
 
+def has_current_approval(conn):
+    # Most workspaces have not approved any version. Avoid rebuilding every
+    # document cache and report just to discover that no approval can exist.
+    if not conn.execute('SELECT 1 FROM evaluation_versions LIMIT 1').fetchone():
+        return False
+    # With approvals present, retain the complete source/rule/report revision
+    # comparison; a time-based cache would risk showing an obsolete approval.
+    return bool(conn.execute('SELECT 1 FROM evaluation_versions WHERE revision=%s',
+                             (current_bundle(conn)['revision'],)).fetchone())
+
+
 def approve(conn, review):
     from .project_lifecycle import lock_project_workflow, active_workflow_jobs, project_lifecycle
     lock_project_workflow(conn)

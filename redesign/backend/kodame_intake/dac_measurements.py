@@ -33,6 +33,24 @@ def grounded_number(value, sources):
     raise UngroundedNumber(f'측정값 {value}를 지정한 원문에서 확인할 수 없습니다.')
 
 
+def explicit_project_scope(quote, direction):
+    """Require an original total-project boundary, not just an AI scope label.
+
+    Unknown wording/languages keep their numeric observation but cannot trigger
+    the severe whole-project overrun cap. These markers do not infer any value.
+    """
+    text = re.sub(r'\s+', '', str(quote)).casefold()
+    markers = {
+        'budget': (r'총사업(?:비|예산)', r'(?:전체사업|사업전체)(?:의)?(?:총)?(?:예산|사업비|비용)',
+                   r'(?:total|overall|whole)[-–]?project(?:budget|cost)',
+                   r'(?:budget|cost)(?:of|for)the(?:entire|whole)project'),
+        'duration': (r'(?:전체|총)사업기간', r'사업전체(?:의)?(?:기간|일정)',
+                     r'(?:total|overall|whole)[-–]?project(?:duration|period|schedule)',
+                     r'(?:duration|period|schedule)(?:of|for)the(?:entire|whole)project'),
+    }
+    return any(re.search(marker, text) for marker in markers.get(direction, ()))
+
+
 def calculate(measurements, evidence, qid, source_lookup):
     if not isinstance(measurements,list):
         raise ValueError('measurements는 배열이어야 합니다.')
@@ -48,7 +66,17 @@ def calculate(measurements, evidence, qid, source_lookup):
         except UngroundedNumber as exc:
             result.append({**m,'ratio':None,'state':'unverified','validation_error':str(exc)})
             continue
-        m={**m,'target':float(target),'actual':float(actual)}
+        scope = m.get('measurement_scope', 'unknown')
+        if scope not in ('whole_project', 'component', 'unknown'):
+            raise ValueError('측정 범위는 전체 사업·개별 구성요소·미확인 중 하나여야 합니다.')
+        quote = str(m.get('scope_quote') or '').strip()
+        compact = lambda value: re.sub(r'\s+', '', value)
+        scope_validated = scope == 'whole_project' and explicit_project_scope(quote, m.get('direction')) and len(compact(quote)) >= 8 and any(
+            compact(quote) in compact(source['quote']) for source in target_sources + actual_sources)
+        m={**m,'target':float(target),'actual':float(actual), 'measurement_scope':scope,
+           'scope_quote':quote,'scope_validated':scope_validated}
+        if scope == 'whole_project' and not scope_validated:
+            m['scope_validation_error'] = '전체 사업 범위의 원문을 확인하지 못해 사업 전체 초과 상한에서 제외합니다.'
         if target <= 0 or actual < 0:
             raise ValueError('목표는 양수, 실적은 0 이상이어야 합니다.')
         direction = m.get('direction')

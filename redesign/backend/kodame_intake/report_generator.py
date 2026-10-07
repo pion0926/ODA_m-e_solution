@@ -646,7 +646,8 @@ def _number_and_unit(value: str) -> tuple[float | None, str]:
 
 
 def _quantitative_consistency_issues(part_id: str, content: str, evaluations: list[dict]) -> list[str]:
-    issues: list[str] = []
+    from .report_score_validation import held_score_issues
+    issues: list[str] = held_score_issues(part_id, content, evaluations)
     if part_id == "achievement":
         columns = None
         for line in content.splitlines():

@@ -21,6 +21,8 @@ def question_schema(qid, evidence_ids, pdm_ids=None):
     measurement=obj({'table_row_id':string,'metric':string,'target':{'type':'number'},'actual':{'type':'number'},
         'unit':string,'period':string,'population':string,
         'direction':{'type':'string','enum':['higher','lower','budget','duration']},
+        'measurement_scope':{'type':'string','enum':['whole_project','component','unknown']},
+        'scope_quote':{'type':'string','description':'whole_project인 경우 전체 사업 총예산 또는 전체 사업기간임을 입증하는 연속 원문. 비목·연차·개별 계약은 component.'},
         'comparable':{'type':'boolean'},'due':{'type':'boolean'},
         'target_evidence_ids':refs,'actual_evidence_ids':refs,
         'justification':{'type':'string','enum':['verified','asserted','none']},'justification_evidence_ids':refs})

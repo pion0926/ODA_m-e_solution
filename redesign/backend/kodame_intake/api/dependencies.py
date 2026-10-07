@@ -46,7 +46,8 @@ def serialize_document(row: dict) -> dict:
         "triage": row.get('triage'), "registration": (row.get('analysis') or {}).get('registration'),
         "intake_warnings": (row.get('analysis') or {}).get('quality_flags',[]) if (row.get('analysis') or {}).get('intake_mode')=='artifact' else [],
         "queue_position": row["queue_position"], "summary": row.get("summary"),
-        "registration_fact_count": len(((row.get('analysis') or {}).get('registration_facts') or {}).get('facts', [])),
+        "registration_fact_count": (row['registration_fact_count'] if 'registration_fact_count' in row
+                                    else len(((row.get('analysis') or {}).get('registration_facts') or {}).get('facts', []))),
         "document_profiles": ((row.get('analysis') or {}).get('evidence_matches') or {}).get('document_profiles', []),
         "review_depth": 'sample_only' if (row.get('analysis') or {}).get('intake_mode') == 'artifact' else 'full_extracted_text',
         "error_code": row.get("error_code"), "error_message": row.get("error_message"),

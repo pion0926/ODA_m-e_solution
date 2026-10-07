@@ -11,7 +11,7 @@ ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'config/dac_evid
 RULES = json.loads((ROOT / 'config/dac_evidence_rubric.json').read_text(encoding='utf-8'))
 VERSION = RULES['version']
 RULE_DIGEST = hashlib.sha256(json.dumps(RULES, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
-PROMPT_VERSION = 'dac-fact-judgement-v14-contextual'
+PROMPT_VERSION = 'dac-fact-judgement-v15-scope-conflict'
 STATES = RULES['states']
 
 
@@ -55,6 +55,21 @@ def _condition(item, evidence, qid, name):
     if item['status'] in {'met','not_met','conflicted'} and not found:
         raise ValueError(f'{qid}: {name} 판단에 원문 증빙이 필요합니다.')
     return {**item, 'finding': reason, 'evidence_ids':list(dict.fromkeys(item.get('evidence_ids',[])))}
+
+
+def project_overruns(checks):
+    """Only verified whole-project comparisons can constrain the budget question."""
+    return [measurement for check in checks
+            if check['id'] in {'FQ1_I01', 'FQ1_I02'} and check['valid_evidence']
+            and check['state'] not in {'unverified', 'conflicted', 'not_due'}
+            for measurement in check['measurements']
+            if measurement.get('direction') in {'budget', 'duration'}
+            and measurement.get('measurement_scope') == 'whole_project'
+            and measurement.get('scope_validated') is True
+            and measurement.get('comparable') is True and measurement.get('due') is True
+            and not measurement.get('validation_error')
+            and measurement.get('state') != 'unverified'
+            and measurement.get('ratio') is not None and measurement['ratio'] >= 1.5]
 
 
 def score_question(qid, item, evidence):
@@ -173,6 +188,12 @@ def score_question(qid, item, evidence):
     gate = _condition(item.get('four_point_gate'), evidence, qid, '4점 필수')
     cap = _condition(item.get('specific_cap'), evidence, qid, '추가 상한')
     flag = _condition(item.get('red_flag'), evidence, qid, '중대한 부정적 영향')
+    overruns = project_overruns(checks) if qid == 'efficiency-q1' else []
+    if qid == 'efficiency-q1' and flag['status'] == 'met' and not any(
+            m.get('justification') != 'verified' for m in overruns):
+        raise ValueError('효율성 예산·기간 적색신호에는 동일 범위·도래 시점의 전체 사업 150% 이상 초과와 '
+                         '타당한 사유가 없다는 직접 근거가 필요합니다. 비목·연차·개별 계약 초과 또는 '
+                         '승인자료 미확인만으로 met를 선택하지 마세요.')
     conflict = any(c['state'] == 'conflicted' for c in checks) or any(c['status'] == 'conflicted' for c in (gate,cap,flag))
     observed = [c for c in checks if c['merit'] is not None]
     weight = sum(c['weight'] for c in observed)
@@ -194,11 +215,15 @@ def score_question(qid, item, evidence):
         caps.append({'rule':'QUESTION_CAP', 'maximum':2 if qid == 'relevance-q2' else 3, 'reason':rule['cap_condition']})
     if flag['status'] == 'met':
         caps.append({'rule':'NEGATIVE_RED_FLAG', 'maximum':1, 'reason':rule['red_flag_condition']})
-    for check in checks:
-        for m in check['measurements']:
-            if m['ratio'] is not None and m['direction'] in {'budget','duration'} and m['ratio'] >= 1.5:
-                caps.append({'rule':'BUDGET_DURATION_150', 'maximum':2 if m['justification']=='verified' else 1,
-                             'reason':'최초 계획 대비 예산·기간 150% 이상: 승인·불가피성 검증에 따른 상한'})
+    for m in overruns:
+        # A missing approval is uncertainty, not proof of unjustified overrun.
+        # The one-point red flag above requires the model to support the actual
+        # adverse condition; acknowledged/approved overrun has its own ceiling.
+        if m.get('justification') == 'verified' or flag['status'] == 'met':
+            caps.append({'rule':'BUDGET_DURATION_150',
+                         'maximum':2 if m['justification']=='verified' else 1,
+                         'reason':'전체 사업 예산·기간 150% 이상을 동일 범위 원문으로 검증; '
+                                  + ('승인·불가피성 확인' if m['justification']=='verified' else '타당한 사유 없음이 직접 확인됨')})
     status = ('conflicted' if conflict else 'needs_evidence' if coverage < RULES['coverage_min']
               else 'needs_review' if confidence < RULES['confidence_min'] else 'proposed')
     score = min([base]+[c['maximum'] for c in caps]) if base is not None and status == 'proposed' else None

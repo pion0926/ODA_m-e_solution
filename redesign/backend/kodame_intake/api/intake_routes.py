@@ -17,6 +17,7 @@ from ..project_lifecycle import active_workflow_jobs, lock_project_workflow
 from ..taxonomy import DAC_CRITERIA, SECTIONS
 from .dependencies import SAMPLE_TEMPLATE_FILES, _request_account_id, _request_llm_model, _sample_template_root, clean_filename, serialize_document
 from .schemas import IntakeModeRequest, EvaluationScopeRequest
+from .read_projections import INTAKE_LIST_COLUMNS
 from fastapi import APIRouter
 router = APIRouter()
 
@@ -168,7 +169,7 @@ async def upload_documents(request: Request, files: list[UploadFile] = File(...)
 def list_jobs(limit: int = 100, before: int | None = None):
     limit = max(1, min(limit, 200))
     with connection() as conn:
-        rows = conn.execute("SELECT * FROM active_intake_documents WHERE (%s::bigint IS NULL OR queue_position < %s) ORDER BY queue_position DESC LIMIT %s", (before, before, limit + 1)).fetchall()
+        rows = conn.execute(f"SELECT {INTAKE_LIST_COLUMNS} FROM active_intake_documents WHERE (%s::bigint IS NULL OR queue_position < %s) ORDER BY queue_position DESC LIMIT %s", (before, before, limit + 1)).fetchall()
         counts = {row["status"]: row["count"] for row in conn.execute("SELECT status,count(*) AS count FROM active_intake_documents GROUP BY status").fetchall()}
     more = len(rows) > limit
     rows = rows[:limit]
