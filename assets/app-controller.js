@@ -49,6 +49,8 @@
   let projectOverview = null;
   let dacCoverage = { filled: 0, total: 0, assigned: 0 };
   let latestEvaluationData = { status: 'not_run', criteria: [], overall: null };
+  let latestEvaluationStatus = null;
+  let latestWorkflowSteps = [];
   let pdmCoverage = { filled: 0, total: 0, complete_tiers: 0, tier_total: 0 };
   let reportTimer = null;
   let generationTimer = null;
@@ -721,6 +723,8 @@
   }
 
   function renderWorkflowSteps(steps) {
+    latestWorkflowSteps = steps;
+    steps = window.DacScoringUI.evaluationSteps(steps, latestEvaluationData, latestEvaluationStatus);
     const target = byId('stepline');
     if (!target) return;
     if (!steps.length) {
@@ -730,11 +734,11 @@
     const currentIndex = steps.findIndex((step) => Number(step.percent || 0) < 100);
     target.innerHTML = steps.map((step, index) => {
       const percent = Math.max(0, Math.min(100, Number(step.percent || 0)));
-      const completed = percent >= 100;
-      const current = !completed && index === currentIndex;
+      const completed = !step.active && percent >= 100;
+      const current = step.active || (!completed && index === currentIndex);
       const state = completed ? 'done' : current ? 'run' : 'wait';
       const icon = completed ? '✓' : current ? '●' : '·';
-      const chip = completed
+      const chip = step.active ? '새 평가 진행 중' : step.historical ? '이전 결과' : completed
         ? tr('ui.dashboard.complete', '완료')
         : current
           ? (percent > 0 ? tr('ui.dashboard.in_progress', '진행 중 {percent}%', { percent }) : tr('ui.dashboard.action_required', '진행 필요'))
@@ -1316,6 +1320,8 @@
     if (dacSubtitle) dacSubtitle.textContent = hasScore
       ? (provisional ? overall.notice : (overall.formula || 'DAC 5개 기준의 질문별 1~4점 평균 합산'))
       : tr('ui.dashboard.evaluation_source', '등록 자료를 기준으로 DAC 평가진단을 실행합니다');
+    const evaluationState = window.DacScoringUI.evaluationState(data, latestEvaluationStatus);
+    if (evaluationState.title && dacSubtitle) dacSubtitle.textContent = `${evaluationState.title} · ${evaluationState.detail}`;
     const target = byId('dacReady');
     if (target) target.innerHTML = items.length ? items.map((item) => `
       <div class="minirow" data-go="#/eval/results">
@@ -1323,6 +1329,24 @@
         <span class="mv num">${formatDacScore(item.score)}<small>/4</small></span>
       </div>`).join('') : `<div class="empty" style="border:none">${esc(tr('ui.dashboard.evaluation_empty', '아직 생성된 DAC 평가진단 결과가 없습니다.'))}</div>`;
     drawLiveRadar(items);
+  }
+
+  function syncEvaluationState() {
+    const state = window.DacScoringUI.evaluationState(latestEvaluationData, latestEvaluationStatus);
+    for (const id of ['dacEvaluationState', 'dacResultState']) {
+      const node = byId(id);
+      if (!node) continue;
+      node.hidden = !state.title;
+      node.textContent = `${state.title} · ${state.detail}`;
+    }
+    const provisional = latestEvaluationData.overall?.assessment_basis === 'provisional_document_review';
+    const labels = document.querySelectorAll('#v-eval-board .statrow .sl');
+    const names = provisional ? ['내부 잠정 종합점수', '참고 환산등급 (잠정)', '참고 판정 (잠정)']
+      : ['종합점수', 'KOICA 평가등급', '국무조정실 평가등급'];
+    names.forEach((name, index) => { if (labels[index]) labels[index].textContent = `${state.historical ? '이전 완료 평가 · ' : ''}${name}`; });
+    const basis = byId('dacScoreBasis');
+    if (basis) basis.textContent = `${state.historical ? '이전 완료 평가 점수' : '마지막 완료 평가 점수'} · 목표 4점 대비 · 칩을 누르면 분석 결과로 이동`;
+    renderWorkflowSteps(latestWorkflowSteps);
   }
 
   function dacQuestionEvidence(question) {
@@ -1358,6 +1382,7 @@
     byId('scorechips2').innerHTML = items.filter((item) => item.id !== 'impact').map((item) => `<button class="schip" data-go="#/eval/results"><div class="nm">${esc(item.name)}</div><div class="sc num">${item.score ?? '-'}<small>/4</small></div></button>`).join('');
     byId('critSections').innerHTML = items.length ? items.map((criterion) => `<div class="csec"><div class="csec-h"><div class="nm">${esc(criterion.name)}</div><div class="hbar"><div class="pbar"><i class="${Number(criterion.score || 0) < 3 ? 'w' : 'g'}" style="width:${Math.round(Number(criterion.score || 0) / 4 * 100)}%"></i></div></div><span class="tag ${Number(criterion.score || 0) < 3 ? 'w' : 'g'}">${criterion.scored ? '근거 평가 완료' : '자료보완 · 판정보류'}</span><span class="scr num">${criterion.score ?? '-'}<small> /4</small></span></div><div class="csec-b">${window.DacScoringUI.renderImprovements(criterion, esc)}${(criterion.question_assessments || []).map((question, index) => `<div class="qrow"><span class="qno">Q${index + 1}</span><div class="qbody"><div class="qq">${esc(question.question)}</div><div class="qa"><b>근거 판단</b> · ${esc(question.finding)}</div>${question.evidence_gaps?.length ? `<div class="qlost w">${question.evidence_gaps.map(esc).join(' · ')}</div>` : ''}${dacQuestionEvidence(question)}</div><div class="qmeta"><span class="qscore num">${question.score ?? '보류'}<small> /4</small></span></div></div>`).join('') || `<div class="qrow"><div class="qbody">${esc(criterion.score_reason || criterion.summary || '분석 내용이 없습니다.')}${evidenceFold(criterion.evidence_documents)}</div></div>`}</div></div>`).join('') : '<div class="panel empty evaluation-empty"><b>아직 생성된 분석 결과가 없습니다.</b><br>등록 문서의 처리가 끝난 뒤 재평가를 실행하면 DAC 기준별 점수와 판단 근거가 표시됩니다.<div style="margin-top:14px"><button class="btn primary" data-go="#/eval/board">DAC 평가진단으로 이동</button></div></div>';
     renderDashboardInsights();
+    syncEvaluationState();
   }
 
   async function refreshEvaluation() {
@@ -1370,6 +1395,9 @@
   async function refreshEvaluationStatus() {
     try {
       const status = await request('/api/v2/evaluations/status');
+      latestEvaluationStatus = status;
+      syncEvaluationState();
+      syncDashboardDac(latestEvaluationData);
       const dacStage = {overview:'사업개요 확인',evidence:'선택 원문 검토·자동 복구',questions:'질문별 근거 판정',saving:'검증 결과 저장',needs_retry:'일부 항목 재시도 필요'}[status.current_stage] || '평가 준비';
       const active = Boolean(status.active);
       window.ServiceJobTray?.update('dac', { name: 'DAC 평가', active, failed: status.status === 'failed', completed: status.completed_criteria, total: status.total_criteria,

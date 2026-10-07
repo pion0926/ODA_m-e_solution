@@ -2,6 +2,38 @@
 (function (root) {
   'use strict';
   const statusLabels = {met:'충족',partial:'일부 충족',not_met:'미충족',unverified:'미확인'};
+  function evaluationState(data = {}, status = null) {
+    const hasResults = data.status === 'completed';
+    const active = status ? Boolean(status.active) : Boolean(data.lifecycle?.evaluation_active);
+    const stale = Boolean(status?.lifecycle?.evaluation_stale ?? data.is_stale ?? data.lifecycle?.evaluation_stale);
+    const differentRun = Boolean(status?.run_id && status.run_id !== data.run_id);
+    const refreshing = hasResults && !active && differentRun && status?.status === 'completed';
+    const failed = hasResults && !active && differentRun && ['failed', 'cancelled'].includes(status?.status);
+    const historical = hasResults && (active || stale || refreshing || failed);
+    const total = Math.max(0, Number(status?.total_questions) || 0);
+    const done = Math.min(total, Math.max(0, Number(status?.completed_questions) || 0));
+    const stage = {overview:'사업개요 확인',evidence:'선택 원문 검토',expanded_evidence:'추가 원문 검토',
+      questions:'질문별 근거 판정',saving:'결과 저장',needs_retry:'일부 질문 재시도 필요'}[status?.current_stage] || '평가 준비';
+    const progress = total ? `${stage} · 질문 검증 ${done}/${total}개` : `${stage} · 진행률 확인 중`;
+    const title = active ? (hasResults ? '이전 완료 평가 · 새 평가 진행 중' : '첫 평가 진행 중')
+      : refreshing ? '새 평가 완료 · 결과 불러오는 중'
+      : failed ? '이전 완료 평가 · 새 평가 미완료'
+      : stale && hasResults ? '이전 완료 평가 · 최신 자료 재평가 필요' : '';
+    const detail = active ? `${progress}. ${hasResults ? '아래 점수와 근거는 이전 완료 결과이며 새 평가 완료 후 갱신됩니다.' : '완료 후 점수와 판단 근거가 표시됩니다.'}`
+      : refreshing ? '아래에는 이전 결과를 유지하고 있습니다. 새 결과를 불러오면 갱신됩니다.'
+      : failed ? '아래 점수와 근거는 이전 완료 결과입니다. 이번 실행에서 완료된 질문은 보존되며 재요청할 수 있습니다.'
+      : stale && hasResults ? '아래 점수와 근거에는 변경된 자료 또는 평가 기준이 아직 반영되지 않았습니다.' : '';
+    return {hasResults, active, historical, stale, refreshing, failed, title, detail, progress,
+      percent: total ? Math.min(99, Math.round(done / total * 100)) : 0};
+  }
+  function evaluationSteps(steps, data, status) {
+    const state = evaluationState(data, status);
+    return steps.map((step, index) => index === 1 && state.active
+      ? {...step, name: '기준별 판단 · 새 평가', hint: state.progress, percent: state.percent, active: true}
+      : index === 1 && state.historical
+        ? {...step, name: '기준별 판단 · 이전 완료 평가', hint: `${step.hint || ''} · ${state.title}`, historical: true}
+        : step);
+  }
   function render(question, esc) {
     const trace = question.scoring_trace;
     if (trace?.rubric_digest) return renderRules(question, esc);
@@ -38,5 +70,5 @@
     }).join('');
     return `<section class="dac-improvements" aria-label="${esc(criterion.name)} 평가점수 개선 팁"><h3>평가점수 개선 팁</h3>${guide.is_stale ? '<p class="dac-tip-stale" role="status">자료 또는 매핑이 변경되었습니다. 아래 안내는 이전 평가 기준이며, 보완 자료를 연결한 후 재평가해 최신 판단을 확인하세요.</p>' : ''}<p>${esc(guide.notice)}</p>${groups || '<p>저장된 세부 기준에서 추가 보완 항목이 확인되지 않았습니다. 검증된 성과와 증빙을 유지하고 후속 측정을 진행하세요.</p>'}<div class="dac-tip-actions"><a class="btn" href="#/evidence">자료 등록·연결 확인</a><a class="btn" href="#/eval/board">DAC 평가 계획 확인</a></div></section>`;
   }
-  root.DacScoringUI = {render, renderImprovements};
+  root.DacScoringUI = {render, renderImprovements, evaluationState, evaluationSteps};
 })(window);

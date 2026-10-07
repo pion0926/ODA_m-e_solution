@@ -331,10 +331,11 @@
         <div class="stat link" data-go="#/evidence/dac"><div class="sl">제출 증빙 현황</div><div class="sv warn num" id="boardEv">14<span>/22</span></div><div class="ss">DAC 증빙 ›</div></div>
       </div>
       <div class="kpinote">점수는 마지막 AI 분석 기준 · <b id="stPend">새 자료 2건 분석 대기</b></div>
+      <div class="callout" id="dacEvaluationState" role="status" aria-live="polite" hidden></div>
       <div class="grid g2" style="margin-bottom:16px">
         <div class="panel">
           <div class="ph"><h3>DAC 5대 기준 목표 대비</h3></div>
-          <div class="psub">목표 4점 대비 현재 점수 · 칩을 누르면 분석 결과로 이동</div>
+          <div class="psub" id="dacScoreBasis">목표 4점 대비 마지막 완료 평가 점수 · 칩을 누르면 분석 결과로 이동</div>
           <div class="radarwrap"><svg id="radar2" viewBox="0 0 400 320" style="width:100%;max-width:380px;height:auto"></svg></div>
           <div class="scorechips" id="scorechips2"></div>
         </div>
@@ -354,6 +355,7 @@
         <p data-i="s-results">기준별 세부 평가질문의 점수(1~4점)와 판단 근거, 참고 문서입니다 · 근거 칩을 누르면 원본이 열립니다.</p>
         <div class="acts"><button class="btn primary" id="runBtn2">✦ DAC 근거 분석·평가</button></div>
       </div>
+      <div class="callout" id="dacResultState" role="status" aria-live="polite" hidden></div>
       <div class="critgrid" id="critSections"></div>
     </section>
 
