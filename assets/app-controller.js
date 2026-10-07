@@ -1435,14 +1435,12 @@
   }
 
   function renderReportList() {
-    const counts = { draft: 0, generating: 0, failed: 0, complete: 0 };
     byId('seclist').innerHTML = reportSections.map((section) => {
       const state = ['generating', 'failed'].includes(section.status) ? section.status : String(section.content || '').trim() ? section.status : 'empty';
-      if (state === 'empty') counts.draft += 1; else if (state === 'generating') counts.generating += 1; else if (state === 'failed') counts.failed += 1; else counts.complete += 1;
       const badge = ['generating', 'failed', 'empty'].includes(state) ? `<span class="st ${state === 'generating' ? 'draft' : 'rev'}">${reportNames[state]}</span>` : '';
       return `<button type="button" class="it ${section.part_id === activeReportPart ? 'active' : ''}" data-id="${esc(section.part_id)}" aria-current="${section.part_id === activeReportPart ? 'true' : 'false'}" title="${esc(section.title)}"><span class="no num">${section.section_number}</span><span>${esc(section.title.replace(/^\(\d+\)\s*/, ''))}</span>${badge}</button>`;
     }).join('');
-    byId('repStat').textContent = `${reportSections.length}개 섹션 · 작성 ${counts.complete} · 생성 중 ${counts.generating} · 확인 필요 ${counts.draft + counts.failed}`;
+    renderReportSummary();
   }
 
   async function refreshReportLifecycle(force = false) {
@@ -1609,6 +1607,7 @@
 
   function renderGeneration(status) {
     const active = ['queued', 'running'].includes(status.status);
+    renderReportSummary(status);
     let cancel = byId('reportCancel');
     if (!cancel) {
       cancel = document.createElement('button');
@@ -1691,6 +1690,25 @@
       : [status.cancel_requested && active ? '중단 요청 접수 · 현재 AI 응답을 정리한 뒤 중단합니다. 저장된 본문은 보존됩니다.' : status.error_message || status.message || '', active && !status.cancel_requested ? '한 섹션의 작성·검토 동안 진행률은 유지됩니다.' : '', !active && status.status === 'failed' && currentSectionsComplete ? '저장된 27개 섹션의 본문은 보존되어 있습니다. 최신 자료 반영 여부는 상단 안내를 확인해 주세요.' : ''].filter(Boolean).join(' ');
     byId('repGenAll').disabled = active;
     renderSectionAssistant(reportSections.find((item) => item.part_id === activeReportPart));
+  }
+
+  function renderReportSummary(generation = latestGenerationStatus) {
+    const counts = { saved: 0, complete: 0, generating: 0, attention: 0 };
+    for (const section of reportSections) {
+      const hasContent = Boolean(String(section.content || '').trim());
+      if (hasContent) counts.saved += 1;
+      if (section.status === 'generating') counts.generating += 1;
+      else if (section.status === 'failed' || !hasContent) counts.attention += 1;
+      else counts.complete += 1;
+    }
+    if (['queued', 'running'].includes(generation?.status)) {
+      const total = Number(generation.total_sections || reportSections.length || 27);
+      const completed = Number(generation.completed_sections || 0);
+      const failed = Number(generation.failed_sections || 0);
+      byId('repStat').textContent = `${reportSections.length}개 섹션 · 저장된 본문 ${counts.saved} · 이번 생성 ${completed}/${total}${generation.status === 'queued' ? ' · 대기 중' : ''}${failed ? ` · 이번 실패 ${failed}` : ''}`;
+    } else {
+      byId('repStat').textContent = `${reportSections.length}개 섹션 · 작성 ${counts.complete} · 생성 중 ${counts.generating} · 확인 필요 ${counts.attention}`;
+    }
   }
 
   async function pollGeneration() {
