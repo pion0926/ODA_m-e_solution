@@ -91,8 +91,9 @@ with tenant_context(project): context=foundation_context()
 facts={'version':'intake-facts-v1','summary':'사업계획의 강사 양성과 모의훈련 달성을 보고하며 지속가능성의 예산 미확정을 확인하는 자료이다.',
        'facts':[{'id':'qa-fact','statement':'CPCR 강사 6명 양성','kind':'reported_actual','value':'6','unit':'명','period':'2026-06-30','population':'지역사회 강사',
                  'evidence_quote':'지역사회 CPCR 강사 6명을 양성하였다.','pdm_indicator_ids':[indicators[0]['id']],'dac_question_ids':['effectiveness-q1']}], 'scope':'full_text'}
-matches={'version':2,'sources':context['sources'],'project_plan':[],
-         'pdm':[{'indicator_id':i['id'],'indicator':i['text'],'tier':i['tier'],'requirement_title':i['mov'],'confidence':.99,'rationale':'원문 실적 확인','evidence_quote':ACTUAL} for i in indicators],
+matches={'version':3,'sources':context['sources'],'project_plan':[],
+         'pdm':[{'indicator_id':i['id'],'indicator':i['text'],'tier':i['tier'],'requirement_title':i['mov'],'confidence':.99,'rationale':'원문 실적 확인','evidence_quote':ACTUAL,
+                 'evidence_kind':'direct_record','subject_match':True,'activity_match':True,'scope_match':True,'proves':'해당 강사 양성 및 훈련 실시 기록','limitations':''} for i in indicators],
          'registration_facts':facts}
 doc=upload(user,'evidence','실적현황_QA.txt',ACTUAL)['accepted'][0]
 saved=finish_upload(doc,'evidence',ACTUAL,matches)

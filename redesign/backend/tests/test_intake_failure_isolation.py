@@ -44,12 +44,12 @@ class FailureIsolationTests(unittest.TestCase):
         with patch.object(performance_review,'foundation_state',return_value={'ready':True}), \
              patch.object(performance_review,'capture_input_snapshot',return_value={}), \
              patch('kodame_intake.pdm_monitoring._model_from_slots',return_value=model), \
-             patch('kodame_intake.pdm_monitoring._matches_pdm_requirement',return_value=(True,'')), \
+             patch.object(performance_review,'decision',side_effect=lambda doc,*args: {'proves':'명단 증빙'} if doc['id']=='completed' else None), \
              patch('kodame_intake.performance_delta.history',return_value={}):
             plan = performance_review.build_plan(conn)
         self.assertTrue(plan['ready'])
         self.assertEqual(plan['pending_count'],0)
-        self.assertEqual(plan['indicators'][0]['document_ids'],['completed','pdm'])
+        self.assertEqual(plan['indicators'][0]['document_ids'],['completed'])
 
     def test_export_does_not_treat_excluded_documents_as_processing(self):
         from kodame_intake import report_generator as reports

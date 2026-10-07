@@ -245,7 +245,7 @@ def pdm_monitoring():
                 "assignments": [],
             }
         documents = conn.execute(
-            "SELECT id,original_name,size_bytes,summary FROM evaluation_intake_documents ORDER BY queue_position"
+            "SELECT id,original_name,size_bytes,summary,analysis FROM evaluation_intake_documents ORDER BY queue_position"
         ).fetchall()
         assignments = conn.execute(
             """SELECT a.*,d.original_name,d.size_bytes,d.summary
@@ -253,6 +253,9 @@ def pdm_monitoring():
                  JOIN evaluation_intake_documents d ON d.id=a.document_id
                 ORDER BY a.tier,a.indicator_id,d.original_name"""
         ).fetchall()
+    from ..pdm_mapping_policy import decision
+    docs_by_id = {str(d['id']): d for d in documents}
+    assignments = [a for a in assignments if decision(docs_by_id[str(a['document_id'])], a['indicator_id'], row['source_document_id'])]
     document_map = {
         str(item["id"]): {
             "id": str(item["id"]), "file_name": item["original_name"],
@@ -284,10 +287,14 @@ def pdm_monitoring():
     total = sum(len(tier["indicators"]) for tier in tiers)
     performance = []
     for indicator in model.get("performance_indicators", []):
-        evidence = [document_map[item] for item in indicator.get("evidence_document_ids", []) if item in document_map]
+        evidence = by_indicator.get(indicator["id"], [])
         cleaned_indicator = dict(indicator)
+        removed_links = set(indicator.get('evidence_document_ids', [])) - {d['id'] for d in evidence}
+        if removed_links:
+            cleaned_indicator['mapping_review_required'] = True
+            cleaned_indicator['note'] = '증빙 목적 기준으로 연결을 정리했습니다. 표시된 실적은 이전 분석 결과이며 재평가가 필요할 수 있습니다. ' + indicator.get('note','')
         cleaned_indicator["risk_analysis"] = _clean_risk_payload(indicator.get("risk_analysis") or {})
-        performance.append({**cleaned_indicator, "evidence_documents": evidence})
+        performance.append({**cleaned_indicator, "evidence_documents": evidence, "evidence_document_ids": [d["id"] for d in evidence]})
     source_document = document_map.get(str(row["source_document_id"]))
     performance_source = document_map.get(str(model.get("performance_source_document_id") or ""))
     return {

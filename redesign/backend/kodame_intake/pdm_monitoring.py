@@ -563,22 +563,14 @@ def _refresh_pdm_model(*, analyze_risks: bool = False, refresh_run_id=None, anal
             for document in documents:
                 if analysis_plan:
                     if str(document['id']) in analysis_plan['mappings'].get(indicator['id'], []):
-                        assignments.append((document['id'], indicator['id'], tier['id'], indicator['mov'], 1.0, '성과지표 분석 준비 화면에서 확인한 문서 매핑'))
+                        from .pdm_mapping_policy import decision
+                        match = decision(document, indicator['id'], source['id'])
+                        assignments.append((document['id'], indicator['id'], tier['id'], indicator['mov'], (match or {}).get('confidence', 1.0), (match or {}).get('rationale', '사용자가 직접 추가한 증빙 연결')))
                     continue
-                saved = (document.get('analysis') or {}).get('evidence_matches')
-                if saved is not None:
-                    item = next((item for item in saved.get('pdm', []) if item['indicator_id'] == indicator['id']), None)
-                    source_matches = (saved.get('sources', {}).get('pdm') or {}).get('id') == str(source['id'])
-                    matched = bool(item and source_matches)
-                    confidence, rationale = (item['confidence'], item['rationale']) if matched else (0, '')
-                else:
-                    matched, confidence, rationale = _matches_pdm_requirement(document, indicator["mov"], indicator["text"])
-                override = (document.get('analysis') or {}).get('pdm_mapping_overrides') or {}
-                if override.get('source_document_id') == str(source['id']):
-                    if indicator['id'] in override.get('included', []):
-                        matched, confidence, rationale = True, 1.0, '사용자가 확인한 문서 매핑'
-                    if indicator['id'] in override.get('excluded', []):
-                        matched = False
+                from .pdm_mapping_policy import decision
+                match = decision(document, indicator['id'], source['id'])
+                matched = bool(match)
+                confidence, rationale = (match['confidence'], match['rationale']) if match else (0, '')
                 if matched:
                     assignments.append((document["id"], indicator["id"], tier["id"], indicator["mov"], confidence, rationale))
 

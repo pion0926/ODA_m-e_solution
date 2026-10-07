@@ -8,6 +8,8 @@ from psycopg.types.json import Jsonb
 from .db import connection
 from .document_classification import pdm_slots
 from .openrouter import AnalysisError, _request_json, redact_for_external_analysis
+from .pdm_mapping_policy import VERSION as MAPPING_VERSION, qualifies
+from .ai.prompt_registry import load_prompt
 
 
 def foundation_context():
@@ -47,12 +49,18 @@ def match_foundations(text, *, context=None, artifact=False):
               'rationale': string, 'evidence_quote': string}
     schema = obj({
         'document_role': string,
+        'document_profile': obj({**{key: string for key in ('purpose','project_role','interview_purpose','interview_subject')},
+            'kind': {'type':'string','enum':['project_plan','pdm','interview','attendance','completion_record','approval','equipment_record','deliverable','progress_report','financial_record','background','other']}}),
         'facts': facts_schema([item['id'] for item in context['indicators']], questions),
         'project_plan': {'type': 'array', 'items': obj({**common, 'topic': string, 'reference_quote': string})},
-        'pdm': {'type': 'array', 'items': obj({**common, 'indicator_id': {
+        'pdm': {'type': 'array', 'items': obj({**common,
+            'evidence_kind': {'type':'string','enum':['direct_record','calculation_input','qualitative_evidence','target_reference','background','uncertain']},
+            'proves': string, 'limitations': string,
+            'subject_match': {'type':'boolean'}, 'activity_match': {'type':'boolean'}, 'scope_match': {'type':'boolean'}, 'indicator_id': {
             'type': 'string', 'enum': [item['id'] for item in context['indicators']]}})},
     })
-    matches = {'version': 2, 'sources': context['sources'], 'project_plan': [], 'pdm': [],
+    matches = {'version': MAPPING_VERSION, 'sources': context['sources'], 'project_plan': [], 'pdm': [],
+               'pdm_references': [], 'document_profiles': [],
                'registration_facts': {'version':VERSION,'facts':[], 'document_roles':[],
                     'scope':'sample_only' if artifact else 'full_text', 'text_sha256':hashlib.sha256(text.encode()).hexdigest(),
                     'discarded_fact_count':0}}
@@ -76,9 +84,13 @@ def match_foundations(text, *, context=None, artifact=False):
             'pdm에는 직접 관련된 지표 ID와 증빙 source_id를 기록한다. source_id는 evidence_sources에서 선택하고 인용문을 생성하지 않는다. '
             '파일명으로 판단하지 않으며 관련 항목이 없으면 해당 배열은 비운다. '
             + PROMPT
-            + (' 이 자료는 산출물의 일부만 확인한 등록 자료다. 교재 속 사례·통계를 사업 실적으로 간주하지 않는다. 제작·배포·효과는 확인되지 않았으며 내용상 관련성만 연결한다.' if artifact else ''),
+            + load_prompt('document_evidence_purpose')
+            + (' 이 자료는 산출물 일부만 확인했다. 확인 범위를 넘어 제작·배포·효과를 추정하지 않는다.' if artifact else ''),
             prompt, 'KODAME Evidence Foundation Matching', response_schema=schema)
         register = matches['registration_facts']
+        profile = result.get('document_profile')
+        if isinstance(profile, dict):
+            matches['document_profiles'].append({**profile, 'start':max(0,offset-1000), 'end':min(len(text),offset+28000)})
         role = str(result.get('document_role') or '').strip()
         if role and role not in register['document_roles']:
             register['document_roles'].append(role)
@@ -104,20 +116,17 @@ def match_foundations(text, *, context=None, artifact=False):
                 if axis == 'pdm':
                     indicator = by_id[item['indicator_id']]
                     item = {**item, 'tier': indicator['tier'], 'indicator': indicator['text'], 'requirement_title': indicator['mov']}
+                    if not qualifies(item):
+                        matches['pdm_references'].append(item)
+                        continue
                 key = 'indicator_id' if axis == 'pdm' else 'topic'
                 previous = next((value for value in matches[axis] if value[key] == item[key]), None)
                 if previous is None:
                     matches[axis].append(item)
                 elif item['confidence'] > previous['confidence']:
                     previous.update(item)
-    for fact in matches['registration_facts']['facts']:
-        for ident in fact['pdm_indicator_ids']:
-            if any(m['indicator_id'] == ident for m in matches['pdm']):
-                continue
-            indicator = by_id[ident]
-            matches['pdm'].append({'indicator_id':ident,'tier':indicator['tier'],
-                'indicator':indicator['text'],'requirement_title':indicator['mov'],
-                'confidence':.7,'rationale':fact['statement'],'evidence_quote':fact['evidence_quote']})
+    # Fact/topic links are navigation hints, never an alternate path around
+    # purpose and subject/activity/scope verification.
     roles = matches['registration_facts']['document_roles']
     if len(roles) > 1:
         summary, _ = _request_json(
@@ -151,13 +160,17 @@ def ensure_current_matches(documents):
             continue
         context = context or foundation_context()
         saved = analysis.get('evidence_matches') or {}
-        if saved.get('sources') == context['sources'] and saved.get('version') == 2:
+        if saved.get('sources') == context['sources'] and saved.get('version') == MAPPING_VERSION:
             continue
         text = Path(document['extracted_path']).read_text(encoding='utf-8')
         if analysis.get('intake_mode') == 'artifact':
             from .intake_triage import sample_text
             text = sample_text(text)
         matches = match_foundations(text, context=context, artifact=analysis.get('intake_mode')=='artifact')
+        from .pdm_mapping_policy import manual_overrides
+        added, removed = manual_overrides(analysis, context['sources']['pdm']['id'])
+        analysis['pdm_mapping_overrides'] = {'version':MAPPING_VERSION,
+            'source_document_id':context['sources']['pdm']['id'], 'included':sorted(added),'excluded':sorted(removed)}
         analysis['evidence_matches'] = {**saved, **matches}
         analysis['registration_facts'] = matches['registration_facts']
         if matches['registration_facts'].get('summary'):

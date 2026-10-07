@@ -9,6 +9,7 @@ from .db import connection
 from .document_classification import pdm_slots
 from .foundation import state as foundation_state
 from .project_lifecycle import capture_input_snapshot, document_blocks_workflow
+from .pdm_mapping_policy import decision, manual_overrides, VERSION
 
 
 def build_plan(conn=None):
@@ -31,25 +32,16 @@ def build_plan(conn=None):
                 if doc['status'] != 'completed':
                     continue
                 analysis = doc.get('analysis') or {}
-                saved = analysis.get('evidence_matches')
-                if saved is not None:
-                    matched = ((saved.get('sources', {}).get('pdm') or {}).get('id') == str(source['id'])
-                               and any(item['indicator_id'] == indicator['id'] for item in saved.get('pdm', [])))
-                else:
-                    matched = _matches_pdm_requirement(doc, indicator['mov'], indicator['text'])[0]
-                override = analysis.get('pdm_mapping_overrides') or {}
-                if override.get('source_document_id') == str(source['id']):
-                    if indicator['id'] in override.get('included', []):
-                        matched = True
-                    if indicator['id'] in override.get('excluded', []):
-                        matched = False
+                matched = decision(doc, indicator['id'], source['id'])
                 if matched:
                     selected.append(str(doc['id']))
             analyzed=[str(doc['id']) for doc in rows if fingerprint(source['id'],doc,indicator) in records]
             indicators.append({**indicator, 'tier': tier['id'], 'tier_name': tier['name'],
+                'mapping_details': {str(doc['id']): decision(doc,indicator['id'],source['id']) for doc in rows if str(doc['id']) in selected},
                 'document_ids':[id for id in selected if id not in analyzed],
                 'retained_document_ids':[id for id in selected if id in analyzed], 'analyzed_document_ids':analyzed})
     documents = [{'id': str(row['id']), 'file_name': row['original_name'], 'status': row['status'],
+                  'document_profiles': ((row.get('analysis') or {}).get('evidence_matches') or {}).get('document_profiles', []),
                   'progress': row['progress'], 'upload_role': row['upload_role'], 'error_message': row.get('error_message')}
                  for row in rows]
     snapshot = capture_input_snapshot(conn)
@@ -65,6 +57,10 @@ def build_plan(conn=None):
     recheck_count=sum(key not in records for key in old_pairs)
     if ready and recheck_count:
         message += f' 이전에 측정값 없이 저장되어 검토 근거가 없는 {recheck_count}개 조합은 다시 확인합니다.'
+    legacy_count = sum(row['status']=='completed' and row.get('upload_role')=='evidence'
+                       and ((row.get('analysis') or {}).get('evidence_matches') or {}).get('version') != VERSION for row in rows)
+    if legacy_count:
+        message += f' 기존 자료 {legacy_count}건은 증빙 목적 재검토 전입니다. 과거 주제 기반 연결은 자동 선택하지 않으며 필요한 문서는 직접 추가할 수 있습니다.'
     payload = {'source_document_id': str(source['id']) if source else None,
                'baseline_model_id':str(previous['id']) if previous else None,
                'source_file_name': source['original_name'] if source else None,
@@ -105,9 +101,15 @@ def save_overrides(conn, current, reviewed):
     for doc in current['documents']:
         if doc['status'] != 'completed':
             continue
-        included, excluded = [], []
+        row = conn.execute('SELECT analysis FROM intake_documents WHERE id=%s', (doc['id'],)).fetchone()
+        included, excluded = manual_overrides((row or {}).get('analysis') or {}, reviewed['source_document_id'])
         for item in current['indicators']:
-            (included if doc['id'] in reviewed['mappings'][item['id']] else excluded).append(item['id'])
+            before = doc['id'] in [*item.get('document_ids',[]), *item.get('retained_document_ids',[])]
+            after = doc['id'] in reviewed['mappings'][item['id']]
+            if after and not before:
+                included.add(item['id']); excluded.discard(item['id'])
+            elif before and not after:
+                excluded.add(item['id']); included.discard(item['id'])
         conn.execute("""UPDATE intake_documents SET analysis=jsonb_set(COALESCE(analysis,'{}'::jsonb),
             '{pdm_mapping_overrides}',%s) WHERE id=%s""",
-            (Jsonb({'source_document_id': reviewed['source_document_id'], 'included': included, 'excluded': excluded}), doc['id']))
+            (Jsonb({'version':VERSION,'source_document_id': reviewed['source_document_id'], 'included': sorted(included), 'excluded': sorted(excluded)}), doc['id']))

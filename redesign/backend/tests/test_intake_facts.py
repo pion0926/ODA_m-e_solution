@@ -31,7 +31,7 @@ class FactTests(unittest.TestCase):
         payload={'project_plan':[],'pdm':[],'facts':[self.fact()], 'document_role':'강사 양성 활동의 보고 실적을 제시하는 자료다. 명단 대조가 필요하다.'}
         with patch('kodame_intake.evidence_matching._request_json', return_value=(payload,'test')):
             result=match_foundations('강사 6명 양성',context=context)
-        self.assertEqual(result['pdm'][0]['indicator_id'],'outputs-1')
+        self.assertEqual(result['pdm'], [])  # Topic fact alone is not a verified evidence-purpose match.
         self.assertEqual(result['registration_facts']['summary'],payload['document_role'])
         self.assertEqual(len(result['registration_facts']['facts']),1)
         self.assertNotIn('achievement_rate', result)
@@ -60,5 +60,5 @@ class FactTests(unittest.TestCase):
             result=match_foundations(text,context=context)
         self.assertEqual(len(result['registration_facts']['facts']),1)
         self.assertEqual(result['registration_facts']['discarded_fact_count'],2)
-        self.assertIn('C2=6명',result['pdm'][0]['evidence_quote'])
-        self.assertIn(result['pdm'][0]['evidence_quote'],text)
+        self.assertEqual(result['pdm'], [])
+        self.assertIn('C2=6명',result['registration_facts']['facts'][0]['evidence_quote'])
