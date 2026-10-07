@@ -120,9 +120,9 @@ def evaluate_freshness(snapshot: dict, evaluation: dict | None, sections: list[d
     elif pending:
         phase, message = "processing_documents", f"문서 {pending}건 분석이 완료되면 재평가할 수 있습니다."
     elif active_evaluation:
-        phase, message = "evaluation_active", "현재 전체 문서를 재평가하고 있습니다. 완료 후 보고서를 생성해 주세요."
+        phase, message = "evaluation_active", "DAC 질문별 증빙을 평가하고 있습니다. 입력이 같은 완료 질문은 재사용합니다. 완료 후 보고서를 생성해 주세요."
     elif not evaluation_current:
-        phase, message = "evaluation_required", "현재 자료를 반영하려면 전체 문서를 재평가해 주세요. 기존 결과는 보존됩니다."
+        phase, message = "evaluation_required", "현재 자료를 반영하려면 DAC 평가진단을 실행해 주세요. 변경된 질문을 재검토하며 기존 결과는 보존됩니다."
     elif active:
         phase, message = "report_generating", "보고서를 생성하고 있습니다."
     elif not sections or missing or stale:

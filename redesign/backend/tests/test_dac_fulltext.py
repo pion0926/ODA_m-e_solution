@@ -135,8 +135,14 @@ class DACFulltextTests(unittest.TestCase):
         doc = self.document("/does-not-exist.txt")
         with self.assertRaises(OSError):
             analyze_document(doc)
-        with self.assertRaisesRegex(RuntimeError, "전체 본문"):
-            _corpus("effectiveness", [doc])
+        from kodame_intake.dac_assessor import assess_criterion
+        from kodame_intake.evaluation_criteria import EVALUATION_CRITERIA
+        corpus, _ = _corpus("effectiveness", [doc])
+        with patch('kodame_intake.dac_assessor._request_json') as request:
+            with self.assertRaisesRegex(RuntimeError, "원문 검토 미완료"):
+                assess_criterion('effectiveness', EVALUATION_CRITERIA['effectiveness'], corpus, {},
+                                 {'status': 'unavailable', 'model': {}})
+        request.assert_not_called()
 
     @patch("kodame_intake.dac_evidence.connection")
     @patch("kodame_intake.dac_evidence._request_json")

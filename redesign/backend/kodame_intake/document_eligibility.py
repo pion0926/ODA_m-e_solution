@@ -27,6 +27,9 @@ def filter_performance_model(model, allowed_ids):
         result['performance_source_document_id'] = None
     changed = False
     for item in result.get('performance_indicators', []):
+        if 'target_reference_sources' in item:
+            item['target_reference_sources'] = [source for source in item['target_reference_sources']
+                                                 if str(source.get('document_id')) in allowed]
         observations = item.get('measurement_sources') or []
         removed = [o for o in observations if str(o.get('document_id')) not in allowed]
         references = item.get('evidence_document_ids') or []

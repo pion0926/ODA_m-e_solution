@@ -18,7 +18,7 @@ def prompt_manifest():
     # those implementations in provenance until their final extraction too.
     service = ROOT.parent.parent
     for name in ('report_generator','pdm_evidence','dac_evidence','dac_assessor',
-                 'evidence_matching','project_overview','artifact_registration',
+                 'evidence_matching','pdm_scope_review','project_overview','artifact_registration',
                  'intake_triage','report_content_policy','report_review_policy',
                  'report_performance','evaluation_identity'):
         path = service / (name+'.py')

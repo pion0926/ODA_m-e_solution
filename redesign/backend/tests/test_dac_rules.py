@@ -47,7 +47,7 @@ class DacRuleEngineTests(unittest.TestCase):
         evidence['E1']['source_grade_ceiling']=1
         result=score_question('relevance-q1',item,evidence)
         self.assertTrue(all(c['quality']['effective_source_grade']==1 for c in result['checks']))
-        self.assertTrue(all(c['state']=='substantial' for c in result['checks']))
+        self.assertTrue(all(c['state']=='verified' for c in result['checks']))
         self.assertLess(result['selected_score'],4)
 
     def test_each_question_receives_only_its_own_sources_and_schema(self):
@@ -140,7 +140,7 @@ class DacRuleEngineTests(unittest.TestCase):
         item['score']=4
         result=score_question('relevance-q1',item,evidence)
         self.assertEqual(result['selected_score'],3)
-        self.assertEqual(result['merit_index'],67)
+        self.assertEqual(result['merit_index'],75)
         self.assertEqual(result['coverage'],1)
         self.assertEqual(result,score_question('relevance-q1',copy.deepcopy(item),copy.deepcopy(evidence)))
 
@@ -178,13 +178,15 @@ class DacRuleEngineTests(unittest.TestCase):
         item['indicators'][0]['state']='substantial'
         self.assertEqual(score_question('relevance-q1',item,evidence)['selected_score'],3)
 
-    def test_self_report_cannot_be_fully_verified(self):
+    def test_self_report_keeps_merit_but_requires_support_for_top_score(self):
         item,evidence=self.fixture(state='verified')
         item['four_point_gate']['status']='met'
         for c in item['indicators']: c['quality']['source_grade']=1
         r=score_question('relevance-q1',item,evidence)
         self.assertEqual(r['selected_score'],3)
-        self.assertTrue(all(c['state']=='substantial' for c in r['checks']))
+        self.assertTrue(all(c['state']=='verified' for c in r['checks']))
+        self.assertEqual(r['merit_index'],100)
+        self.assertIn('FOUR_POINT_CONFIDENCE',[cap['rule'] for cap in r['applied_rules']])
 
     def test_directness_and_period_quality_cannot_be_hidden(self):
         item,evidence=self.fixture()

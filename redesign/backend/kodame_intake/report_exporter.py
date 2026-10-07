@@ -84,6 +84,7 @@ from .report_sources import (
     strip_inline_source_citations,
 )
 from .report_text import sanitize_report_text
+from .report_evaluation_context import is_provisional, qualify_report_text, PROVISIONAL_BASIS, PROVISIONAL_NOTICE
 from .theory_visual import THEORY_VISUAL_DESIGN_VERSION, build_theory_visual_artifacts, theory_visual_input_digest
 from .theory_artifact_store import load_theory_artifact, save_theory_artifact
 from .report_visuals import build_supplemental_report_visuals
@@ -576,6 +577,8 @@ def _context() -> tuple[dict, dict[str, str]]:
         })
     total = round(sum(item["currentScore4"] for item in criteria), 1) if len(criteria) == 5 and all(item["currentScore4"] is not None for item in criteria) else None
     koica, government = grade(total) if total is not None else ("판정보류", "판정보류")
+    if total is not None and is_provisional(evaluations):
+        koica, government = f"{koica} (잠정)", f"{government} (잠정)"
     context = {
         "project": {
             "title": value("project_name"), "period": value("period"), "budget": value("budget"),
@@ -651,7 +654,7 @@ def _context() -> tuple[dict, dict[str, str]]:
         matrix_slots[f"{label}_source"] = "사업계획, 수행실적 및 성과자료"
         matrix_slots[f"{label}_method"] = "문헌검토·교차검증"
     section_text["eval-matrix"] = structured_slots_to_json("eval-matrix", matrix_slots)
-    return context, section_text
+    return context, {part: qualify_report_text(part, text, evaluations) for part, text in section_text.items()}
 
 
 def _pipeline_context(content_overrides: dict[str, str] | None = None, *, preview_part: str | None = None) -> tuple[dict, dict[str, str], dict]:
@@ -673,7 +676,7 @@ def _pipeline_context(content_overrides: dict[str, str] | None = None, *, previe
         pdm_source_row = conn.execute(
             """SELECT d.original_name,d.analysis,p.model
                  FROM pdm_models p JOIN evaluation_intake_documents d ON d.id=p.source_document_id
-                WHERE d.status='completed'
+                WHERE d.status='completed' AND d.upload_role='pdm'
                 ORDER BY p.created_at DESC LIMIT 1"""
         ).fetchone()
         metadata_rows = conn.execute(
@@ -719,6 +722,9 @@ def _pipeline_context(content_overrides: dict[str, str] | None = None, *, previe
 
     total = round(sum(item["currentScore4"] for item in criteria), 1) if len(criteria) == 5 and all(item["currentScore4"] is not None for item in criteria) else None
     koica_grade, government_grade = grade(total) if total is not None else ("판정보류", "판정보류")
+    provisional = is_provisional(evaluation_rows)
+    if total is not None and provisional:
+        koica_grade, government_grade = f"{koica_grade} (잠정)", f"{government_grade} (잠정)"
     period = overview_value("period")
     scope = assessment_scope(overview)
     project_status = scope["project_status"]
@@ -762,6 +768,8 @@ def _pipeline_context(content_overrides: dict[str, str] | None = None, *, previe
             "maxScore": 20,
             "koicaGrade": koica_grade,
             "governmentGrade": government_grade,
+            "assessmentBasis": PROVISIONAL_BASIS if provisional else "stored_evaluation",
+            "assessmentNotice": PROVISIONAL_NOTICE if provisional else "",
         },
         "_toc_page_map": {},
         "_raw_source_names": [str(row["original_name"] or "") for row in source_name_rows],
@@ -789,7 +797,8 @@ def _pipeline_context(content_overrides: dict[str, str] | None = None, *, previe
             "현재 등록 근거 범위에서 확인된 실적은 다음과 같다.",
             reader_text,
         )
-        raw_sections[part_id] = project_title_section(part_id, reader_text, identity)
+        raw_sections[part_id] = qualify_report_text(
+            part_id, project_title_section(part_id, reader_text, identity), evaluation_rows)
     prepared_sections, conversion_report = prepare_hwpx_sections(
         context, raw_sections, criteria,
         selected_parts={preview_part} if preview_part else None,

@@ -17,7 +17,7 @@
       const mapped=plan.indicators.filter(item=>selected(item).size).length;
       const pairs=plan.indicators.reduce((n,item)=>n+selected(item).size,0);
       $('[data-review-summary]').textContent=`DAC 질문 ${plan.indicators.length}개 · 검토 문서 연결 ${pairs}개 · 문서가 연결된 질문 ${mapped}개`; 
-      $('[data-review-status]').textContent=plan.message;
+      $('[data-review-status]').textContent=plan.message+' 입력이 같은 질문의 검증 결과는 재사용하며, 자료·모델·평가기준·평가시점이 달라진 질문은 다시 평가합니다.';
       $('[data-review-pending]').innerHTML=plan.documents.filter(doc=>doc.status!=='completed').map(doc=>
         `<div class="performance-document"><b>${esc(doc.file_name)}</b><small>${esc(states[doc.status]||doc.status)} · ${Number(doc.progress)||0}%</small>${['failed','waiting_llm','cancelled'].includes(doc.status)?`<button type="button" class="btn sm" data-review-retry="${esc(doc.id)}" ${busy?'disabled':''}>분석 재시도</button><small class="performance-error">${esc(doc.error_message||'기본 분석 완료가 필요합니다.')}</small>`:''}</div>`).join('');
       $('[data-review-rows]').innerHTML=plan.indicators.map(item=>`<tr data-review-indicator="${esc(item.id)}">

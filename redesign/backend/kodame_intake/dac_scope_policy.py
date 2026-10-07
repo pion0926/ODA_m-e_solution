@@ -26,7 +26,7 @@ def escalation_questions(documents, question_ids):
             for qid, values in kinds.items() if not values & {'positive', 'limitation'}}
 
 
-def expand_documents(all_documents, reviewed, questions):
+def expand_documents(all_documents, reviewed, questions, *, review_plan=None):
     from .dac_review import text_for, select_ranges
     from .evaluation_criteria import EVALUATION_CRITERIA
     question_by_id = {q['id']: q for c in EVALUATION_CRITERIA.values() for q in c['questions']}
@@ -37,6 +37,12 @@ def expand_documents(all_documents, reviewed, questions):
         text = text_for(doc)
         scopes = dict(previous.get('question_scopes') or {})
         for qid, reason in questions.items():
+            excluded = ((review_plan or {}).get('selection_overrides', {}).get(qid) or {}).get('excluded', [])
+            if str(doc['id']) in excluded:
+                # A user removal is a scope decision, not missing evidence to
+                # undo automatically during the initial run or its resume.
+                scopes.pop(qid, None)
+                continue
             cid = qid.rsplit('-q', 1)[0]
             if qid not in question_by_id or (qid not in scopes and cid not in doc.get('assigned_criteria', [])):
                 continue

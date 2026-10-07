@@ -66,11 +66,22 @@ def enqueue(conn, kind, arguments, model):
 def claim_task(conn, worker, slot, queue):
     from .ai.prompt_registry import prompt_manifest
     conn.execute("SELECT pg_advisory_xact_lock(hashtextextended('workflow-claim',0))")
-    return conn.execute("""UPDATE workflow_tasks SET status='running',started_at=now(),worker_id=%s,worker_slot=%s,executed_prompt_versions=%s
+    task = conn.execute("""UPDATE workflow_tasks SET status='running',started_at=now(),worker_id=%s,worker_slot=%s,executed_prompt_versions=%s
         WHERE id=(SELECT q.id FROM workflow_tasks q WHERE q.queue=%s AND q.status='queued'
         AND NOT EXISTS(SELECT 1 FROM workflow_tasks r WHERE r.project_id=q.project_id AND r.status='running')
         ORDER BY (SELECT max(p.started_at) FROM workflow_tasks p WHERE p.project_id=q.project_id) NULLS FIRST,
                  q.created_at FOR UPDATE OF q SKIP LOCKED LIMIT 1) RETURNING *""", (worker,slot,Jsonb(prompt_manifest()),queue)).fetchone()
+    if task is None:
+        return None
+    from .workflow_models import bind_claimed_model
+    try:
+        return bind_claimed_model(conn, task)
+    except ValueError as exc:
+        message = str(exc)
+        fail_receipt(conn, task, message)
+        conn.execute("UPDATE workflow_tasks SET status='failed',error_message=%s,completed_at=now() WHERE id=%s",
+                     (message, task['id']))
+        return {**task, 'status': 'failed', 'error_message': message}
 
 
 def dispatch(task):

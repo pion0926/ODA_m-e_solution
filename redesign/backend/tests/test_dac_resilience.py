@@ -12,10 +12,11 @@ from kodame_intake.evaluation_storage import retry_storage
 
 
 class ResilienceTests(unittest.TestCase):
+    @patch('kodame_intake.dac_assessor.record_question_reuse')
     @patch('kodame_intake.dac_assessor.set_current_question')
     @patch('kodame_intake.dac_assessor.save_question')
     @patch('kodame_intake.dac_assessor._request_json')
-    def test_failed_question_does_not_cancel_other_questions_and_retry_reuses_checkpoint(self,call,save,current):
+    def test_failed_question_does_not_cancel_other_questions_and_retry_reuses_checkpoint(self,call,save,current,reused):
         from kodame_intake.dac_assessor import assess_criterion,template
         from kodame_intake.evaluation_criteria import EVALUATION_CRITERIA
         criterion=EVALUATION_CRITERIA['relevance'];pdm={'status':'unavailable','model':{}}

@@ -49,6 +49,8 @@ def latest_evaluations():
             criterion, stale=lifecycle.get('evaluation_stale', False))
     total = round(sum(item["score"] for item in criteria), 1) if len(criteria) == 5 and all(i['scored'] for i in criteria) else None
     koica_grade, government_grade = grade(total) if total is not None else ('판정보류','판정보류')
+    from ..report_evaluation_context import is_provisional, PROVISIONAL_BASIS, PROVISIONAL_NOTICE
+    provisional = is_provisional(criteria)
     return {
         "status": "completed", "run_id": str(run["id"]), "model": run["model"],
         "lifecycle": lifecycle, "is_stale": lifecycle["evaluation_stale"],
@@ -56,9 +58,12 @@ def latest_evaluations():
         "pdm_context": (run.get("input_snapshot") or {}).get("pdm_context", {}),
         "rubric_digest": (run.get('input_snapshot') or {}).get('rubric_digest'),
         "reused_from_run_id": (run.get('input_snapshot') or {}).get('reused_from_run_id'),
+        "reused_questions": len((run.get('input_snapshot') or {}).get('question_reuse', {})),
         "criteria": criteria,
         "overall": {"score": total, "max_score": 20, "koica_grade": koica_grade,
                     "government_grade": government_grade,
+                    "assessment_basis": PROVISIONAL_BASIS if provisional else None,
+                    "notice": PROVISIONAL_NOTICE if provisional else '',
                     "formula": "DAC 5개 기준의 질문별 1~4점 평균 합산"},
     }
 
@@ -99,6 +104,7 @@ def evaluation_status():
         "started_at": run["started_at"].isoformat(),
         "completed_at": run["completed_at"].isoformat() if run["completed_at"] else None,
         "completed_questions": len((run.get('input_snapshot') or {}).get('question_checkpoints', {})),
+        "reused_questions": len((run.get('input_snapshot') or {}).get('question_reuse', {})),
         "total_questions": sum(len(c['questions']) for c in EVALUATION_CRITERIA.values()),
         "current_question": (run.get('input_snapshot') or {}).get('current_question'),
         "current_stage": (run.get('input_snapshot') or {}).get('current_stage'),
@@ -140,7 +146,7 @@ def start_evaluation(background_tasks: BackgroundTasks, request: Request, review
             "SELECT id,status FROM evaluation_runs WHERE status IN ('queued','running') ORDER BY started_at DESC LIMIT 1"
         ).fetchone()
         if active:
-            raise HTTPException(409, "전체 문서 재평가가 이미 진행 중입니다.")
+            raise HTTPException(409, "DAC 평가진단이 이미 진행 중입니다.")
         run_id = uuid.uuid4()
         try:
             conn.execute(
@@ -148,7 +154,7 @@ def start_evaluation(background_tasks: BackgroundTasks, request: Request, review
                 (run_id, selected_model, stats["completed"], Jsonb({'review_plan':reviewed})),
             )
         except UniqueViolation:
-            raise HTTPException(409, "전체 문서 재평가가 이미 진행 중입니다.")
+            raise HTTPException(409, "DAC 평가진단이 이미 진행 중입니다.")
         project_id = current_project_id()
         enqueue(conn, 'dac', [run_id, project_id, selected_model], selected_model)
     return {"run_id": str(run_id), "status": "queued", "document_count": stats["completed"], "model": selected_model}

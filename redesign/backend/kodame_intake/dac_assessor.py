@@ -8,11 +8,14 @@ import re
 
 import httpx
 
-from .dac_rules import RULES, VERSION, PROMPT_VERSION, definition, score_question, mean_score
+from .dac_rules import RULES, VERSION, PROMPT_VERSION, RULE_DIGEST, definition, score_question, mean_score
 from .openrouter import _request_json, AnalysisError, OutputLimitError, ContextLimitError
 from .report_text import sanitize_report_text, sanitize_text_list
 from .dac_schema import question_schema
 from .evaluation_recovery import save_question, set_current_question
+from .evaluation_recovery import record_question_reuse
+from .dac_question_reuse import source_ref, question_documents, question_digest, matching_checkpoints
+from .llm_models import current_llm_model
 
 SYSTEM_PROMPT = """당신은 ODA 증빙의 사실 판정자다. 점수를 선택하거나 계산하지 않는다.
 quote_group이 같은 근거는 긴 원문 인용을 서버가 나눈 연속 부분이다. 전체 묶음을 함께 읽고 판단하며, 각 부분의 finding을 독립적으로 입증된 사실로 간주하지 않는다. 부분 수는 독립 증빙 수가 아니다. 수치·긍정·부정 사실은 실제 해당 부분의 quote에 있는지 확인하고 필요한 모든 근거 ID를 연결한다.
@@ -24,11 +27,19 @@ negative: 미실행/미충족/부정적 결과가 직접 원문으로 확인. �
 negative 판정에는 negative_fact_quote에 미실행·미달·피해 사실을 명시한 원문 단문을 그대로 발췌해야 한다.
 예: 성별 분리데이터가 보고서에 안 보임 → unverified. 원문에 '성별 데이터는 수집하지 않았다'고 명시 → 해당 수집 지표의 negative 검토 가능.
 자료가 없어서 실패를 입증할 인용도 없으면 negative 금지. negative 외에는 negative_fact_quote를 빈 문자열로 둔다.
-limited: 실제 계획·논의·착수 또는 제한적 실행까지만 확인. 미래 계획은 성과 완료가 아니다.
-substantial: 주요 범위가 실행·달성되었지만 중요한 미완 또는 검증 한계가 남음.
-verified: 해당 지표의 전체 범위가 충족되고 공식기록·원자료로 직접 검증. 자체 서술만으로 금지.
+limited: 실제 착수·부분 실행 또는 부분 달성이 확인되며 중요한 미완이 남음. 자료의 형식·독립성 부족만으로 이 상태를 선택하지 않는다.
+substantial: 주요 범위가 실제 실행·달성되었으며 제한적인 미완이 남음. 활동 내용·대상·시점이 있는 수행기관 보고서도 긍정 근거로 적극 인정한다.
+verified: 해당 지표의 전체 범위가 제공 원문으로 충족됨. 출처의 독립성·품질은 별도 quality에 기록하며, 구체적 사실 없이 성공했다고 선언한 문장만으로 판정하지 않는다.
 unverified: 관련 자료가 없거나 해당 사실을 판단할 수 없음. 성과가 0이라는 의미가 아니다.
+not_due: 원문 일정·단계상 목표의 평가시점이 아직 도래하지 않음. 예정일 또는 미도래를 입증하는 증빙 ID와 사유를 기록한다. 기한을 모르는 것은 unverified이며, 진행 중이라는 이유만으로 이미 도래한 목표의 미달을 제외하지 않는다.
 conflicted: 같은 정의·기간·대상에 비교 가능한 긍정/부정 또는 수치가 충돌. 양쪽 근거 ID를 포함한다.
+
+사업 수행 맥락을 충분히 인정하는 내부 진단 원칙:
+- required_evidence의 문서명·표 형식은 입증 수단의 예시다. 회의록·승인서·출장보고·인터뷰·계획서·성과보고 등에서 같은 판단 사실이 확인되면 대체 증빙으로 인정한다.
+- 정책 정합·설계·협의 자체를 묻는 항목에서는 사업계획서와 협의 기록이 직접 증빙일 수 있다. 별도 대응표·RACI·문제나무가 없다는 사실만으로 실행 수준을 낮추지 않는다.
+- 성과의 실제 범위가 부족한 것과 추가 검증자료가 부족한 것을 구분한다. 전자는 limited/substantial, 후자는 quality·limitations 또는 unverified로 표시한다.
+- 미래 계획만으로 실행 실적을 만들지 않는다. 다만 계획의 적정성을 묻는 질문에서는 그 계획 자체를 평가한다.
+- 2점 이상을 만들기 위해 사실을 꾸미지 않는다. 직접 확인된 실패·미달·피해와 반대 근거는 그대로 반영한다.
 
 검토 순서:
 1. 질문·필수 증빙·1~4점 문장에 해당하는 evidence 전체를 검토한다. 파일명이나 요약만으로 판정 금지.
@@ -50,13 +61,15 @@ conflicted: 같은 정의·기간·대상에 비교 가능한 긍정/부정 또�
 source_grade: 1 수행기관 자체서술, 2 공식회의록·승인·계약·검수 기록, 3 독립 출처 또는 조사 원자료,
 4 독립 원출처 둘 이상 교차확인. 보고서가 원자료를 인용했다는 사실만으로 원자료 자체를 확보한 것은 아니다.
 예: 사업계획서가 CPS나 SDGs를 인용해도 CPS 원문과 직접 대조했다고 쓰지 않는다. 자체평가의 집행 설명은 공식 집행 승인서 자체가 아니다.
-source_grade_ceiling이 1인 근거만 사용하면 출처등급은 1이며 verified를 제안할 수 없다.
+source_grade_ceiling이 1인 근거만 사용하면 출처등급은 1이다. 이는 신뢰도 제약이며 그 자체로 성과 충족 상태를 낮추지는 않는다.
 directness: 1 해당 지표 직접 증명, 0.5 간접 정황, 0 무관. recency: 1 기준기간에 적합, 0.5 일부/기간 불명, 0 부적합.
 source_families는 실제 생산기관·원조사 이름과 출처 독립성을 입증하는 provenance를 기재한다.
 source_families의 각 원소는 반드시 {"name":"원출처 기관·조사명","provenance":"12자 이상 독립성/동일성 설명","evidence_ids":["E..."]} 객체다.
+각 출처 그룹의 evidence_ids는 반드시 같은 세부지표의 evidence_ids에 포함되어야 한다. 다른 세부지표에서만 선택한 증빙을 가져오지 않는다.
+입증할 수 없는 출처 그룹은 source_families에서 빼고 빈 배열을 사용한다. 서버는 잘못된 출처 그룹을 제외하며 교차검증 가점을 주지 않는다.
 문자열 배열이나 기관명만 넣지 않는다. 해당 지표 evidence_ids에 포함된 근거만 연결한다. 원출처가 불명확하면 []로 둔다.
 동일 생산기관의 보고서 여러 개는 하나로 묶는다. 증빙 없이 독립성을 추정하지 않는다.
-각 지표 min_grade_for_verified보다 낮은 출처만 있으면 verified로 제안하지 않는다.
+각 지표 min_grade_for_verified보다 낮은 출처만 있으면 추가 검증 필요성을 quality와 limitations에 명시한다. 자료 신뢰도와 성과 범위를 혼동하지 않는다.
 
 four_point_gate는 질문별 기재된 4점 추가요건 전체의 충족 여부다. 일부만 입증되면 met 금지.
 specific_cap은 루브릭 cap_condition이 실제 해당하는지, red_flag는 red_flag_condition에 해당하는
@@ -93,7 +106,7 @@ def evidence_registry(corpus):
     registry = {}
     for source in corpus:
         for entry in source['question_evidence']:
-            body = {**entry, 'document_id':source['document_id'], 'document_ref':source['ref'],
+            body = {**entry, 'document_id':source['document_id'], 'document_ref':source_ref(source['document_id']),
                     'file_name':source['file_name'], 'source_sha256':source.get('sha256') or source['document_id']}
             # A self-report citing an official policy does not become that primary policy.
             body['source_grade_ceiling'] = 1 if re.search(r'자체\s*평가|사업\s*계획서|사전\s*타당성|PDM|성과지표',source['file_name'],re.I) else 4
@@ -235,6 +248,11 @@ def assess_criterion(criterion_id, criterion, corpus, assessment, pdm, *, run_id
     failed_questions=[]
     for q in criterion['questions']:
         single={**criterion,'questions':[q]}
+        documents = question_documents(corpus, q['id'])
+        incomplete = [source['name'] for source in documents if source['fulltext_review'].get('status') != 'completed']
+        if incomplete:
+            failed_questions.append(f"{q['id']}: 선택한 원문 검토 미완료 · " + ', '.join(incomplete)[:350])
+            continue
         relevant={key:value for key,value in registry.items() if value['question_id']==q['id']}
         aliases={eid:f'{"T" if e.get("table_row_candidate") else "E"}{i:04d}'
                  for i,(eid,e) in enumerate(sorted(relevant.items()),1)}
@@ -250,24 +268,30 @@ def assess_criterion(criterion_id, criterion, corpus, assessment, pdm, *, run_id
             'allowed_evidence_ids':list(originals), 'allowed_pdm_indicator_ids':pdm_ids,
             'reference_rule':'evidence_ids에는 E/T 번호만, pdm_indicator_ids에는 허용 PDM ID만 그대로 복사. UUID나 문서번호를 사용하지 않는다.',
             'evidence':[{k:v for k,v in _map_refs(e,aliases).items() if k not in ('document_id','source_sha256')}
-                        for e in relevant.values()],
-            'document_review':[{'ref':s['ref'],'name':s['file_name'],'summary':s['summary'],
-                                'fulltext_review':s['fulltext_review']} for s in corpus],
+                        for _, e in sorted(relevant.items())],
+            'document_review':documents,
             'pdm_context':prompt_pdm,'response_template':template(single)}
-        digest=hashlib.sha256(json.dumps({'prompt':prompt,'registry':relevant,'system':SYSTEM_PROMPT},
-                                      sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+        digest=question_digest(prompt, relevant, SYSTEM_PROMPT, current_llm_model(), RULE_DIGEST, pdm)
         if run_id:
             set_current_question(run_id,q['id'])
-        cached=(checkpoints or {}).get(q['id']) or {}
-        if cached.get('digest') == digest:
+        reused=False
+        for cached in matching_checkpoints(checkpoints, q['id'], digest):
             try:
                 validate(single,cached['raw'],relevant,pdm)
-            except (ValueError, KeyError, TypeError):
-                pass
+            except (ValueError, KeyError, TypeError, IndexError):
+                continue
             else:
                 accepted.extend(copy.deepcopy(cached['raw']['question_assessments']))
+                if run_id:
+                    # Retain the checkpoint in the new run so repeated identical
+                    # runs never age it out of the bounded recovery history.
+                    save_question(run_id,q['id'],digest,cached['raw'])
+                    record_question_reuse(run_id,q['id'],cached.get('source_run_id'))
                 print(f'DAC QUESTION_REUSED {q["id"]}',flush=True)
-                continue
+                reused=True
+                break
+        if reused:
+            continue
         from .dac_evidence_selection import prepare_prompt
         try:
             request_prompt = prepare_prompt(prompt, run_id=run_id, saved=selections)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 import uuid
+import hashlib
+import json
 from pathlib import Path
 from psycopg.types.json import Jsonb
 
@@ -9,13 +11,13 @@ from .evaluation_criteria import EVALUATION_CRITERIA
 from .llm_models import current_llm_model, llm_model_context
 from .project_overview import generate_project_overview
 from .project_lifecycle import capture_input_snapshot
-from .dac_evidence import prepare_documents
+from .dac_evidence import prepare_documents, covered
 from .dac_review import apply_plan
 from .dac_pdm import refresh_context as refresh_pdm_context
 from .dac_assessor import assess_criterion
 from .dac_replay import fingerprint, replay_if_identical
 from .dac_rules import RULE_DIGEST
-from .evaluation_recovery import restore_run, save_context, set_stage
+from .evaluation_recovery import restore_run, save_context, set_stage, load_question_candidates
 from .dac_tables import paired_rows
 from .openrouter import redact_for_external_analysis, AnalysisError
 
@@ -58,8 +60,6 @@ def _corpus(criterion_id: str, documents: list[dict]) -> tuple[list[dict], dict[
     for doc in documents:
         review = doc.get("fulltext_review") or {}
         relevant = criterion_id in review.get('reviewed_criteria',doc["assigned_criteria"]) or doc.get('review_all',False)
-        if relevant and review.get("status") != "completed":
-            raise AnalysisError(f"DAC 전체 본문 분석이 완료되지 않았습니다: {doc['name']}")
         evidence = []
         for chunk in review.get("chunks", []):
             for item in chunk["evidence"]:
@@ -83,6 +83,30 @@ def _corpus(criterion_id: str, documents: list[dict]) -> tuple[list[dict], dict[
                         evidence.append({**row,'question_id':qid,'kind':'context','table_row_candidate':True})
         if relevant and evidence:
             id_by_ref[doc["ref"]] = doc["id"]
+        question_reviews = {}
+        for question in EVALUATION_CRITERIA[criterion_id]['questions']:
+            qid = question['id']
+            if not relevant or (doc.get('question_scopes') is not None and qid not in doc['question_scopes']):
+                continue
+            scope = (doc.get('review_question_ranges') or doc.get('question_scopes') or {}).get(qid)
+            ranges = scope.get('ranges', []) if scope else [[0, review.get('character_count', 0)]]
+            text = doc.get('review_source_text')
+            # A question's no-evidence review is an input too. Include exact
+            # source/ranges even when extraction returned an empty list.
+            text_digest = hashlib.sha256(json.dumps(
+                [text[start:end] for start, end in ranges] if text is not None else doc.get('sha256'),
+                ensure_ascii=False).encode()).hexdigest()
+            question_status = review.get('status')
+            if question_status != 'completed' and scope and ranges and all(
+                    covered(start, end, review.get('chunks', []), {qid}) for start, end in ranges):
+                # A failed range for another question does not invalidate this
+                # question's fully reviewed source selection.
+                question_status = 'completed'
+            question_reviews[qid] = {'status': question_status,
+                'source_sha256': doc.get('sha256'), 'text_digest': text_digest,
+                'ranges': ranges, 'mode': scope.get('mode') if scope else 'full',
+                'scope': '선택한 질문별 원문 범위만 검토함. 범위 밖 자료의 부재나 미실행을 단정하지 말 것.'
+                         if scope else '전체 본문'}
         corpus.append({
             "ref": doc["ref"],
             "document_id": doc['id'], "sha256": doc.get('sha256',''),
@@ -97,6 +121,7 @@ def _corpus(criterion_id: str, documents: list[dict]) -> tuple[list[dict], dict[
                                 "scope": '사용자가 선택한 질문별 원문 범위만 검토함. 범위 밖 자료의 부재나 미실행을 단정하지 말 것.' if doc.get('question_scopes') else '전체 본문',
                                 "chunk_count": len(review.get("chunks", []))},
             "question_evidence": evidence,
+            "question_reviews": question_reviews,
         })
     return corpus, id_by_ref
 
@@ -109,7 +134,7 @@ def prepare_review(run_id, documents, review_plan, recovered=None):
         # initial narrower plan first would overwrite completed full reviews.
         from .dac_scope_policy import expand_documents
         set_stage(run_id, 'expanded_evidence')
-        review_documents = expand_documents(documents, review_documents, resumed_expansion)
+        review_documents = expand_documents(documents, review_documents, resumed_expansion, review_plan=review_plan)
         prepare_documents(review_documents, allow_partial=True)
     else:
         set_stage(run_id,'evidence')
@@ -122,7 +147,7 @@ def prepare_review(run_id, documents, review_plan, recovered=None):
             # Persist the selected expansion before requests, including a
             # failure midway through full-text review.
             set_stage(run_id, 'expanded_evidence', scope_escalation=expanded)
-            review_documents = expand_documents(documents, review_documents, expanded)
+            review_documents = expand_documents(documents, review_documents, expanded, review_plan=review_plan)
             prepare_documents(review_documents, allow_partial=True)
     return review_documents
 
@@ -170,10 +195,12 @@ def _run_all(run_id: uuid.UUID | None = None) -> uuid.UUID:
             print(f'EVALUATION_REUSED {run_id}', flush=True)
             return run_id
         recovered = restore_run(run_id, fingerprint(documents, selected_model, review_plan), input_snapshot)
+        candidate_checkpoints, selections = load_question_candidates(run_id)
         if recovered:
             assessment = recovered['assessment']
             pdm_context = recovered['pdm_context']
-            checkpoints = recovered.get('question_checkpoints', {})
+            checkpoints = {**candidate_checkpoints, **recovered.get('question_checkpoints', {})}
+            selections.update(recovered.get('evidence_selections', {}))
             print(f'EVALUATION_RESUMED {run_id}', flush=True)
         else:
             set_stage(run_id,'overview')
@@ -188,7 +215,7 @@ def _run_all(run_id: uuid.UUID | None = None) -> uuid.UUID:
             assessment = assessment_scope(overview_row["overview"] if overview_row else {})
             pdm_context = refresh_pdm_context(documents)
             save_context(run_id, fingerprint(documents, selected_model, review_plan), assessment, pdm_context)
-            checkpoints = {}
+            checkpoints = candidate_checkpoints
         review_documents = prepare_review(run_id, documents, review_plan, recovered)
         evaluated_fingerprint = fingerprint(documents, selected_model, review_plan)
         criterion_errors = []
@@ -199,7 +226,7 @@ def _run_all(run_id: uuid.UUID | None = None) -> uuid.UUID:
                 corpus, id_by_ref = _corpus(criterion_id, review_documents)
                 result = assess_criterion(criterion_id, criterion, corpus, assessment, pdm_context,
                                           run_id=run_id, checkpoints=checkpoints,
-                                          selections=(recovered or {}).get('evidence_selections'))
+                                          selections=selections)
             except AnalysisError as exc:
                 criterion_errors.append(f"{criterion['name']}: {exc}")
                 continue

@@ -17,7 +17,7 @@ from psycopg.types.json import Jsonb
 from .db import connection
 from .openrouter import AnalysisError, MissingApiKey, _request_json, redact_for_external_analysis
 
-MEASUREMENT_VERSION = 'pdm-evidence-v7-proposals'
+MEASUREMENT_VERSION = 'pdm-evidence-v8-scope'
 
 MEASUREMENT_PROMPT = load_prompt("performance_measurements")
 
@@ -28,8 +28,15 @@ def measurement_schema(indicators, sources=None):
     ident={'type':'string','enum':[i['id'] for i in indicators]}
     string={'type':'string'}
     reference = {'quote': string} if sources is None else {'source_id': {'type': 'string', 'enum': list(sources)}}
+    from .performance_scope import BASES
+    scope = obj({'basis': {'type':'string', 'enum':list(BASES)}, 'scope_label':string,
+                 'period_unit':{'type':'string','enum':['project','year','month','day','unspecified']},
+                 'event_name':string, 'event_date':string, 'event_end_date':string, 'event_location':string,
+                 'event_completed':{'type':'boolean'}})
+    context = {} if sources is None else {'context_source_ids':{'type':'array','items':{'type':'string','enum':list(sources)}}}
     return obj({'observations':{'type':'array','items':obj({'indicator_id':ident,
-        'kind':{'type':'string','enum':['actual','target']},'value':string,**reference,'period':string})},
+        'kind':{'type':'string','enum':['actual','target']},'value':string,**reference,**context,'period':string,
+        'measurement_scope':scope})},
         'reviews':{'type':'array','items':obj({'indicator_id':ident,
             'status':{'type':'string','enum':['found','no_measurement']},'reason':string})}})
 
@@ -76,8 +83,11 @@ def extract_measurements(document, indicators, *, previous_evaluation=None):
     digest = hashlib.sha256((MEASUREMENT_VERSION + current_llm_model() + text + json.dumps(roster, ensure_ascii=False, sort_keys=True)).encode()).hexdigest()
     if previous_evaluation is not None:
         digest=hashlib.sha256((digest+json.dumps(previous_evaluation,ensure_ascii=False,sort_keys=True)).encode()).hexdigest()
-    cached = (document.get("analysis") or {}).get("pdm_measurements", {})
+    analysis = document.get('analysis') or {}
+    cache = dict(analysis.get('pdm_measurement_cache') or {})
+    cached = cache.get(digest) or analysis.get("pdm_measurements", {})
     if cached.get("digest") == digest and not cached.get('unverified_indicator_ids'):
+        document['analysis'] = {**analysis, 'pdm_measurements':cached}
         return cached["observations"]
     observations = []
     rejected_observations = []
@@ -128,15 +138,23 @@ def extract_measurements(document, indicators, *, previous_evaluation=None):
             if item.get("kind") not in {"actual", "target"} or not quote or _compact(quote) not in _compact(chunk):
                 rejected_observations.append({**item,'exclusion_reason':'제안한 원문 출처 또는 측정값 종류를 확인하지 못했습니다.'})
                 continue
+            indicator = next(i for i in indicators if i['id'] == item['indicator_id'])
+            context_quotes = [quote, *(sources[key] for key in item.get('context_source_ids', [])
+                                      if isinstance(key, str) and key in sources)]
+            from .performance_scope import normalize_scope
+            scope = normalize_scope(item.get('measurement_scope'), '\n'.join(dict.fromkeys(context_quotes)),
+                                    indicator, value, item['kind'])
             # Accept only explicitly quoted numbers / qualitative values.
             numeric = _number(value)
             if numeric:
                 quoted_numbers = [float(n.replace(",", "")) for n in re.findall(r"\d[\d,]*(?:\.\d+)?", quote)]
-                if numeric[0] not in quoted_numbers:
+                # An individually identified completed event is one event, even
+                # when its narrative never writes the aggregate phrase "1회".
+                event_count = numeric == (1, '회') and scope.get('event_identity')
+                if numeric[0] not in quoted_numbers and not event_count:
                     rejected_observations.append({**item,'exclusion_reason':'제안한 수치가 선택한 원문에 없습니다.'})
                     continue
             else:
-                indicator = next(i for i in indicators if i['id'] == item['indicator_id'])
                 categorical = re.search(r'\(\s*유\s*/\s*무\s*\)', indicator.get('indicator', ''))
                 # An exact foreign-language approval quote need not contain its
                 # normalized Korean yes/no label. The source itself stays exact.
@@ -150,7 +168,11 @@ def extract_measurements(document, indicators, *, previous_evaluation=None):
                 period=''
             observation = {"indicator_id": item["indicator_id"], "kind": item["kind"], "value": value,
                 "quote": quote, "period": period,
-                "document_id": str(document["id"]), "file_name": document["original_name"]}
+                "document_id": str(document["id"]), "file_name": document["original_name"],
+                "measurement_scope":scope}
+            if scope.get('event_identity'):
+                observation['period'] = scope['event_date']
+                observation['value_origin'] = 'identified_completed_event'
             from .measurement_dimensions import validate_dimension
             observation, reason = validate_dimension(next(i for i in indicators if i['id'] == item['indicator_id']), observation)
             if reason:
@@ -180,9 +202,13 @@ def extract_measurements(document, indicators, *, previous_evaluation=None):
     if document['analysis'] is None:
         document['analysis']={}
     document['analysis']['pdm_measurements']=review_data
+    cache.pop(digest, None)
+    cache[digest] = review_data
+    cache = dict(list(cache.items())[-4:])
+    document['analysis']['pdm_measurement_cache'] = cache
     with connection() as conn:
-        conn.execute("UPDATE intake_documents SET analysis=jsonb_set(COALESCE(analysis,'{}'::jsonb),'{pdm_measurements}',%s) WHERE id=%s",
-                     (Jsonb(review_data), document["id"]))
+        conn.execute("UPDATE intake_documents SET analysis=jsonb_set(jsonb_set(COALESCE(analysis,'{}'::jsonb),'{pdm_measurements}',%s),'{pdm_measurement_cache}',%s) WHERE id=%s",
+                     (Jsonb(review_data), Jsonb(cache), document["id"]))
     return observations
 
 

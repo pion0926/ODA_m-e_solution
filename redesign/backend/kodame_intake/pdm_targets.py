@@ -46,6 +46,7 @@ def apply_pdm_targets(indicators, source_id):
             changed.add(item['id'])
         item['target'] = target['value']
         item['pdm_target'] = {**target, 'document_id': str(source_id)}
+        item['target_review_required'] = False
         item.setdefault('selected_measurements', {})['target'] = {
             **item['pdm_target'], 'kind': 'target', 'indicator_id': item['id']}
         # A reported target does not amend the PDM. Preserve differences for review.

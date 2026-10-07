@@ -32,7 +32,8 @@ def prepare_project(project_id, root):
             path=root/(str(doc['id'])+'.json')
             if path.exists():
                 candidate=json.loads(path.read_text())
-                if candidate['stamp']==stamp(doc) and candidate['sources']==context['sources']:
+                if (candidate['stamp']==stamp(doc) and candidate['sources']==context['sources']
+                        and candidate.get('matches', {}).get('version') == VERSION):
                     return candidate
             with tenant_context(project_id), llm_model_context(model):
                 text=Path(doc['extracted_path']).read_text(encoding='utf-8')
@@ -71,7 +72,8 @@ def apply_project(project_id, root):
         candidates=[]
         for doc in docs:
             value=json.loads((root/(str(doc['id'])+'.json')).read_text())
-            if value['stamp']!=stamp(doc) or value['sources']!=context['sources']:
+            if (value['stamp']!=stamp(doc) or value['sources']!=context['sources']
+                    or value.get('matches', {}).get('version') != VERSION):
                 raise RuntimeError('Inputs changed; prepare again before applying')
             candidates.append(value)
         for doc,candidate in zip(docs,candidates):
@@ -97,8 +99,36 @@ def apply_project(project_id, root):
         return {'project_id':str(project_id),'status':'applied','documents':len(docs)}
 
 
+def review_prepared_scopes(project_id, root):
+    """Recheck contradictory reported-result scope candidates without rereading all files."""
+    from .pdm_scope_review import review_reference_scopes
+    with tenant_context(project_id), llm_model_context(get_project_model(project_id)):
+        context = foundation_context()
+        with connection() as conn:
+            docs = conn.execute("SELECT * FROM evaluation_intake_documents WHERE status='completed' AND upload_role='evidence' ORDER BY queue_position").fetchall()
+        reviewed, promoted = 0, 0
+        for doc in docs:
+            path = root / (str(doc['id']) + '.json')
+            candidate = json.loads(path.read_text(encoding='utf-8'))
+            if (candidate['stamp'] != stamp(doc) or candidate['sources'] != context['sources']
+                    or candidate.get('matches', {}).get('version') != VERSION):
+                raise RuntimeError('Inputs changed; prepare again before reviewing scopes')
+            previous_count = len(candidate['matches']['pdm'])
+            matches, count = review_reference_scopes(candidate['matches'], context)
+            if not count:
+                continue
+            candidate['matches'] = matches
+            temp = path.with_suffix('.tmp')
+            temp.write_text(json.dumps(candidate, ensure_ascii=False), encoding='utf-8')
+            temp.replace(path)
+            reviewed += count
+            promoted += len(matches['pdm']) - previous_count
+        return {'project_id': str(project_id), 'status': 'scope_reviewed',
+                'reviewed_candidates': reviewed, 'new_direct_pairs': promoted}
+
+
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('mode',choices=['prepare','apply'])
+    parser=argparse.ArgumentParser();parser.add_argument('mode',choices=['prepare','apply','review-scopes'])
     parser.add_argument('--root',required=True);parser.add_argument('--project')
     args=parser.parse_args();root=Path(args.root);root.mkdir(parents=True,exist_ok=True)
     pool.open(wait=True)
@@ -107,7 +137,8 @@ def main():
             projects=c.execute("SELECT project_id FROM active_intake_documents WHERE status='completed' AND upload_role IN ('pdm','project_plan') GROUP BY project_id HAVING count(DISTINCT upload_role)=2").fetchall()
         for p in projects:
             if args.project and str(p['project_id'])!=args.project:continue
-            result=(prepare_project if args.mode=='prepare' else apply_project)(p['project_id'],root)
+            handler = {'prepare': prepare_project, 'apply': apply_project, 'review-scopes': review_prepared_scopes}[args.mode]
+            result=handler(p['project_id'],root)
             print(json.dumps(result,ensure_ascii=False),flush=True)
             if result.get('errors'):raise RuntimeError('Some documents failed: completed candidates retained for retry')
     finally:pool.close()

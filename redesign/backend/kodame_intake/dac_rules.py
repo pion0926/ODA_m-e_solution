@@ -11,7 +11,7 @@ ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'config/dac_evid
 RULES = json.loads((ROOT / 'config/dac_evidence_rubric.json').read_text(encoding='utf-8'))
 VERSION = RULES['version']
 RULE_DIGEST = hashlib.sha256(json.dumps(RULES, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
-PROMPT_VERSION = 'dac-fact-judgement-v12'
+PROMPT_VERSION = 'dac-fact-judgement-v14-contextual'
 STATES = RULES['states']
 
 
@@ -85,29 +85,21 @@ def score_question(qid, item, evidence):
         for key in ('directness','recency'):
             if quality.get(key) in ('0','0.5','1'):
                 quality[key]=float(quality[key])
-        if state not in {'unverified','conflicted'}:
+        if state not in {'unverified','conflicted','not_due'}:
             if quality.get('source_grade') not in (1,2,3,4):
                 raise ValueError(f'{spec["id"]}: 출처등급 1~4가 필요합니다.')
             if any(type(quality.get(k)) not in (int,float) or quality[k] not in (0,0.5,1) for k in ('directness','recency')):
                 raise ValueError(f'{spec["id"]}: 직접성·시의성은 0/0.5/1이어야 합니다.')
             _reason(quality.get('rationale'),f'{spec["id"]}.quality.rationale')
         # Independence must identify the originating institution/data, not document counts.
-        families = fact.get('source_families', [])
-        if not isinstance(families, list) or any(not isinstance(f, dict) for f in families):
-            raise ValueError(f'{spec["id"]}.source_families는 name, provenance, evidence_ids 필드를 가진 객체 배열이어야 합니다. 문자열 배열은 허용하지 않습니다.')
+        from .dac_corroboration import validated_families
+        families, family_warnings = validated_families(
+            fact.get('source_families', []), fact['evidence_ids'], evidence, qid)
         family_names = set()
         used_docs = set()
-        unproven_family=False
         for family in families:
             family_sources = refs_for(family.get('evidence_ids', []), evidence, qid)
-            if not family_sources or not set(family.get('evidence_ids', [])).issubset(fact.get('evidence_ids', [])):
-                raise ValueError('교차검증은 해당 지표에서 선택한 증빙만 사용할 수 있습니다.')
-            if not isinstance(family.get('provenance'),str) or len(family['provenance'].strip())<12:
-                unproven_family=True
-                continue
             name = str(family.get('name') or '').strip().lower()
-            if not name:
-                raise ValueError('원출처 기관·데이터 집단을 명시해야 합니다.')
             family_names.add(name)
             used_docs.update(s['source_sha256'] for s in family_sources)
         independent = len(family_names) >= 2 and len(used_docs) >= 2
@@ -123,9 +115,7 @@ def score_question(qid, item, evidence):
               + weights['recency'] * quality.get('recency', 0))
         if not sources:
             dq = 0
-        applied = []
-        if unproven_family:
-            applied.append('원출처 설명이 불충분한 출처 그룹은 독립 교차검증에 반영하지 않음')
+        applied = list(family_warnings)
         if ceiling == 1 and sources:
             applied.append('계획서·자체평가·타당성조사·PDM/실적 집계의 서술은 공식 원문·원시 측정자료 자체를 대신하지 못하므로 출처등급 최대 1 적용')
         effective = state
@@ -134,6 +124,8 @@ def score_question(qid, item, evidence):
             effective = 'unverified'
             applied.append('직접적인 미실행·미달·피해 사실의 원문 발췌가 없어 미충족을 확정하지 않고 미확인으로 처리')
         measurements = calculate(fact.get('measurements',[]), evidence, qid, refs_for)
+        if state == 'not_due' and any(m.get('due') is True for m in measurements):
+            raise ValueError('목표시점 미도래 판정과 도래한 정량 측정치가 모순됩니다.')
         if not measurements and effective == 'verified' and spec['id'] in {'EQ1_I01','EQ2_I01','FQ1_I01','FQ1_I02'}:
             effective = 'substantial'
             applied.append('목표·실적 수치의 원문 대조 및 재계산 없이 정량 지표 완전충족 불가')
@@ -146,7 +138,7 @@ def score_question(qid, item, evidence):
             # Keep missing/not-due measurements visible. No averaging away an unverified core metric.
             observed_measurements = [m for m in measurements if m['ratio'] is not None]
             if not observed_measurements:
-                effective = 'unverified'
+                effective = 'not_due' if state == 'not_due' else 'unverified'
             elif state != 'conflicted':
                 if spec['id'] in {'EQ1_I01','EQ2_I01'}:
                     ratio = sum(Decimal(str(m['ratio'])) for m in observed_measurements) / len(observed_measurements)
@@ -164,14 +156,13 @@ def score_question(qid, item, evidence):
             effective='unverified'
             finding='정량 비교 수치를 지정된 원문에서 검증하지 못해 이 항목의 판정을 보류합니다. '+' '.join(m['validation_error'] for m in invalid_measurements)
             applied.append('원문에서 확인할 수 없는 제안 수치는 점수·성과 판단에서 제외하고 항목을 미확인으로 전환')
-        if effective == 'verified' and (grade < spec.get('min_grade_for_verified',2) or quality.get('directness') != 1 or quality.get('recency') != 1):
-            effective = 'substantial'
-            applied.append(f"완전충족은 출처 {spec.get('min_grade_for_verified',2)}등급 이상·직접입증·평가기간 적합이 모두 필요")
+        if effective == 'verified' and grade < spec.get('min_grade_for_verified',2):
+            applied.append('성과 충족 판단은 유지하되 출처 신뢰도 부족을 별도로 표시; 공식 확정평가가 아닌 잠정 진단')
         merit = STATES[effective]
         valid = merit is not None and dq >= RULES['valid_dq_min']
         checks.append({**spec, 'state': effective, 'proposed_state': state,
             'status': {'negative':'not_met','limited':'partial','substantial':'partial','verified':'met',
-                       'unverified':'unverified','conflicted':'conflicted'}[effective],
+                       'unverified':'unverified','conflicted':'conflicted','not_due':'not_due'}[effective],
             'finding': finding, 'merit': merit, 'dq': rounded(dq, 3), 'valid_evidence': valid,
             'quality': {**quality, 'effective_source_grade':grade, 'independent_corroboration':independent},
             'source_families':families, 'applied_rules':applied, 'measurements':measurements,
@@ -186,7 +177,8 @@ def score_question(qid, item, evidence):
     observed = [c for c in checks if c['merit'] is not None]
     weight = sum(c['weight'] for c in observed)
     merit = sum(Decimal(str(c['merit'])) * c['weight'] for c in observed) / weight * 100 if weight else None
-    coverage = sum(c['weight'] for c in checks if c['valid_evidence']) / sum(c['weight'] for c in checks)
+    eligible_weight = sum(c['weight'] for c in checks if c['state'] != 'not_due')
+    coverage = sum(c['weight'] for c in checks if c['valid_evidence']) / eligible_weight if eligible_weight else 0
     dq = sum(c['dq'] * c['weight'] for c in observed) / weight if weight else 0
     confidence = 100 * (0.55 * coverage + 0.45 * dq)
     base = 1 + sum(merit >= Decimal(str(t)) for t in RULES['merit_thresholds']) if merit is not None else None
@@ -195,6 +187,9 @@ def score_question(qid, item, evidence):
         caps.append({'rule':'COVERAGE_CAP', 'maximum':3, 'reason':'근거 확보율 85% 미만'})
     if gate['status'] != 'met' or any(c['state'] != 'verified' for c in checks):
         caps.append({'rule':'FOUR_POINT_GATE', 'maximum':3, 'reason':rule['gate']})
+    if any(c['state']=='verified' and c['quality']['effective_source_grade'] < c.get('min_grade_for_verified',2) for c in checks):
+        caps.append({'rule':'FOUR_POINT_CONFIDENCE', 'maximum':3,
+                     'reason':'성과 충족 판단은 유지하지만 최고 4점에는 추가 출처 검증이 필요함'})
     if cap['status'] == 'met':
         caps.append({'rule':'QUESTION_CAP', 'maximum':2 if qid == 'relevance-q2' else 3, 'reason':rule['cap_condition']})
     if flag['status'] == 'met':
@@ -207,7 +202,7 @@ def score_question(qid, item, evidence):
     status = ('conflicted' if conflict else 'needs_evidence' if coverage < RULES['coverage_min']
               else 'needs_review' if confidence < RULES['confidence_min'] else 'proposed')
     score = min([base]+[c['maximum'] for c in caps]) if base is not None and status == 'proposed' else None
-    gaps = [f"{c['criterion']}: {c['required_evidence']}" for c in checks if c['state'] != 'verified']
+    gaps = [f"{c['criterion']}: {c['required_evidence']}" for c in checks if c['state'] not in ('verified','not_due')]
     reason = (f"관측 {len(observed)}/5개, 근거 확보율 {coverage*100:.0f}%, 증거 신뢰도 {confidence:.1f}%. "
               + (f"성과지수 {float(merit):.1f} → 기본 {base}점. " if merit is not None else '판단 가능한 성과 근거 없음. ')
               + (f"상한 적용 후 {score}점." if score is not None else '자료 미확인 또는 충돌로 점수 판정 보류.'))
@@ -216,4 +211,8 @@ def score_question(qid, item, evidence):
             'selected_level_reason':reason, 'next_level_gap':' / '.join(gaps) or '검증된 성과와 증빙을 유지하고 후속 측정 필요',
             'status':status, 'merit_index':rounded(merit) if merit is not None else None,
             'coverage':rounded(coverage,3),'evidence_dq':rounded(dq,3),'confidence':rounded(confidence),
+            'assessment_basis':'provisional_document_review',
+            'timing':{'not_due_count':sum(c['state']=='not_due' for c in checks),
+                      'unverified_count':sum(c['state']=='unverified' for c in checks),
+                      'scored_count':len(observed)},
             'base_score':base,'applied_rules':caps,'four_point_gate':gate,'specific_cap':cap,'red_flag':flag}

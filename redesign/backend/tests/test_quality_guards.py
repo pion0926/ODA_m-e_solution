@@ -219,7 +219,7 @@ class QualityGuardTests(unittest.TestCase):
         )
         self.assertTrue(any("완료기한 필드 누락" in issue for issue in issues))
 
-    def test_grade_and_conclusion_require_official_twenty_point_grades(self) -> None:
+    def test_grade_and_conclusion_require_saved_twenty_point_grades(self) -> None:
         evaluations = [
             {"criterion_id": "relevance", "score": 3.5},
             {"criterion_id": "coherence", "score": 2.5},
@@ -229,12 +229,20 @@ class QualityGuardTests(unittest.TestCase):
         ]
         issues = _quantitative_consistency_issues("grade", "종합등급은 우수/양호 수준이다.", evaluations)
         self.assertTrue(any("14.7/20점" in issue for issue in issues))
-        self.assertTrue(any("공식 KOICA 등급" in issue for issue in issues))
-        self.assertTrue(any("공식 국무조정실 등급" in issue for issue in issues))
+        self.assertTrue(any("KOICA" in issue and "등급 C" in issue for issue in issues))
+        self.assertTrue(any("국무조정실" in issue and "성공적" in issue for issue in issues))
         completed = _ensure_official_grade_statement("conclusion", "성과와 한계를 종합한다.", evaluations)
+        # A previous scoring policy keeps its historical assessment label;
+        # the shared numeric validator does not prescribe official status.
+        self.assertIn("공식 종합판정", completed)
+        self.assertNotIn("잠정", completed)
         self.assertIn("14.7/20점", completed)
         self.assertIn("KOICA 등급 C", completed)
         self.assertIn("국무조정실 등급 성공적", completed)
+        self.assertEqual(_quantitative_consistency_issues("conclusion", completed, evaluations), [])
+        wrong_grade = completed.replace("KOICA 등급 C", "KOICA 등급 A")
+        self.assertTrue(any("KOICA" in issue for issue in
+                            _quantitative_consistency_issues("conclusion", wrong_grade, evaluations)))
         reader_issues = _validate_reader_content(
             "conclusion",
             completed + "\n" + ("판단의 근거와 한계를 균형 있게 서술한다. " * 80),

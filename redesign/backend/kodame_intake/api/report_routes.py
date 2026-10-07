@@ -163,7 +163,7 @@ def start_all_report_generation(background_tasks: BackgroundTasks, request: Requ
             "SELECT id FROM evaluation_runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1"
         ).fetchone()
         if not evaluation:
-            raise HTTPException(409, "먼저 평가기준 탭에서 전체 문서 재평가를 완료하세요.")
+            raise HTTPException(409, "먼저 DAC 평가진단에서 현재 자료를 반영한 평가를 완료하세요.")
         lifecycle = project_lifecycle(conn)
         if not lifecycle["can_generate_report"]:
             raise HTTPException(409, lifecycle["message"])
@@ -227,7 +227,9 @@ def resume_report_generation(run_id: uuid.UUID, background_tasks: BackgroundTask
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
         try:
-            selected_model = require_available_model(previous["model"] or _request_llm_model(request))
+            # Existing sections retain their own generation model; newly
+            # requested sections follow the current project model policy.
+            selected_model = require_available_model(_request_llm_model(request))
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
         new_id = uuid.uuid4()

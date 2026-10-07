@@ -11,7 +11,7 @@ from .dac_rules import RULES
 from .project_lifecycle import capture_input_snapshot
 from .dac_scope_policy import missing_ranges
 
-VERSION = 'dac-focused-v2'
+VERSION = 'dac-focused-v3'
 
 
 def digest(value):
@@ -36,8 +36,11 @@ def select_ranges(text, question, analysis, *, excluded_ranges=(), max_blocks=3,
     terms.update(re.findall(r'[\w가-힣]{3,}', navigation))
     blocks = [(i, min(len(text), i+5000)) for i in range(0, len(text), 4000)]
     matches = (analysis.get('evidence_matches') or {})
-    quotes = [m.get('evidence_quote', '') for axis in ('dac_slots', 'project_plan', 'pdm')
-              for m in matches.get(axis, []) if m.get('evidence_quote')]
+    # Intake quotes locate relevant source windows; unrelated PDM/plan or DAC
+    # criteria must not outrank the question's own facts merely by volume.
+    quotes = [m['evidence_quote'] for m in matches.get('dac_slots', [])
+              if m.get('criterion') == cid and m.get('evidence_quote')
+              and (not m.get('question_ids') or question['id'] in m['question_ids'])]
     question_facts = [f for f in (analysis.get('registration_facts') or {}).get('facts', [])
                       if question['id'] in f.get('dac_question_ids', [])]
     quotes.extend(f['evidence_quote'] for f in question_facts if f.get('evidence_quote'))
@@ -58,6 +61,19 @@ def select_ranges(text, question, analysis, *, excluded_ranges=(), max_blocks=3,
         else:
             ranges.append([start, end])
     return ranges or ([[0, min(len(text), 5000)]] if text and fallback and not excluded_ranges else [])
+
+
+def selected_by_history(qid, ident, automatic, previous_plan, previous_ids):
+    overrides = previous_plan.get('selection_overrides', {}).get(qid)
+    if overrides is not None:
+        if ident in overrides.get('excluded', []):
+            return False
+        return automatic or ident in overrides.get('included', [])
+    # Legacy snapshots did not distinguish accepted defaults from user edits.
+    # Preserve their exact choices rather than silently removing a manual map.
+    if ident in previous_ids and qid in previous_plan.get('mappings', {}):
+        return ident in previous_plan['mappings'][qid]
+    return automatic
 
 
 def build_plan(conn=None):
@@ -86,7 +102,7 @@ def build_plan(conn=None):
     indicators = []
     for cid, criterion in EVALUATION_CRITERIA.items():
         for question in criterion['questions']:
-            scopes, selected = {}, []
+            scopes, selected, automatic_ids = {}, [], []
             for row, doc in zip(rows, documents):
                 analysis = row.get('analysis') or {}
                 links = [a for a in assignments if str(a['document_id']) == doc['id'] and a['criterion'] == cid]
@@ -94,9 +110,10 @@ def build_plan(conn=None):
                 facts = (analysis.get('registration_facts') or {}).get('facts', [])
                 question_match = any(question['id'] in f.get('dac_question_ids', []) for f in facts)
                 matched = bool(question_match or links or cid in analysis.get('dac_criteria', []))
-                chosen = foundation or matched
-                if doc['id'] in previous_ids and question['id'] in previous_plan.get('mappings',{}):
-                    chosen = doc['id'] in previous_plan['mappings'][question['id']]
+                automatic = foundation or matched
+                if automatic and doc['status'] == 'completed':
+                    automatic_ids.append(doc['id'])
+                chosen = selected_by_history(question['id'], doc['id'], automatic, previous_plan, previous_ids)
                 if chosen and doc['status'] == 'completed':
                     selected.append(doc['id'])
                 ranges = select_ranges(texts[doc['id']], question, analysis)
@@ -111,7 +128,8 @@ def build_plan(conn=None):
                     'previews':[{'start':s,'end':e,'excerpt':texts[doc['id']][s:min(e,s+600)]} for s,e in ranges]}
             indicators.append({'id':question['id'], 'text':question['question'], 'tier_name':criterion['name'],
                 'mov':' / '.join(c['required_evidence'] for c in RULES['questions'][question['id']]['checks']),
-                'document_ids':selected,'scopes':scopes,
+                'document_ids':selected,'automatic_document_ids':automatic_ids,'scopes':scopes,
+                'selection_overrides':previous_plan.get('selection_overrides', {}).get(question['id'], {}),
                 'full_review':any(s.get('mode')=='full' for s in previous_plan.get('scopes',{}).get(question['id'],{}).values())})
     snapshot = capture_input_snapshot(conn)
     active = conn.execute("SELECT id FROM evaluation_runs WHERE status IN ('queued','running') UNION ALL SELECT id FROM pdm_refresh_runs WHERE status IN ('queued','running') LIMIT 1").fetchone()
@@ -131,16 +149,23 @@ def validate_selection(plan, revision, mappings, full_questions):
     allowed = {d['id'] for d in plan['documents'] if d['status'] == 'completed'}
     if set(mappings) != qids or not set(full_questions) <= qids:
         raise HTTPException(422, '모든 DAC 질문의 문서 선택을 확인해 주세요.')
-    scopes = {}
+    scopes, overrides = {}, {}
     for question in plan['indicators']:
         qid = question['id']
         ids = mappings[qid]
         if len(ids) != len(set(ids)) or not set(ids) <= allowed:
             raise HTTPException(422, '현재 프로젝트의 완료된 문서만 연결할 수 있습니다.')
         scopes[qid] = {ident:{**question['scopes'][ident], 'mode':'full' if qid in full_questions else 'focused'} for ident in ids}
+        automatic = set(question.get('automatic_document_ids', question.get('document_ids', [])))
+        old = question.get('selection_overrides') or {}
+        chosen = set(ids)
+        overrides[qid] = {
+            'included': sorted(((set(old.get('included', [])) & chosen) | (chosen - automatic)) & allowed),
+            'excluded': sorted(((set(old.get('excluded', [])) - chosen) | (automatic - chosen)) & allowed),
+        }
     if not any(mappings.values()):
         raise HTTPException(422,'평가할 문서를 하나 이상 선택해 주세요.')
-    return {'version':VERSION,'revision':revision,'mappings':mappings,'scopes':scopes,
+    return {'version':VERSION,'revision':revision,'mappings':mappings,'scopes':scopes,'selection_overrides':overrides,
             'input_snapshot':plan['input_snapshot'], 'documents':plan['documents']}
 
 

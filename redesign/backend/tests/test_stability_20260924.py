@@ -95,7 +95,7 @@ def test_question_resume_skips_verified_question_but_revalidates_inputs():
         raw['question_assessments'][0]['finding']='제공된 문서에 실행 결과가 없어 해당 성과는 확인할 수 없습니다.'
         return raw,'test'
     def save(run,qid,digest,raw): cache[qid]={'digest':digest,'raw':copy.deepcopy(raw)}
-    with patch.object(dac,'_request_json',side_effect=answer), patch.object(dac,'save_question',side_effect=save), patch.object(dac,'set_current_question'):
+    with patch.object(dac,'_request_json',side_effect=answer), patch.object(dac,'save_question',side_effect=save), patch.object(dac,'set_current_question'), patch.object(dac,'record_question_reuse'):
         dac.assess_criterion('relevance',criterion,[],{},pdm,run_id='first')
         assert len(calls)==len(criterion['questions'])
         failed=criterion['questions'][-1]['id'];del cache[failed];calls.clear()

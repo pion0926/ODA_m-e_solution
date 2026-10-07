@@ -5,7 +5,10 @@ from .ai_gateway import BillingError, ConfigurationError, ProviderTransientError
 from .model_catalog import prepare_model_payload
 from .koica_guidance import GUIDANCE_PROMPT, GUIDANCE_VERSION
 from .ai.prompt_registry import prompt_manifest
-from .report_evaluation_context import for_report as evaluation_context_for_report
+from .report_evaluation_context import (
+    for_report as evaluation_context_for_report, is_provisional, qualify_grade_slots,
+    qualify_report_text, PROVISIONAL_BASIS, PROVISIONAL_NOTICE,
+)
 from .evaluation_identity import evaluator_identity
 from .report_performance import performance_context, bind_achievement, source_ids as performance_source_ids
 
@@ -264,6 +267,8 @@ def _official_grade_context(evaluations: list[dict]) -> dict:
         "max_score": 20,
         "koica_grade": koica_grade,
         "government_grade": government_grade,
+        "assessment_basis": PROVISIONAL_BASIS if is_provisional(rows) else "stored_evaluation",
+        "notice": PROVISIONAL_NOTICE if is_provisional(rows) else "저장된 평가점수와 등급을 그대로 사용한다.",
     }
 
 
@@ -277,15 +282,9 @@ def _verified_execution_scope(overview: dict) -> dict:
         pdm_row = conn.execute(
             """SELECT p.source_file_name,p.pdm_version,p.model,d.extracted_path
                  FROM pdm_models p
-                 LEFT JOIN evaluation_intake_documents d ON d.id=p.source_document_id
-                ORDER BY
-                  CASE
-                    WHEN p.source_file_name ILIKE '%%최신%%PDM%%'
-                      OR p.source_file_name ILIKE '%%PDM%%최신%%' THEN 0
-                    WHEN p.source_file_name ILIKE '%%수정%%' THEN 1
-                    ELSE 2
-                  END,
-                  p.created_at DESC
+                 JOIN evaluation_intake_documents d ON d.id=p.source_document_id
+                WHERE d.upload_role='pdm' AND d.status='completed'
+                ORDER BY p.created_at DESC
                 LIMIT 1"""
         ).fetchone()
     names = "\n".join(str(row["original_name"]) for row in rows)
@@ -415,7 +414,7 @@ def _quality_prompt(section: dict, evidence: list[dict], examples: list[dict], o
 score=null은 0점이나 1점이 아니라 자료 부족·충돌로 인한 판정보류다. 보류된 질문·기준 점수를 임의로 만들거나 평균·총점·등급을 확정하지 않는다. 부족한 자료와 판단 가능한 사실을 구분한다.
 {json.dumps(evaluation_context_for_report(evaluations), ensure_ascii=False, default=str)}
 
-[공식 5대 기준 종합점수·등급]
+[저장된 5대 기준 종합점수·등급 및 평가 성격]
 {json.dumps(_official_grade_context(evaluations), ensure_ascii=False, default=str)}
 
 [연결된 선행 섹션]
@@ -702,13 +701,13 @@ def _quantitative_consistency_issues(part_id: str, content: str, evaluations: li
             koica_grade, government_grade = grade(total)
             total_match = re.search(r"(\d+(?:\.\d+)?)\s*/\s*20\s*점", content)
             if not total_match:
-                issues.append(f"공식 종합점수 {total:g}/20점 표기가 없음")
+                issues.append(f"저장된 종합점수 {total:g}/20점 표기가 없음")
             elif abs(float(total_match.group(1)) - total) > 0.05:
-                issues.append(f"공식 종합점수 불일치: 평가 {total:g}/20점, 본문 {total_match.group(1)}/20점")
+                issues.append(f"저장된 종합점수 불일치: 평가 {total:g}/20점, 본문 {total_match.group(1)}/20점")
             if not re.search(rf"(?:KOICA|코이카)[^\n.]{{0,30}}(?:등급\s*)?{re.escape(koica_grade)}(?:\b|등급)", content, re.IGNORECASE):
-                issues.append(f"공식 KOICA 등급 {koica_grade} 표기가 없음")
+                issues.append(f"저장된 KOICA 참고 등급 {koica_grade} 표기가 없음")
             if government_grade not in content:
-                issues.append(f"공식 국무조정실 등급 '{government_grade}' 표기가 없음")
+                issues.append(f"저장된 국무조정실 참고 등급 '{government_grade}' 표기가 없음")
     return issues
 
 
@@ -873,9 +872,9 @@ def _project_source_names() -> list[str]:
 
 
 def _ensure_official_grade_statement(part_id: str, content: str, evaluations: list[dict], execution_scope: dict | None = None) -> str:
-    """Deterministically attach the stored official grade to summary sections."""
+    """Attach saved scores while preserving the assessment's provisional basis."""
     if part_id not in {"grade", "conclusion"}:
-        return content
+        return qualify_report_text(part_id, content, evaluations)
     if part_id == 'grade' and evaluations:
         slots = parse_structured_section_slots(content, 'grade')
         if slots:
@@ -895,9 +894,9 @@ def _ensure_official_grade_statement(part_id: str, content: str, evaluations: li
                     for key in list(slots):
                         if key.endswith('_total_reason'):
                             slots[key] = ''
-                    return structured_slots_to_json('grade', slots)
-            return f"{content.rstrip()}\n\n- {notice}"
-        return content
+                    return structured_slots_to_json('grade', qualify_grade_slots(slots, evaluations))
+            return qualify_report_text(part_id, f"{content.rstrip()}\n\n- {notice}", evaluations)
+        return qualify_report_text(part_id, content, evaluations)
     total = float(official["total_score"])
     koica_grade = str(official["koica_grade"])
     government_grade = str(official["government_grade"])
@@ -910,7 +909,7 @@ def _ensure_official_grade_statement(part_id: str, content: str, evaluations: li
             for key in list(slots):
                 if key.endswith("_total_reason"):
                     slots[key] = ""
-            return structured_slots_to_json("grade", slots)
+            return structured_slots_to_json("grade", qualify_grade_slots(slots, evaluations))
     value = re.sub(
         r"우수\s*/\s*양호(?:\s*수준)?|우수·양호(?:\s*수준)?|양호\s*수준",
         "공식 등급표에 따른 판정",
@@ -925,11 +924,11 @@ def _ensure_official_grade_statement(part_id: str, content: str, evaluations: li
     has_government = government_grade in value
     if not (has_total and has_koica and has_government):
         statement = (
-            f"- 공식 종합판정은 OECD DAC 5대 기준 합계 {total:g}/20점, "
+            f"- {'내부 잠정 종합판정' if is_provisional(evaluations) else '공식 종합판정'}은 OECD DAC 5대 기준 합계 {total:g}/20점, "
             f"KOICA 등급 {koica_grade}, 국무조정실 등급 {government_grade}임."
         )
         value = f"{value}\n\n{statement}".strip()
-    return value
+    return qualify_report_text(part_id, value, evaluations)
 
 
 def _authoritative_indicator_count(execution_scope: dict) -> int:
@@ -1226,7 +1225,7 @@ def _generate_report_section(
 score=null은 판정보류다. 보류된 점수를 0점·1점으로 대체하지 않고, 기준·총점·등급 확정에 필요한 자료를 명시한다.
 {json.dumps(evaluation_context_for_report(evaluations), ensure_ascii=False, default=str)}
 
-[공식 5대 기준 종합점수·등급]
+[저장된 5대 기준 종합점수·등급 및 평가 성격]
 {json.dumps(_official_grade_context(evaluations), ensure_ascii=False, default=str)}
 
 [선행 분석 섹션]

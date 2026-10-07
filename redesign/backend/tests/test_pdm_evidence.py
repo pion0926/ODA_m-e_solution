@@ -147,6 +147,23 @@ class EvidenceTests(unittest.TestCase):
             extract_measurements(document, [self.row()])
         self.assertEqual(request.call_count, 1)
 
+    @patch("kodame_intake.pdm_evidence.connection")
+    @patch("kodame_intake.pdm_evidence._request_json")
+    def test_retry_reuses_same_pair_cache_after_another_indicator_was_processed(self, request, connection):
+        def response(system,prompt,title,**kwargs):
+            import json
+            rows=json.loads(prompt)['indicators']
+            return {'observations':[], 'reviews':[{'indicator_id':row['id'],'status':'no_measurement','reason':'직접 값 미확인'} for row in rows]},'test'
+        request.side_effect=response
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'data.txt';path.write_text('검토할 자료 본문',encoding='utf-8')
+            document={'id':'doc','original_name':'data.txt','extracted_path':str(path)}
+            extract_measurements(document,[self.row()])
+            extract_measurements(document,[{**self.row(),'id':'other'}])
+            extract_measurements(document,[self.row()])
+        self.assertEqual(request.call_count,2)
+        self.assertEqual(document['analysis']['pdm_measurements']['reviews'][0]['indicator_id'],self.row()['id'])
+
 
 if __name__ == "__main__":
     unittest.main()

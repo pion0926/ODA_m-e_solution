@@ -999,7 +999,7 @@
     const monitoringRows = groupedIndicators.map(({ tier, items }) => items.map((item, index) => {
       const meta = localizedStatusMeta[item.status] || localizedStatusMeta.unset;
       const tierCell = index === 0 ? `<td rowspan="${items.length}" class="tiercell"><div class="monitor-tier"><span class="tier ${tier.css}">${esc(tier.label)}</span><small>${items.length}개 지표</small></div></td>` : '';
-      return `<tr data-tier="${esc(tier.label)}" class="${index === 0 ? 'tier-first' : ''}">${tierCell}<td class="sum">${item.pdm_code ? `<b>${esc(item.pdm_code)}</b> ` : ''}${esc(item.indicator)}</td><td class="num">${esc(item.target || '-')}</td><td class="num">${esc(item.actual || '-')}</td><td class="achievement-cell">${achievementBarMarkup(item.achievement_rate, item.achievement_label)}</td><td>${monitoringEvidenceFold(item)}</td><td><span class="tag ${meta[0]}">${meta[1]}</span>${item.note ? `<details class="monitoring-note"><summary>판단 근거 보기</summary><p>${esc(item.note)}</p></details>` : ''}</td></tr>`;
+      return `<tr data-tier="${esc(tier.label)}" class="${index === 0 ? 'tier-first' : ''}">${tierCell}<td class="sum">${item.pdm_code ? `<b>${esc(item.pdm_code)}</b> ` : ''}${esc(item.indicator)}</td><td class="num">${esc(item.target || '-')}${item.target_review_required ? '<br><span class="tag b" title="활성 참고자료에서 보고한 목표입니다. PDM 공식 목표와 대조가 필요합니다.">참고자료 목표</span>' : ''}</td><td class="num">${esc(item.actual || '-')}</td><td class="achievement-cell">${achievementBarMarkup(item.achievement_rate, item.achievement_label)}</td><td>${monitoringEvidenceFold(item)}</td><td><span class="tag ${meta[0]}">${meta[1]}</span>${item.note ? `<details class="monitoring-note"><summary>판단 근거 보기</summary><p>${esc(item.note)}</p></details>` : ''}</td></tr>`;
     }).join('')).join('');
     byId('narrList').innerHTML = indicators.length ? `<div class="panel" style="padding:0;overflow:hidden"><div style="overflow-x:auto"><table class="pdmtbl monitoring-table"><colgroup><col style="width:10%"><col style="width:30%"><col style="width:7%"><col style="width:7%"><col style="width:14%"><col style="width:19%"><col style="width:13%"></colgroup><thead><tr><th>성과 구분</th><th>객관적 검증지표(OVI)</th><th>목표</th><th>실적</th><th>달성도</th><th>산출근거·연결문서</th><th>상태</th></tr></thead><tbody>${monitoringRows}</tbody></table></div></div>` : '<div class="empty"><b>PDM 객관적 검증지표가 없습니다.</b><br>최신 PDM 원본을 확인해 주세요.</div>';
 
@@ -1301,6 +1301,7 @@
   function syncDashboardDac(data) {
     const items = (data?.criteria || []).filter((item) => item.id !== 'impact');
     const overall = data?.overall || {};
+    const provisional = overall.assessment_basis === 'provisional_document_review';
     const isHeld = data?.status === 'completed' && items.some(item => item.score == null);
     const hasScore = overall.score !== null && overall.score !== undefined && overall.score !== '' && Number.isFinite(Number(overall.score));
     const dacValue = document.querySelector('#v-dashboard .herocard.dac .hckpi > b');
@@ -1310,10 +1311,10 @@
       ? `${formatDacScore(overall.score)}<small>/20</small>`
       : (isHeld ? '판정보류' : esc(tr('ui.dashboard.not_evaluated', '평가 전')));
     if (dacLabel) dacLabel.innerHTML = hasScore
-      ? `${esc(tr('ui.dashboard.overall_score', '종합점수'))} · KOICA <span class="grade">${esc(overall.koica_grade || '-')}</span> · ${esc(tr('ui.dashboard.government_grade', '국무조정실'))} ${esc(overall.government_grade || '-')}`
+      ? (provisional ? `내부 잠정 진단 · 환산등급 <span class="grade">${esc(overall.koica_grade || '-')}</span>` : `${esc(tr('ui.dashboard.overall_score', '종합점수'))} · KOICA <span class="grade">${esc(overall.koica_grade || '-')}</span> · ${esc(tr('ui.dashboard.government_grade', '국무조정실'))} ${esc(overall.government_grade || '-')}`)
       : (isHeld ? '자료 보완이 필요한 항목이 있어 종합점수 판정을 보류합니다' : tr('ui.dashboard.evaluation_prompt', 'DAC 평가진단을 실행하면 종합점수가 표시됩니다'));
     if (dacSubtitle) dacSubtitle.textContent = hasScore
-      ? (overall.formula || 'DAC 5개 기준의 질문별 1~4점 평균 합산')
+      ? (provisional ? overall.notice : (overall.formula || 'DAC 5개 기준의 질문별 1~4점 평균 합산'))
       : tr('ui.dashboard.evaluation_source', '등록 자료를 기준으로 DAC 평가진단을 실행합니다');
     const target = byId('dacReady');
     if (target) target.innerHTML = items.length ? items.map((item) => `
@@ -1343,6 +1344,11 @@
     const total = scored.reduce((sum, item) => sum + Number(item.score || 0), 0);
     const average = scored.length ? (total / scored.length).toFixed(1) : '-';
     const stats = document.querySelectorAll('#v-eval-board .statrow .sv');
+    const provisional = data.overall?.assessment_basis === 'provisional_document_review';
+    const statLabels = document.querySelectorAll('#v-eval-board .statrow .sl');
+    if (statLabels[0]) statLabels[0].textContent = provisional ? '내부 잠정 종합점수' : '종합점수';
+    if (statLabels[1]) statLabels[1].textContent = provisional ? '참고 환산등급 (잠정)' : 'KOICA 평가등급';
+    if (statLabels[2]) statLabels[2].textContent = provisional ? '참고 판정 (잠정)' : '국무조정실 평가등급';
     const hasOverallScore = data.overall?.score !== null && data.overall?.score !== undefined && data.overall?.score !== '' && Number.isFinite(Number(data.overall?.score));
     if (stats[0]) stats[0].innerHTML = hasOverallScore ? `${formatDacScore(data.overall.score)}<span>/20</span>` : (data.status === 'completed' ? '판정보류' : '평가 전');
     if (stats[1]) stats[1].textContent = data.overall?.koica_grade || '-';
@@ -1367,7 +1373,7 @@
       const dacStage = {overview:'사업개요 확인',evidence:'선택 원문 검토·자동 복구',questions:'질문별 근거 판정',saving:'검증 결과 저장',needs_retry:'일부 항목 재시도 필요'}[status.current_stage] || '평가 준비';
       const active = Boolean(status.active);
       window.ServiceJobTray?.update('dac', { name: 'DAC 평가', active, failed: status.status === 'failed', completed: status.completed_criteria, total: status.total_criteria,
-        detail: active ? `${dacStage} · ${status.completed_criteria}/${status.total_criteria}단계 · 검증 질문 ${status.completed_questions || 0}개 · 원본 ${status.document_count}개` : status.status === 'failed' ? `${status.error_message || '평가 미완료'} · 검증 완료 질문 ${status.completed_questions || 0}개와 완료 원문 구간 보존. 같은 자료·모델·평가기준일이면 재평가 시 미완료 부분을 이어서 진행합니다.` : '평가 결과 저장 완료' });
+        detail: active ? `${dacStage} · ${status.completed_criteria}/${status.total_criteria}단계 · 검증 질문 ${status.completed_questions || 0}개(재사용 ${status.reused_questions || 0}개) · 원본 ${status.document_count}개` : status.status === 'failed' ? `${status.error_message || '평가 미완료'} · 검증 완료 질문 ${status.completed_questions || 0}개와 완료 원문 구간 보존. 재평가 시 입력이 같은 질문은 재사용하고 변경·미완료 질문을 검토합니다.` : `평가 결과 저장 완료 · 검증 결과 재사용 ${status.reused_questions || 0}개` });
       [byId('runBtn'), byId('runBtn2')].forEach((button) => {
         if (!button) return;
         button.disabled = active || (!active && !status.can_start && Number(status.processing_document_count || 0) === 0);

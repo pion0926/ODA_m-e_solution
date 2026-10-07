@@ -55,6 +55,7 @@ def match_foundations(text, *, context=None, artifact=False):
         'project_plan': {'type': 'array', 'items': obj({**common, 'topic': string, 'reference_quote': string})},
         'pdm': {'type': 'array', 'items': obj({**common,
             'evidence_kind': {'type':'string','enum':['direct_record','calculation_input','qualitative_evidence','target_reference','background','uncertain']},
+            'measurement_relation': {'type':'string','enum':['reported_result','observed_result','calculation_component','measured_change','prerequisite','target','background','uncertain']},
             'proves': string, 'limitations': string,
             'subject_match': {'type':'boolean'}, 'activity_match': {'type':'boolean'}, 'scope_match': {'type':'boolean'}, 'indicator_id': {
             'type': 'string', 'enum': [item['id'] for item in context['indicators']]}})},
@@ -116,6 +117,8 @@ def match_foundations(text, *, context=None, artifact=False):
                 if axis == 'pdm':
                     indicator = by_id[item['indicator_id']]
                     item = {**item, 'tier': indicator['tier'], 'indicator': indicator['text'], 'requirement_title': indicator['mov']}
+                    from .pdm_scope_review import review_scope
+                    item = review_scope(item, indicator, context)
                     if not qualifies(item):
                         matches['pdm_references'].append(item)
                         continue

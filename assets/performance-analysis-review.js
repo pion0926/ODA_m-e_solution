@@ -16,19 +16,19 @@
       const docs=new Map(plan.documents.map(doc=>[doc.id,doc]));
       const mapped=plan.indicators.filter(item=>selected(item).size).length;
       const pairs=plan.indicators.reduce((n,item)=>n+selected(item).size,0);
-      $('[data-review-summary]').textContent=`PDM: ${plan.source_file_name || '미등록'} · 신규 분석 ${pairs}개 조합 · 대상 지표 ${mapped}개 · 기존 분석 결과는 유지`;
+      $('[data-review-summary]').textContent=`PDM: ${plan.source_file_name || '미등록'} · 신규 분석 ${pairs}개 조합 · 대상 지표 ${mapped}개 · 연결 변경 ${(plan.mapping_changed_indicator_ids||[]).length}개 지표 · 유효한 기존 분석 유지`;
       $('[data-review-status]').textContent=plan.message;
       $('[data-review-pending]').innerHTML=plan.documents.filter(doc=>doc.status!=='completed').map(doc=>
         `<div class="performance-document"><b>${esc(doc.file_name)}</b><small>${esc(states[doc.status]||doc.status)} · ${Number(doc.progress)||0}%</small>${['failed','waiting_llm','cancelled'].includes(doc.status)?`<button type="button" class="btn sm" data-review-retry="${esc(doc.id)}" ${busy?'disabled':''}>분석 재시도</button><small class="performance-error">${esc(doc.error_message||'기본 분석 완료가 필요합니다.')}</small>`:''}</div>`).join('');
       $('[data-review-rows]').innerHTML=plan.indicators.map(item=>`<tr data-review-indicator="${esc(item.id)}">
-        <td><span class="tag n">${esc(item.tier_name)}</span><p><b>${esc(item.text)}</b></p><small>검증수단: ${esc(item.mov)}</small><p>기존 분석 연결 ${(item.retained_document_ids||[]).length}건 유지</p></td>
+        <td><span class="tag n">${esc(item.tier_name)}</span><p><b>${esc(item.text)}</b></p><small>검증수단: ${esc(item.mov)}</small><p>기존 분석 연결 ${(item.retained_document_ids||[]).length}건 유지${(item.deferred_document_ids||[]).length?` · 이전 ${(item.deferred_document_ids||[]).length}건 목적 재검토 대기`:''}</p></td>
         <td>${[...selected(item)].map(id=>{const doc=docs.get(id);return doc ? `<div class="performance-document"><a href="/api/v2/intake/jobs/${encodeURIComponent(id)}/download" target="_blank" rel="noopener">${esc(doc.file_name)}</a>
           <small>${esc(item.mapping_details?.[id]?.proves || '사용자가 추가한 문서 · 분석 시 근거 확인')}</small><small>${esc(item.mapping_details?.[id]?.limitations || '')}</small><button type="button" class="btn sm" data-review-remove="${esc(id)}" aria-label="${esc(doc.file_name)} 매핑 해제" ${busy?'disabled':''}>해제</button>
           ${['failed','waiting_llm','cancelled'].includes(doc.status)?`<button type="button" class="btn sm" data-review-retry="${esc(id)}" ${busy?'disabled':''}>분석 재시도</button><small class="performance-error">${esc(doc.error_message||'기본 분석 완료가 필요합니다.')}</small>`:''}</div>`:'';}).join('') || '<span class="performance-missing">신규 분석 대상 없음 · 기존 결과 유지</span>'}</td>
         <td><select aria-label="${esc(item.text)} 기존 문서 선택" ${busy?'disabled':''}>${options(item)}</select>
           <div class="performance-row-actions"><button type="button" class="btn sm" data-review-add ${busy?'disabled':''}>매핑 추가</button><button type="button" class="btn sm" data-review-upload ${busy?'disabled':''}>새 문서 업로드</button></div></td>
       </tr>`).join('') || '<tr><td colspan="3">등록된 PDM 지표가 없습니다. <a href="#/evidence" data-review-close>사업 기준 문서 등록으로 이동</a></td></tr>';
-      $('[data-review-run]').disabled=busy||!plan.ready||pairs===0;
+      $('[data-review-run]').disabled=busy||!plan.ready||(pairs===0&&!(plan.mapping_changed_indicator_ids||[]).length);
       $('[data-review-reload]').disabled=busy;
       $('[data-review-close]').disabled=busy;
     }
@@ -90,7 +90,7 @@
         dialog=document.createElement('dialog');dialog.className='performance-review-dialog';dialog.id='performanceReviewDialog';
         dialog.setAttribute('aria-labelledby','performanceReviewTitle');
         dialog.innerHTML=`<header class="performance-review-header"><div><h2 id="performanceReviewTitle">성과지표 분석 준비</h2><p>분석 범위와 지표별 문서 매핑을 확인해 주세요.</p></div><button type="button" class="btn" data-review-close aria-label="분석 준비 닫기">닫기</button></header>
-          <div class="performance-review-body"><section class="performance-overview"><h3>신규 문서·신규 매핑만 분석합니다</h3><ol><li>이미 분석한 문서–지표 조합은 표에서 제외하고 기존 결과를 유지합니다.</li><li>새 조합의 원문과 이전 평가 정보를 함께 비교합니다. 이전 문서 본문을 다시 분석하지 않습니다.</li><li>같은 항목은 실적 기준일이 최신인 값, 같은 기준일이면 같은 단위의 높은 수치로 갱신합니다. 기준일이 모두 없으면 수치를 비교하며, 단위가 다르면 확인 필요로 남깁니다.</li></ol><p>이 화면을 여는 것만으로 성과 분석은 실행되지 않습니다. 매핑 변경은 아래 <b>분석 실행</b>을 누를 때 저장됩니다.</p></section>
+          <div class="performance-review-body"><section class="performance-overview"><h3>신규 문서·신규 매핑만 분석합니다</h3><ol><li>검증을 마친 문서–지표 조합은 재사용합니다. 집계 범위 등 검토 규칙이 바뀐 조합만 다시 확인합니다.</li><li>새 조합의 원문과 이전 평가 정보를 함께 비교합니다. 연결이 해제된 실적 근거는 결과에서 제외하고 목표 정의의 근거는 별도로 보존합니다.</li><li>같은 대상·집계 범위·단위에서 최신 실적, 같은 기준일이면 높은 수치로 갱신합니다. 개별 행사는 완료 사실과 식별 근거를 검증해 중복을 제외합니다. 누적 실적과 개별 행사 또는 범위가 다른 값은 무조건 합산하지 않습니다.</li></ol><p>이 화면을 여는 것만으로 성과 분석은 실행되지 않습니다. 매핑 변경은 아래 <b>분석 실행</b>을 누를 때 저장됩니다.</p></section>
           <p data-review-summary></p><div class="performance-review-tools"><label>기존 문서 검색 <input type="search" data-review-search placeholder="추가할 문서명 검색"></label><button type="button" class="btn" data-review-reload>자료 상태 새로고침</button></div>
           <div class="performance-review-table"><table><thead><tr><th>성과지표 · 목표 · 검증수단</th><th>신규 분석할 문서</th><th>자료 추가</th></tr></thead><tbody data-review-rows></tbody></table></div>
           <p data-review-status role="status"></p><div data-review-pending></div><p data-review-message role="status" class="performance-review-message"></p></div>

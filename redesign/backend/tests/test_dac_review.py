@@ -4,11 +4,55 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from fastapi import HTTPException
-from kodame_intake.dac_review import validate_selection, apply_plan, digest
+from kodame_intake.dac_review import validate_selection, apply_plan, digest, select_ranges, selected_by_history
 from kodame_intake.dac_evidence import analyze_document
+from kodame_intake.dac_scope_policy import expand_documents
 
 
 class DacReviewTests(unittest.TestCase):
+    def test_expansion_and_resume_never_restore_explicitly_excluded_document(self):
+        doc={'id':'manual-exclusion','assigned_criteria':['relevance'],'analysis':{}}
+        question='relevance-q1'
+        plan={'selection_overrides':{question:{'excluded':[doc['id']]}}}
+        with patch('kodame_intake.dac_review.text_for',return_value='지역 수요 관련 원문'), \
+             patch('kodame_intake.dac_review.select_ranges',return_value=[[0,10]]) as ranges:
+            self.assertEqual(expand_documents([doc],[],{question:'근거 부족'},review_plan=plan),[])
+            self.assertEqual(expand_documents([doc],[{**doc,'question_scopes':{question:{'ranges':[[0,5]]}}}],
+                {question:'재개'},review_plan=plan),[])
+            ranges.assert_not_called()
+            expanded=expand_documents([doc],[],{question:'근거 부족'})
+            self.assertIn(question,expanded[0]['question_scopes'])
+
+    def test_navigation_prioritizes_this_question_and_criterion_quotes(self):
+        text=('X'*12000)+'해당 질문의 확인 사실'+('X'*12000)+'다른 기준의 인용'+('X'*12000)
+        question={'id':'relevance-q1','question':'수요 정합성'}
+        analysis={'evidence_matches':{'pdm':[{'evidence_quote':'다른 기준의 인용'}]*20,
+                 'dac_slots':[{'criterion':'efficiency','evidence_quote':'다른 기준의 인용'}]*20},
+                 'registration_facts':{'facts':[{'dac_question_ids':['relevance-q1'],'evidence_quote':'해당 질문의 확인 사실'}]}}
+        ranges=select_ranges(text,question,analysis,max_blocks=1)
+        self.assertTrue(any(start <= 12000 < end for start,end in ranges))
+        self.assertFalse(any(start <= 24000+len('해당 질문의 확인 사실') < end for start,end in ranges))
+
+    def test_automatic_changes_refresh_but_manual_choices_and_legacy_are_preserved(self):
+        legacy={'mappings':{'q':['old-auto','manual']}}
+        self.assertTrue(selected_by_history('q','manual',False,legacy,{'manual','old-auto'}))
+        self.assertFalse(selected_by_history('q','excluded',True,legacy,{'excluded'}))
+        current={'mappings':{'q':['old-auto','manual']},'selection_overrides':{'q':{'included':['manual'],'excluded':['excluded']}}}
+        self.assertFalse(selected_by_history('q','old-auto',False,current,{'old-auto'}))
+        self.assertTrue(selected_by_history('q','new-auto',True,current,set()))
+        self.assertTrue(selected_by_history('q','manual',False,current,{'manual'}))
+        self.assertFalse(selected_by_history('q','excluded',True,current,{'excluded'}))
+
+    def test_selection_stores_only_explicit_changes_and_preserves_manual_intent(self):
+        plan={'ready':True,'revision':'v','input_snapshot':{},'documents':[{'id':i,'status':'completed'} for i in ('auto','manual','removed')],
+              'indicators':[{'id':'q','document_ids':['auto','manual'],'automatic_document_ids':['auto','removed'],
+                  'scopes':{i:{'ranges':[[0,10]]} for i in ('auto','manual','removed')},'selection_overrides':{}}]}
+        saved=validate_selection(plan,'v',{'q':['auto','manual']},[])
+        self.assertEqual(saved['selection_overrides']['q'],{'included':['manual'],'excluded':['removed']})
+        plan['indicators'][0].update(automatic_document_ids=['auto','manual','removed'], selection_overrides=saved['selection_overrides']['q'])
+        saved=validate_selection(plan,'v',{'q':['auto','manual']},[])
+        self.assertEqual(saved['selection_overrides']['q'],{'included':['manual'],'excluded':['removed']})
+
     def test_scope_is_server_owned_and_rejects_foreign_or_stale_selection(self):
         plan={'ready':True,'revision':'v','input_snapshot':{},'documents':[{'id':'a','status':'completed'}],
               'indicators':[{'id':'effectiveness-q1','scopes':{'a':{'ranges':[[0,10]]}}}]}

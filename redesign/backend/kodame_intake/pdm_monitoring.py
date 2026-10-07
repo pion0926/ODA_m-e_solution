@@ -589,6 +589,7 @@ def _refresh_pdm_model(*, analyze_risks: bool = False, refresh_run_id=None, anal
         model['monitoring']['input_snapshot'] = input_snapshot
     if analysis_plan:
         model['monitoring']['reviewed_mappings'] = analysis_plan['mappings']
+        model['monitoring']['deferred_mappings'] = analysis_plan.get('deferred_mappings', {})
         model['monitoring']['review_revision'] = analysis_plan['revision']
     model["risk_analysis"] = _attach_performance_risk_analysis([i for i in performance if i['id'] in changed], analyze_risks)
 

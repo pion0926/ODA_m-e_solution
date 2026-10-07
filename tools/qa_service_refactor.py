@@ -14,6 +14,7 @@ from psycopg.types.json import Jsonb
 
 assert os.environ.get('KODAME_QA') == '1'
 assert 'qa-local-only@postgres' in os.environ['DATABASE_URL']
+assert not os.environ.get('OPENROUTER_API_KEY'), 'Synthetic QA must not use a provider key'
 from kodame_intake.db import pool, connection, tenant_context
 from kodame_intake import worker, workflow_queue as queue
 from kodame_intake.project_lifecycle import capture_input_snapshot
@@ -91,9 +92,10 @@ with tenant_context(project): context=foundation_context()
 facts={'version':'intake-facts-v1','summary':'사업계획의 강사 양성과 모의훈련 달성을 보고하며 지속가능성의 예산 미확정을 확인하는 자료이다.',
        'facts':[{'id':'qa-fact','statement':'CPCR 강사 6명 양성','kind':'reported_actual','value':'6','unit':'명','period':'2026-06-30','population':'지역사회 강사',
                  'evidence_quote':'지역사회 CPCR 강사 6명을 양성하였다.','pdm_indicator_ids':[indicators[0]['id']],'dac_question_ids':['effectiveness-q1']}], 'scope':'full_text'}
-matches={'version':3,'sources':context['sources'],'project_plan':[],
+from kodame_intake.pdm_mapping_policy import VERSION as MAPPING_VERSION
+matches={'version':MAPPING_VERSION,'sources':context['sources'],'project_plan':[],
          'pdm':[{'indicator_id':i['id'],'indicator':i['text'],'tier':i['tier'],'requirement_title':i['mov'],'confidence':.99,'rationale':'원문 실적 확인','evidence_quote':ACTUAL,
-                 'evidence_kind':'direct_record','subject_match':True,'activity_match':True,'scope_match':True,'proves':'해당 강사 양성 및 훈련 실시 기록','limitations':''} for i in indicators],
+                 'evidence_kind':'direct_record','measurement_relation':'reported_result','subject_match':True,'activity_match':True,'scope_match':True,'proves':'해당 강사 양성 및 훈련 실시 기록','limitations':'자체보고이며 개별 수료증은 별도 확인'} for i in indicators],
          'registration_facts':facts}
 doc=upload(user,'evidence','실적현황_QA.txt',ACTUAL)['accepted'][0]
 saved=finish_upload(doc,'evidence',ACTUAL,matches)
@@ -136,9 +138,24 @@ with tenant_context(project),connection() as conn:
     check(conn.execute('SELECT count(*) AS n FROM workflow_tasks').fetchone()['n']==1,'transaction failure rolls back task and receipt together')
 
 # Actual performance engine, with deterministic external AI response only.
+measurement_calls=[]
 def measures(document,roster,**kw):
-    return [{'indicator_id':i['id'],'kind':'actual','value':'6명' if n==0 else '3회',
-             'quote':ACTUAL,'period':'2026-06-30','document_id':str(document['id']),'file_name':document['original_name']} for n,i in enumerate(roster)]
+    measurement_calls.append((str(document['id']),[i['id'] for i in roster]))
+    text=Path(document['extracted_path']).read_text()
+    newer='2026년 7월 31일' in text
+    return [{'indicator_id':i['id'],'kind':'actual',
+             'value':('8명' if newer else '6명') if i['id']==indicators[0]['id'] else ('4회' if newer else '3회'),
+             'quote':text,'period':'2026-07-31' if newer else '2026-06-30',
+             'measurement_scope':{'basis':'cumulative','scope_label':'','period_unit':'project'},
+             'document_id':str(document['id']),'file_name':document['original_name']} for i in roster]
+def dispatch_receipt(receipt):
+    receipt_id=receipt.get('run_id') or receipt.get('id')
+    with tenant_context(project),connection() as conn:
+        task=conn.execute("SELECT * FROM workflow_tasks WHERE status='queued' AND arguments->>0=%s",(receipt_id,)).fetchone()
+    assert task,receipt_id
+    queue.dispatch(task)
+    with tenant_context(project),connection() as conn:
+        queue.finish_task(conn,task)
 with patch('kodame_intake.pdm_evidence.extract_measurements',side_effect=measures), \
      patch('kodame_intake.pdm_monitoring.analyze_performance_risks',return_value={'items':[]}):
     queue.dispatch(tasks[0])
@@ -152,8 +169,67 @@ check(model['performance_indicators'][0]['actual']=='6명','performance uses the
 after=req(user,'GET','pdm/analysis-plan')
 check(all(doc['id'] not in i['document_ids'] for i in after['indicators']),'already analyzed document/indicator pairs omitted from next proposal')
 
+NEW_ACTUAL='2026년 7월 31일 사업 누적 실적: 지역사회 CPCR 강사 8명을 양성하였다. 모의훈련은 총 4회를 실시하였다.'
+new_matches=copy.deepcopy(matches)
+new_matches['pdm']=new_matches['pdm'][:1]
+new_matches['pdm'][0]['evidence_quote']=NEW_ACTUAL
+new_matches['registration_facts']['facts'][0].update(statement='CPCR 강사 8명 양성',value='8',period='2026-07-31',evidence_quote='지역사회 CPCR 강사 8명을 양성하였다.')
+new_doc=upload(user,'evidence','추가실적_QA.txt',NEW_ACTUAL)['accepted'][0]
+finish_upload(new_doc,'evidence',NEW_ACTUAL,new_matches)
+review=req(user,'GET','pdm/analysis-plan')
+delta={i['id']:i['document_ids'] for i in review['indicators']}
+check(delta[indicators[0]['id']]==[new_doc['id']] and not delta[indicators[1]['id']], 'new document is proposed only for its new eligible indicator pair')
+with patch('kodame_intake.pdm_evidence.extract_measurements',side_effect=measures),patch('kodame_intake.pdm_monitoring.analyze_performance_risks',return_value={'items':[]}):
+    dispatch_receipt(req(user,'POST','pdm/refresh',202,json={'revision':review['revision'],'mappings':delta}))
+check(measurement_calls[-1]==(new_doc['id'],[indicators[0]['id']]) and len(measurement_calls)==2,'incremental execution calls AI only for the new document pair')
+current=req(user,'GET','pdm')['performance_indicators']
+check([i['actual'] for i in current]==['8명','3회'],'newer cumulative value replaces old actual while untouched indicator is preserved')
+review=req(user,'GET','pdm/analysis-plan')
+manual={i['id']:[] for i in review['indicators']}; manual[indicators[1]['id']]=[new_doc['id']]
+with patch('kodame_intake.pdm_evidence.extract_measurements',side_effect=measures),patch('kodame_intake.pdm_monitoring.analyze_performance_risks',return_value={'items':[]}):
+    dispatch_receipt(req(user,'POST','pdm/refresh',202,json={'revision':review['revision'],'mappings':manual}))
+check(measurement_calls[-1]==(new_doc['id'],[indicators[1]['id']]) and len(measurement_calls)==3,'manual addition analyzes only the newly mapped document/indicator combination')
+check([i['actual'] for i in req(user,'GET','pdm')['performance_indicators']]==['8명','4회'],'manual incremental result retains previous analyzed indicator value')
+
 req(user,'POST','report/generate-all',409)
 check(True,'report generation requires a completed current DAC evaluation')
+
+# Real HTTP run receipts, original-window review caches, question validation and
+# PostgreSQL checkpoints. Only external inference and independent overview AI
+# are stubbed. All synthetic sources are short, plain text (no table candidates).
+adjudication_calls=[]
+def adjudicate(system,prompt,*args,**kwargs):
+    request=json.JSONDecoder().raw_decode(prompt)[0]
+    result=copy.deepcopy(request['response_template'])
+    adjudication_calls.append(request['questions'][0]['question_id'])
+    for question in result['question_assessments']:
+        question['finding']='합성 QA 원문 검토를 완료했으나 확정할 직접 증빙은 부족하여 판단을 보류한다.'
+        for indicator in question['indicators']:
+            indicator['finding']='합성 QA 원문 범위에 이 세부 조건을 확정할 직접 증빙은 포함되어 있지 않다.'
+    return result,'synthetic'
+def run_dac(review,mappings):
+    with patch('kodame_intake.evaluation_runner.generate_project_overview'), \
+         patch('kodame_intake.dac_evidence._request_json',return_value=({'evidence':[]},'synthetic')), \
+         patch('kodame_intake.dac_assessor._request_json',side_effect=adjudicate):
+        receipt=req(user,'POST','evaluations',202,json={'revision':review['revision'],'mappings':mappings,'full_questions':[]})
+        dispatch_receipt(receipt)
+    state=req(user,'GET','evaluations/status')
+    check(state['status']=='completed' and state['completed_questions']==11,'DAC HTTP receipt reaches completed with all 11 validated checkpoints')
+    return req(user,'GET','evaluations')
+review=req(user,'GET','evaluations/analysis-plan')
+excluded_questions={i['id'] for i in review['indicators'] if new_doc['id'] in i['document_ids']}
+dac_mappings={i['id']:[d for d in i['document_ids'] if d!=new_doc['id']] for i in review['indicators']}
+run_dac(review,dac_mappings)
+check(len(adjudication_calls)==11,'first DAC run adjudicates all 11 questions once')
+with tenant_context(project),connection() as conn:
+    analysis=conn.execute('SELECT analysis FROM intake_documents WHERE id=%s',(new_doc['id'],)).fetchone()['analysis']
+reviewed_questions={qid for chunk in (analysis.get('dac_fulltext') or {}).get('chunks',[]) for qid in chunk.get('reviewed_questions',[])}
+check(excluded_questions and not reviewed_questions.intersection(excluded_questions),'automatic evidence expansion does not read a document for questions that explicitly excluded it')
+review=req(user,'GET','evaluations/analysis-plan')
+dac_mappings={i['id']:list(i['document_ids']) for i in review['indicators']}
+dac_mappings['relevance-q1'].append(new_doc['id'])
+result=run_dac(review,dac_mappings)
+check(adjudication_calls[11:]==['relevance-q1'] and result['reused_questions']==10,'one changed DAC question is analyzed while ten unchanged checkpoints are reused')
 for path in ['dashboard','project-overview','pdm','project/lifecycle','intake/jobs','evaluations','evaluations/status','evaluations/analysis-plan','report/sections','report/job-tray']:
     req(user,'GET',path)
 check(True,'all principal project read APIs return valid responses')

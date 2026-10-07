@@ -14,7 +14,7 @@ class EvidenceMatchingTests(unittest.TestCase):
         self.plan = {'topic': '교원 역량 강화', 'confidence': .9, 'rationale': '연수 활동 관련',
                      'evidence_quote': '교원 연수를 실시했다.', 'reference_quote': '교원 역량 강화 사업'}
         self.pdm = {'indicator_id': 'outcome-1', 'confidence': .9, 'rationale': '수료 증빙', 'evidence_quote': '교원 연수를 실시했다.'}
-        self.pdm.update(evidence_kind='calculation_input',proves='교원 연수 이행 기록',limitations='전체 수료율은 명단 대조 필요',subject_match=True,activity_match=True,scope_match=True)
+        self.pdm.update(evidence_kind='calculation_input',measurement_relation='calculation_component',proves='교원 연수 이행 기록',limitations='전체 수료율은 명단 대조 필요',subject_match=True,activity_match=True,scope_match=True)
 
     def match(self, result, text='교원 연수를 실시했다.'):
         with patch('kodame_intake.evidence_matching._request_json', return_value=(copy.deepcopy(result), 'test')):
@@ -35,6 +35,15 @@ class EvidenceMatchingTests(unittest.TestCase):
 
     def test_no_match_is_valid(self):
         self.assertEqual(self.match({'project_plan': [], 'pdm': []})['pdm'], [])
+
+    def test_reported_measurement_is_saved_but_prerequisite_is_reference_only(self):
+        reported = {**self.pdm, 'measurement_relation':'reported_result', 'limitations':'자체 보고, 원 명부 미대조'}
+        result = self.match({'project_plan':[], 'pdm':[reported]})
+        self.assertEqual(result['pdm'][0]['limitations'], reported['limitations'])
+        prerequisite = {**self.pdm, 'measurement_relation':'prerequisite'}
+        result = self.match({'project_plan':[], 'pdm':[prerequisite]})
+        self.assertEqual(result['pdm'], [])
+        self.assertEqual(len(result['pdm_references']), 1)
 
     def test_invented_plan_or_evidence_quote_rejected(self):
         for key in ('reference_quote', 'evidence_quote'):

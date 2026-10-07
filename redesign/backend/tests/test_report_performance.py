@@ -61,3 +61,23 @@ def test_verified_zero_is_distinct_from_missing():
         'baseline':0,'target':1,'actual':0,'achievement_rate':0,'measurement_status':'extracted'}]}
     record=achievement_records(context)[0]
     assert '기초선: 0' in record and '현재 실적: 0' in record and '대비 결과: 0%' in record
+
+
+def test_aggregate_keeps_all_independent_event_sources_and_its_basis():
+    source = {'document_id': 'first', 'value': '2회', 'quote': '첫 훈련을 실시하였다.',
+              'measurement_scope': 'event', 'supporting_document_ids': ['first', 'second'],
+              'event_dates': ['2026-06-01', '2026-07-01'], 'aggregation_basis': 'distinct_verified_events',
+              'aggregation_window': '2026', 'aggregation_review_required': False}
+    saved = {'performance_indicators': [{'id': 'outputs-1', 'tier_id': 'outputs', 'indicator': '모의훈련 횟수',
+        'target': '3회', 'actual': '2회', 'measurement_status': 'extracted',
+        'selected_measurements': {'actual': source}}]}
+    before = deepcopy(saved)
+    result = performance_context(saved, ['first', 'second'])
+    actual = result['indicators'][0]['selected_sources']['actual']
+    assert source_ids(result) == ['first', 'second']
+    assert actual['event_dates'] == source['event_dates']
+    assert actual['aggregation_basis'] == source['aggregation_basis']
+    assert actual['aggregation_review_required'] is False
+    assert actual['quote'] == source['quote'] and actual['value'] == '2회'
+    assert '현재 실적: 2회' in achievement_records(result)[0]
+    assert saved == before

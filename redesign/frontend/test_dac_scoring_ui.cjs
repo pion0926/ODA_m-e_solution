@@ -32,4 +32,10 @@ assert(rejected.includes('원문 확인 전 제안값'));
 assert(rejected.includes('점수 반영 제외'));
 assert(rejected.includes('&lt;999&gt;'));
 assert(!rejected.includes('목표시점 미도래'));
+const contextual = render({scoring_trace:{rubric_digest:'new',assessment_basis:'provisional_document_review',
+  timing:{scored_count:2,unverified_count:1,not_due_count:2},checks:[{state:'not_due',merit:null}]}});
+assert(contextual.includes('현재 자료 기준 잠정 진단'));
+assert(contextual.includes('목표시점 미도래 · 평가 제외'));
+assert(contextual.includes('자료 미확인 1개'));
+assert(contextual.includes('목표시점 미도래 2개'));
 console.log('PASS DAC trace rendering, legacy honesty, escaping, no raw quote control');

@@ -17,7 +17,8 @@ def fingerprint(documents, model, review_plan=None):
     # Never key by counts or mutable timestamps alone; all source content and selection inputs participate.
     document_inputs = [{key:doc.get(key) for key in ('id','sha256','name','summary','document_type','period',
                          'organizations','quality_flags','assigned_criteria')} for doc in documents]
-    data = {'documents':sorted(document_inputs,key=lambda d:d['id']), 'model':model,
+    data = {'version': 'dac-replay-v2-question-scoped',
+            'documents':sorted(document_inputs,key=lambda d:d['id']), 'model':model,
             'rubric':RULE_DIGEST,'prompt':PROMPT_VERSION,'date':assessment_date().isoformat(),
             'pdm':pdm,'overview':overview, 'review_scope':
                 {'version':review_plan['version'], 'scopes':review_plan['scopes']} if review_plan else None}
@@ -40,8 +41,14 @@ def replay_if_identical(run_id, digest, snapshot):
         conn.execute('''INSERT INTO project_overviews (id,run_id,model,document_count,overview,source_document_ids,conflicts)
             SELECT %s,%s,model,document_count,overview,source_document_ids,conflicts FROM project_overviews
             WHERE run_id=%s ORDER BY created_at DESC LIMIT 1''',(uuid.uuid4(),run_id,old['id']))
+        old_snapshot = old['input_snapshot'] or {}
         saved = {**snapshot,'assessment_fingerprint':digest, 'rubric_digest':RULE_DIGEST,
-                 'reused_from_run_id':str(old['id']), 'pdm_context':(old['input_snapshot'] or {}).get('pdm_context',{})}
+                 'reused_from_run_id':str(old['id']), 'pdm_context':old_snapshot.get('pdm_context',{}),
+                 'assessment':old_snapshot.get('assessment',{}),
+                 'question_checkpoints':old_snapshot.get('question_checkpoints',{}),
+                 'question_reuse': {qid: {'reused': True, 'source_run_id': str(old['id'])}
+                                    for qid in old_snapshot.get('question_checkpoints', {})},
+                 'evidence_selections':old_snapshot.get('evidence_selections',{})}
         conn.execute("UPDATE evaluation_runs SET status='completed',completed_at=now(),input_snapshot=%s WHERE id=%s",
                      (Jsonb(saved),run_id))
     return True

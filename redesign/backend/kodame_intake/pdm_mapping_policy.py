@@ -1,10 +1,12 @@
 """Evidence-purpose mappings, separate from topic links and measured achievements."""
-VERSION = 3
+VERSION = 4
 EVIDENCE_KINDS = {'direct_record', 'calculation_input', 'qualitative_evidence'}
+RESULT_RELATIONS = {'reported_result', 'observed_result', 'calculation_component', 'measured_change'}
 
 
 def qualifies(item):
     return (item.get('evidence_kind') in EVIDENCE_KINDS
+            and item.get('measurement_relation') in RESULT_RELATIONS
             and item.get('subject_match') is True
             and item.get('activity_match') is True
             and item.get('scope_match') is True
@@ -17,7 +19,7 @@ def manual_overrides(analysis, source_id):
     override = analysis.get('pdm_mapping_overrides') or {}
     if override.get('source_document_id') != str(source_id):
         return set(), set()
-    if override.get('version') == VERSION:
+    if override.get('version', 0) >= 3:
         return set(override.get('included', [])), set(override.get('excluded', []))
     # Old UI saved every accepted default as "manual". Only additions absent
     # from the original AI proposal can be identified as deliberate additions.

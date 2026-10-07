@@ -1,20 +1,21 @@
 {
-  "version": "odame-ears-1.4.20260918.1",
-  "label": "제공된 ODA-EARS v1.4 기반 증빙 평가",
-  "notice": "제공된 KOICA 종료평가 양식 및 내부 연구자료를 적용한 진단이며 기관의 공식 확정·서명 평가가 아닙니다.",
+  "version": "odame-contextual-2.0.20261008",
+  "label": "참고 평가자료 기반 사업 수행·증빙 분리 진단",
+  "notice": "제공된 평가 참고자료를 바탕으로 사업 수행 맥락을 반영한 내부 진단입니다. 공식 KOICA 확정점수 또는 원본 자동점수 산식과 동일하지 않습니다.",
   "source": {
     "file": "반영용_KOICA_종료·사후평가_증빙체크_자동점수_v1_4.xlsm",
     "sha256": "9b5e8300b989f122a66eb02f83a6ebaa34553c801b33d9e90bf8b586be36638d",
     "folder": "https://drive.google.com/drive/folders/1Uw3aqKFflx9jcuzTXezdaUscWNwvuUqJ"
   },
-  "adaptation": "반영용 55개 항목·동일가중·임계값을 사용. 참고 개발명세 5~7장에 따라 성과판정과 증거품질을 분리하며 품질 체크 수로 성과를 만들지 않음. 질문 점수는 정수, 기준 평균은 소수점 한 자리 HALF_UP. 미확인·충돌은 null.",
+  "adaptation": "11개 질문·55개 항목과 질문별 평가 문장을 유지. 실제 부분 실행 0.5, 주요 범위 달성 0.75, 전체 충족 1, 직접 확인된 미달 0. 증빙 신뢰도는 별도 산정하며 미확인·충돌·목표시점 미도래는 점수에 0으로 넣지 않음. 자료 형식만으로 수행 사실을 감점하지 않음.",
   "states": {
     "negative": 0,
-    "limited": 0.33,
-    "substantial": 0.67,
+    "limited": 0.5,
+    "substantial": 0.75,
     "verified": 1,
     "unverified": null,
-    "conflicted": null
+    "conflicted": null,
+    "not_due": null
   },
   "merit_thresholds": [
     40,

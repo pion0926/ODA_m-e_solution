@@ -12,7 +12,7 @@ def test_resume_restores_expanded_scope_before_any_document_requests():
          patch('kodame_intake.dac_scope_policy.escalation_questions') as decide, \
          patch('kodame_intake.evaluation_runner.prepare_documents') as prepare:
         assert prepare_review('run', ['source'], {'scopes': {}}, saved) == expanded
-        expand.assert_called_once_with(['source'], narrow, saved['scope_escalation'])
+        expand.assert_called_once_with(['source'], narrow, saved['scope_escalation'], review_plan={'scopes': {}})
         prepare.assert_called_once_with(expanded, allow_partial=True)
         decide.assert_not_called()
 

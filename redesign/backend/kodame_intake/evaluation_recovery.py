@@ -1,10 +1,37 @@
-"""Run-local durable checkpoints, copied only for identical tenant inputs."""
+"""Tenant-scoped checkpoints; question reuse also validates its exact inputs."""
 import uuid
 from psycopg.types.json import Jsonb
 from .db import connection
 from .evaluation_storage import retry_storage
 
 RECOVERY_VERSION = 'dac-recovery-v1'
+
+
+def load_question_candidates(run_id):
+    """Load bounded candidate history, never assume the previous run is valid.
+
+    The assessor compares a model/rule/source/context fingerprint and validates
+    every citation before accepting a candidate. Explicit project scoping is an
+    additional guard to the connection's row-level security.
+    """
+    with connection() as conn:
+        rows = conn.execute("""SELECT id,input_snapshot->'question_checkpoints' AS checkpoints,
+            input_snapshot->'evidence_selections' AS selections FROM evaluation_runs
+            WHERE project_id=(SELECT project_id FROM evaluation_runs WHERE id=%s)
+            AND id<>%s AND status IN ('completed','failed')
+            AND input_snapshot ? 'question_checkpoints'
+            ORDER BY started_at DESC LIMIT 12""", (run_id, run_id)).fetchall()
+    checkpoints, selections = {}, {}
+    for row in rows:
+        for qid, candidate in (row.get('checkpoints') or {}).items():
+            if not isinstance(candidate, dict) or not candidate.get('digest') or not isinstance(candidate.get('raw'), dict):
+                continue
+            candidates = checkpoints.setdefault(qid, [])
+            if not any(item['digest'] == candidate['digest'] for item in candidates):
+                candidates.append({**candidate, 'source_run_id': str(row['id'])})
+        for key, value in (row.get('selections') or {}).items():
+            selections.setdefault(key, value)
+    return checkpoints, selections
 
 
 def restore_run(run_id, digest, snapshot):
@@ -47,6 +74,15 @@ def save_question(run_id, qid, digest, raw):
         conn.execute("""UPDATE evaluation_runs SET input_snapshot=jsonb_set(input_snapshot,
             ARRAY['question_checkpoints',%s],%s) WHERE id=%s AND status='running'""",
             (qid, Jsonb({'digest':digest,'raw':raw}),run_id))
+
+
+@retry_storage
+def record_question_reuse(run_id, qid, source_run_id=None):
+    with connection() as conn:
+        conn.execute("""UPDATE evaluation_runs SET input_snapshot=jsonb_set(input_snapshot,
+            '{question_reuse}',coalesce(input_snapshot->'question_reuse','{}'::jsonb) || %s)
+            WHERE id=%s AND status='running'""",
+            (Jsonb({qid: {'reused': True, 'source_run_id': source_run_id}}), run_id))
 
 
 @retry_storage

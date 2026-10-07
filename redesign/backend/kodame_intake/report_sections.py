@@ -266,15 +266,8 @@ def section_documents(part_id: str, include_paths: bool = False) -> list[dict]:
                       '집행계획서 및 최신 PDM (Project Design Matrix)'::text AS matched_slot_title
                  FROM pdm_models p
                  JOIN evaluation_intake_documents d ON d.id=p.source_document_id
-                WHERE d.status='completed'
-                ORDER BY
-                  CASE
-                    WHEN p.source_file_name ILIKE '%%최신%%PDM%%'
-                      OR p.source_file_name ILIKE '%%PDM%%최신%%' THEN 0
-                    WHEN p.source_file_name ILIKE '%%수정%%' THEN 1
-                    ELSE 2
-                  END,
-                  p.created_at DESC
+                WHERE d.status='completed' AND d.upload_role='pdm'
+                ORDER BY p.created_at DESC
                 LIMIT 1"""
         ).fetchone()
         if part_id == "pdm" and authoritative_pdm:

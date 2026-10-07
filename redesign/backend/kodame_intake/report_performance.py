@@ -10,7 +10,9 @@ def performance_context(model, allowed_ids):
         row = {key: item.get(key) for key in ('id', 'tier_id', 'indicator', 'evidence', 'baseline', 'target', 'actual',
                 'achievement_rate', 'achievement_label', 'measurement_status', 'status', 'note')}
         row['selected_sources'] = {kind: {key: source.get(key) for key in
-            ('document_id', 'file_name', 'quote', 'value', 'period')}
+            ('document_id', 'file_name', 'quote', 'value', 'period', 'measurement_scope',
+             'supporting_document_ids', 'event_dates', 'aggregation_basis', 'aggregation_window',
+             'aggregation_review_required')}
             for kind, source in (item.get('selected_measurements') or {}).items()}
         row['other_target_values'] = list(dict.fromkeys(str(o['value']) for o in item.get('measurement_sources', [])
             if o.get('kind') == 'target' and o.get('value') != item.get('target')))
@@ -19,14 +21,17 @@ def performance_context(model, allowed_ids):
         '성과지표 모니터링에서 원문 검증·단위 검증 후 저장한 현재 선택값이다. 최신 PDM은 지표명·계층·MOV의 기준이며, '
         '목표·실적은 연결된 사업계획서와 실적 자료에서 보완된다. PDM 자체에 수치가 없다고 이 값을 미기재로 지우지 않는다. '
         '확인된 유/무 및 수치를 임의로 재판정하지 않는다. 충돌·미완료·실적 미확인을 0이나 달성으로 바꾸지 않는다. '
+        '집계 실적은 supporting_document_ids의 개별 행사 근거와 event_dates·aggregation_basis를 함께 해석한다. '
+        '대표 인용문 하나가 합산 수치를 직접 진술한 것처럼 서술하지 않는다. '
         '다른 목표값 및 기준일 미기재는 기간·범위의 한계로 설명한다. 사업 전체 성과와 개별 지표 달성을 구분한다.'
     )}
 
 
 def source_ids(context):
-    return list(dict.fromkeys(str(source['document_id'])
+    return list(dict.fromkeys(str(document_id)
         for item in context.get('indicators', []) for source in item.get('selected_sources', {}).values()
-        if source.get('document_id')))
+        for document_id in [source.get('document_id'), *(source.get('supporting_document_ids') or [])]
+        if document_id))
 
 
 def _line(value, fallback='확인 필요'):

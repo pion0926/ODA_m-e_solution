@@ -145,9 +145,9 @@ def dashboard():
     elif processing_documents:
         workflow_status = {"code": "processing_documents", "message": f"문서 {processing_documents}건 분석 진행 중"}
     elif active_run:
-        workflow_status = {"code": "evaluation_active", "message": "전체 문서 평가 분석 중"}
+        workflow_status = {"code": "evaluation_active", "message": "DAC 질문별 증빙 평가 중"}
     elif not lifecycle["evaluation_current"]:
-        workflow_status = {"code": "evaluation_required", "message": "전체 문서 재평가 필요"}
+        workflow_status = {"code": "evaluation_required", "message": "변경 자료를 반영한 DAC 평가진단 필요"}
     elif alerts:
         workflow_status = {"code": "review_required", "message": f"보완 {len(alerts)}건 검토 필요"}
     elif not lifecycle["report_current"]:
