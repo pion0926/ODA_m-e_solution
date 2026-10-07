@@ -5,6 +5,7 @@ They do not authorize a current score, so exemptions are local to each claim.
 """
 import json
 import re
+from decimal import Decimal, InvalidOperation
 
 
 CRITERIA = {'relevance':'적절성','coherence':'일관성','effectiveness':'효과성',
@@ -32,6 +33,30 @@ def _reference_claim(segment, start, end):
     return bool(NEGATION.search(after))
 
 
+def _known_criterion_total_claim(segment, match, rows):
+    """An explicitly named, saved criterion score is not the five-criterion sum."""
+    score = re.fullmatch(rf'종합\s*(?:평가\s*)?점수{RELATION}({NUMBER})\s*점', match[0])
+    if score is None:
+        return False
+    before = segment[:match.start()]
+    subject = re.search(r'(?<![가-힣])(' + '|'.join(CRITERIA.values()) + r')(?:\s*기준)?(?:의)?\s*$', before)
+    if subject is None:
+        return False
+    # A criterion name does not authorize reframing its number as an overall
+    # score. Delimiters keep an unrelated later held-total notice independent.
+    after = re.split(r'[,，;]', segment[match.end():], maxsplit=1)[0]
+    overall_scope = r'전체|총점|(?:5|다섯)\s*(?:대\s*)?(?:평가\s*)?기준|20\s*점'
+    if re.search(overall_scope, before) or re.search(overall_scope, after):
+        return False
+    saved = next((row.get('score') for row in rows if CRITERIA.get(row['criterion_id']) == subject[1]), None)
+    if saved is None:
+        return False
+    try:
+        return Decimal(score[1]) == Decimal(str(saved))
+    except (InvalidOperation, ValueError):
+        return False
+
+
 def held_score_issues(part_id, content, evaluations):
     rows = [row for row in evaluations if row.get('criterion_id') in CRITERIA]
     held = {row['criterion_id'] for row in rows if row.get('score') is None}
@@ -53,6 +78,8 @@ def held_score_issues(part_id, content, evaluations):
     for segment in re.split(r'\n|;|(?<!\d)\.(?!\d)|。|(?=하지만|반면|그러나)', str(content or '')):
         for pattern, label in ((TOTAL,'종합점수'),(GRADE,'종합등급')):
             for match in pattern.finditer(segment):
+                if pattern is TOTAL and _known_criterion_total_claim(segment, match, rows):
+                    continue
                 if not _reference_claim(segment,match.start(),match.end()):
                     issues.append(f'저장된 DAC 종합점수·등급이 판정보류인데 현재 {label}를 임의 확정함: {match[0]}. 보류 상태와 확인된 개별 기준 점수를 구분해야 함')
         for cid in held:

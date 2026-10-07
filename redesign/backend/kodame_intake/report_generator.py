@@ -550,6 +550,11 @@ def _validate_reader_content(part_id: str, content: str, current_country: str, e
                 koica_check_text,
                 flags=re.IGNORECASE,
             )
+        # This exact server-owned disclaimer describes the assessment's
+        # non-official status, not the project's commissioning institution.
+        # Keep it in the authored/exported body; only omit it from this check.
+        # Other disclaimers and institution claims still fail closed.
+        koica_check_text = koica_check_text.replace(PROVISIONAL_NOTICE, "")
         if re.search(r"(?:KOICA|코이카)", koica_check_text, re.IGNORECASE):
             issues.append("현재 사업개요에 없는 KOICA·코이카 정보가 혼입됨")
     if execution_scope.get("project_status") == "ongoing":

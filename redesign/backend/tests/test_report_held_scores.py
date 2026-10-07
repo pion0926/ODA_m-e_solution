@@ -54,6 +54,32 @@ def test_historical_reference_scale_and_actual_subquestion_scores_are_allowed(te
     assert held_score_issues('criteria-sustainability',text,ROWS)==[]
 
 
+@pytest.mark.parametrize('text',[
+    '적절성 종합점수는 3점임.',
+    '- 현재 적절성 기준의 종합 평가 점수: 3.0점임.',
+    '효과성의 종합점수는 2.7점임.',
+    '적절성 종합점수는 3점임, 전체 종합점수는 판정보류임.',
+])
+def test_explicit_saved_criterion_total_is_not_the_held_overall_total(text):
+    assert held_score_issues('criteria-relevance',text,ROWS)==[]
+
+
+@pytest.mark.parametrize('text',[
+    '적절성 종합점수는 4점임.',
+    '지속가능성 종합점수는 3점임.',
+    '종합점수는 3점임.',
+    '전체 적절성 종합점수는 3점임.',
+    '5대 기준 적절성 종합점수는 3점임.',
+    '다섯 기준 적절성 종합점수는 3점임.',
+    '적절성 종합점수는 3점으로 전체 총점임.',
+    '적절성 종합점수는 3/20점임.',
+    '적절성 종합점수는 3점임. KOICA C등급임.',
+    '적절성 종합점수는 3점임. 현재 총점은 3점임.',
+])
+def test_named_criterion_cannot_hide_wrong_held_overall_or_grade_claims(text):
+    assert held_score_issues('criteria-relevance',text,ROWS)
+
+
 def test_fully_scored_previous_policy_unchanged_and_input_not_mutated():
     rows=deepcopy(ROWS);before=deepcopy(ROWS)
     rows[-1]['score']=2
