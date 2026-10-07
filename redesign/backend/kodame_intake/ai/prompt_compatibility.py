@@ -38,3 +38,11 @@ COMPATIBLE_INPUT_HASHES.setdefault('shared/Section1_표지.py', {})['a4b62597294
 # stored documents, mappings and assessments are untouched. Changed exclusions
 # on explicitly reprocessed documents still invalidate their dependent inputs.
 COMPATIBLE_INPUT_HASHES.setdefault('assembled/intake_triage', {})['0c07cb9dcd5abb788d745e8e5edca9075e957035f68717fc245238578ec13eea'] = '8f23cedec34a1a9f68494c204db085e8b39e85464949998e2f4363595e70dc88'
+
+# V2.4.31: omit the exact server-owned provisional-assessment disclaimer only
+# from the KOICA institution-contamination check. Authored text, prompts, source
+# evidence and scoring are unchanged. Baked V30/V31 byte hashes and AST comparison
+# confirm this single assignment is the only executable report_generator change.
+# Keep actual source provenance in prompt_manifest; this exact pair only preserves
+# existing evaluation input identity. Unreviewed future revisions still invalidate.
+COMPATIBLE_INPUT_HASHES.setdefault('assembled/report_generator', {})['8ac4b134943bf48a9482a06c65800ac76cb3b0a77b7a30d6e002fed90b59012e'] = '341c9080e3447b7c690e77e31de2712931603a91f60abace9ebf5cf58de46b73'
