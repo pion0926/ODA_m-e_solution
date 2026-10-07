@@ -412,6 +412,7 @@ def _quality_prompt(section: dict, evidence: list[dict], examples: list[dict], o
 
 [최신 평가결과]
 score=null은 0점이나 1점이 아니라 자료 부족·충돌로 인한 판정보류다. 보류된 질문·기준 점수를 임의로 만들거나 평균·총점·등급을 확정하지 않는다. 부족한 자료와 판단 가능한 사실을 구분한다.
+score가 숫자이면 evidence_status=needs_evidence/needs_review/conflicted 또는 낮은 confidence가 있어도 그 점수를 유지한다. 이는 증빙 보완 정보이며 질문·기준 전체의 점수 보류로 바꾸지 않는다.
 {json.dumps(evaluation_context_for_report(evaluations), ensure_ascii=False, default=str)}
 
 [저장된 5대 기준 종합점수·등급 및 평가 성격]
@@ -651,8 +652,8 @@ def _number_and_unit(value: str) -> tuple[float | None, str]:
 
 
 def _quantitative_consistency_issues(part_id: str, content: str, evaluations: list[dict]) -> list[str]:
-    from .report_score_validation import held_score_issues
-    issues: list[str] = held_score_issues(part_id, content, evaluations)
+    from .report_score_validation import held_score_issues, observed_score_issues
+    issues: list[str] = held_score_issues(part_id, content, evaluations) + observed_score_issues(part_id, content, evaluations)
     if part_id == "achievement":
         columns = None
         for line in content.splitlines():
@@ -1002,7 +1003,7 @@ def _deterministic_safe_section(part_id: str, overview: dict, execution_scope: d
             '평가결과는 확인 가능한 자료와 평가 기준시점의 범위에 한정되며, 지원기관 또는 수행기관의 공식 입장을 대신하지 않음.\n\n'
             '문서에 수록된 기존 조사·회의·자체평가 기록과 이번 보고서의 작성 절차는 구분하여 해석해야 함. '
             '별도의 현지조사·신규 면담·외부 품질심의 수행 여부는 명시적인 증빙자료에 따라 확인해야 함.\n\n'
-            '근거가 부족하거나 상충하는 평가 질문은 판정보류로 표시함. 자료의 기준시점·예산 변경·측정단위를 확인하고, '
+            '확인된 성과의 점수와 증빙 신뢰도를 구분함. 자료의 기준시점·예산 변경·측정단위를 확인하고, '
             '부족한 증빙을 보완한 뒤 재평가해야 함.\n\n'
             '최종 제출 또는 대외 활용 전 평가책임자와 관계기관의 사실확인 및 품질검토가 필요함. '
             '인용 시 사업명·작성 기준일·출처를 명시하고, 원자료의 개인정보 및 공개범위를 확인해야 함.'
@@ -1102,6 +1103,7 @@ def _grounded_fallback(
 
 [저장된 평가결과]
 score=null은 판정보류이며 0점·1점으로 대체하거나 총점·등급을 임의로 산정하지 않는다.
+score가 숫자이면 evidence_status=needs_evidence/needs_review/conflicted 또는 낮은 confidence가 있어도 그 점수를 유지한다. 이는 증빙 보완 정보이며 질문·기준 전체의 점수 보류로 바꾸지 않는다.
 {json.dumps(evaluation_context_for_report(evaluations), ensure_ascii=False, default=str)}
 
 [선행 섹션]
@@ -1229,6 +1231,7 @@ def _generate_report_section(
 
 [최신 평가결과]
 score=null은 판정보류다. 보류된 점수를 0점·1점으로 대체하지 않고, 기준·총점·등급 확정에 필요한 자료를 명시한다.
+score가 숫자이면 evidence_status=needs_evidence/needs_review/conflicted 또는 낮은 confidence가 있어도 그 점수를 유지한다. 이는 증빙 보완 정보이며 질문·기준 전체의 점수 보류로 바꾸지 않는다.
 {json.dumps(evaluation_context_for_report(evaluations), ensure_ascii=False, default=str)}
 
 [저장된 5대 기준 종합점수·등급 및 평가 성격]

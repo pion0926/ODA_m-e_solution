@@ -8,7 +8,7 @@ root.innerHTML = `<div id="reader-toolbar" aria-label="미리보기 도구"><lab
 const byId = id => document.getElementById(id);
 const pages = byId('reader-pages'), status = byId('reader-status');
 let worker, counter=0, pending=new Map(), holders=[], observer, busy=false, wanted=new Set(), scale=1, mode='page', generation=0;
-let pageWidth=794, pageHeight=1123, rendered=new Set();
+let pageWidth=794, pageHeight=1123, rendered=new Set(), pageSizes=[], rendering=new Map(), currentPage=0;
 function fail(message) {status.textContent=message;byId('reader-retry').hidden=false;}
 function rpc(type, fields={}, transfer=[]) {
   return new Promise((resolve,reject)=>{
@@ -38,25 +38,37 @@ function safeSvg(raw, page) {
   return document.importNode(doc.documentElement,true);
 }
 function fit() {
-  if(mode==='page') scale=Math.min(1,(pages.clientWidth-32)/pageWidth,(pages.clientHeight-32)/pageHeight);
-  if(mode==='width') scale=Math.min(2,(pages.clientWidth-32)/pageWidth);
   scale=Math.max(.15,Math.min(3,scale));
-  pages.style.setProperty('--page-width',`${pageWidth*scale}px`);
-  pages.style.setProperty('--page-height',`${pageHeight*scale}px`);
-  byId('reader-zoom').textContent=`${Math.round(scale*100)}%`;
+  holders.forEach((holder,index)=>{
+    const size=pageSizes[index] || {width:pageWidth,height:pageHeight};
+    let zoom=scale;
+    if(mode==='page')zoom=Math.min(1,(pages.clientWidth-32)/size.width,(pages.clientHeight-32)/size.height);
+    if(mode==='width')zoom=Math.min(2,(pages.clientWidth-32)/size.width);
+    zoom=Math.max(.15,Math.min(3,zoom));
+    holder.style.width=`${size.width*zoom}px`;holder.style.height=`${size.height*zoom}px`;
+    if(index===currentPage){byId('reader-zoom').textContent=`${Math.round(zoom*100)}%`;if(mode!=='manual')scale=zoom;}
+  });
 }
-async function showPage(index, epoch=generation) {
-  const raw=await rpc('page',{page:index});
-  if(epoch!==generation)return;
-  const svg=safeSvg(raw,index);
-  if(index===0){
+function showPage(index, epoch=generation) {
+  if(rendered.has(index))return Promise.resolve();
+  if(rendering.has(index))return rendering.get(index);
+  const task=(async()=>{
+    const raw=await rpc('page',{page:index});
+    if(epoch!==generation)return;
+    const svg=safeSvg(raw,index);
     const box=svg.getAttribute('viewBox')?.split(/[ ,]+/).map(Number);
     const width=box?.[2] || parseFloat(svg.getAttribute('width'));
     const height=box?.[3] || parseFloat(svg.getAttribute('height'));
-    if(width>0 && height>0){pageWidth=width;pageHeight=height;fit();}
-  }
-  holders[index].replaceChildren(svg); rendered.add(index);
-  holders[index].setAttribute('aria-busy','false');
+    if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)throw Error('페이지 크기를 읽지 못했습니다.');
+    const anchor=holders[currentPage], top=anchor?.getBoundingClientRect().top;
+    pageSizes[index]={width,height};
+    if(index===0){pageWidth=width;pageHeight=height;}
+    holders[index].replaceChildren(svg); rendered.add(index);fit();
+    if(top!==undefined)pages.scrollTop+=anchor.getBoundingClientRect().top-top;
+    holders[index].setAttribute('aria-busy','false');
+  })();
+  rendering.set(index,task);
+  return task.finally(()=>{if(rendering.get(index)===task)rendering.delete(index);});
 }
 async function drain() {
   if(busy)return;
@@ -73,7 +85,7 @@ async function start() {
   const epoch=++generation;
   observer?.disconnect();worker?.terminate();
   for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('미리보기 다시 시작'));}pending.clear();
-  busy=false;wanted.clear();rendered.clear();holders=[];pages.replaceChildren();
+  busy=false;wanted.clear();rendered.clear();rendering.clear();pageSizes=[];currentPage=0;pageWidth=794;pageHeight=1123;holders=[];pages.replaceChildren();
   byId('reader-retry').hidden=true;status.textContent='원본 파일을 불러오는 중…';
   try {
     worker=new Worker(new URL('./report-reader-worker.js',import.meta.url),{type:'module'});
@@ -105,7 +117,22 @@ async function start() {
     holders.forEach(holder=>observer.observe(holder));
   }catch(error){if(epoch===generation)fail(error.message);}
 }
-byId('reader-go').onclick=()=>{const index=Number(byId('reader-page').value)-1;if(Number.isInteger(index)&&holders[index])holders[index].scrollIntoView({block:'start'});};
+byId('reader-go').onclick=async()=>{
+  const index=Number(byId('reader-page').value)-1, epoch=generation;
+  if(!Number.isInteger(index)||!holders[index])return;
+  try{await showPage(index,epoch);if(epoch!==generation)return;currentPage=index;fit();holders[index].scrollIntoView({block:'start'});}
+  catch(error){if(epoch===generation)fail(error.message);}
+};
+let scrollFrame;
+pages.addEventListener('scroll',()=>{
+  if(scrollFrame)return;
+  scrollFrame=requestAnimationFrame(()=>{
+    scrollFrame=null;
+    const top=pages.getBoundingClientRect().top;
+    const index=holders.findIndex(holder=>holder.getBoundingClientRect().bottom>top+20);
+    if(index>=0&&index!==currentPage){currentPage=index;byId('reader-page').value=String(index+1);fit();}
+  });
+});
 byId('reader-page').onkeydown=event=>{if(event.key==='Enter')byId('reader-go').click();};
 byId('reader-fit').onclick=()=>{mode='page';fit();};byId('reader-width').onclick=()=>{mode='width';fit();};
 byId('reader-in').onclick=()=>{mode='manual';scale+=.1;fit();};byId('reader-out').onclick=()=>{mode='manual';scale-=.1;fit();};

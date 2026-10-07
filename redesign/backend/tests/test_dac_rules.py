@@ -153,22 +153,28 @@ class DacRuleEngineTests(unittest.TestCase):
         negative,_=self.fixture(state='negative')
         self.assertEqual(score_question('relevance-q1',negative,evidence)['selected_score'],1)
 
-    def test_coverage_boundary_60_is_scored_40_is_held(self):
+    def test_coverage_boundary_60_and_40_keep_observed_score(self):
         item,evidence=self.fixture()
         for c in item['indicators'][:2]: c['state']='unverified'
         result=score_question('relevance-q1',item,evidence)
         self.assertEqual(result['coverage'],.6)
         self.assertEqual(result['selected_score'],3)
         item['indicators'][2]['state']='unverified'
-        self.assertIsNone(score_question('relevance-q1',item,evidence)['selected_score'])
+        result=score_question('relevance-q1',item,evidence)
+        self.assertEqual(result['selected_score'],3)
+        self.assertEqual(result['coverage'],.4)
+        self.assertEqual(result['status'],'proposed')
+        self.assertEqual(result['evidence_status'],'needs_evidence')
 
-    def test_conflicting_evidence_blocks_even_with_high_coverage(self):
+    def test_conflict_is_separate_from_other_observed_performance(self):
         item,evidence=self.fixture()
         item['indicators'][0]['state']='conflicted'
         result=score_question('relevance-q1',item,evidence)
         self.assertEqual(result['coverage'],.8)
-        self.assertIsNone(result['selected_score'])
-        self.assertEqual(result['status'],'conflicted')
+        self.assertEqual(result['selected_score'],3)
+        self.assertEqual(result['status'],'proposed')
+        self.assertEqual(result['evidence_status'],'conflicted')
+        self.assertEqual(result['timing']['scored_count'],4)
 
     def test_four_requires_all_atoms_and_explicit_gate(self):
         item,evidence=self.fixture(state='verified')
@@ -194,7 +200,9 @@ class DacRuleEngineTests(unittest.TestCase):
             c['quality'].update(source_grade=1,directness=0,recency=0)
         r=score_question('relevance-q1',item,evidence)
         self.assertEqual(r['coverage'],0)
-        self.assertIsNone(r['selected_score'])
+        self.assertEqual(r['selected_score'],3)
+        self.assertEqual(r['evidence_status'],'needs_evidence')
+        self.assertLess(r['confidence'],50)
 
     def test_specific_cap_and_verified_red_flag(self):
         item,evidence=self.fixture('relevance-q2')

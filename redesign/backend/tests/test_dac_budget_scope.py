@@ -127,14 +127,16 @@ def test_explicit_english_project_boundary_is_supported(direction, quote):
     assert result['scope_validated'] is True
 
 
-def test_judgment_prompt_upgrade_invalidates_replay_without_changing_extraction_rules():
+def test_scoring_policy_upgrade_invalidates_judgment_but_not_unchanged_extraction():
     from kodame_intake import dac_replay, dac_evidence
     from kodame_intake.dac_rules import RULE_DIGEST, PROMPT_VERSION
     with patch.object(dac_replay, 'connection') as conn:
         conn.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = None
         new = dac_replay.fingerprint([], 'same-model')
-        with patch.object(dac_replay, 'PROMPT_VERSION', 'dac-fact-judgement-v14-contextual'):
+        with patch.object(dac_replay, 'PROMPT_VERSION', 'dac-fact-judgement-v15-scope-conflict'):
             old = dac_replay.fingerprint([], 'same-model')
     assert new != old
-    assert PROMPT_VERSION == 'dac-fact-judgement-v15-scope-conflict'
-    assert RULE_DIGEST == dac_evidence.RULE_DIGEST == '562164e5bf9722da9f882a0c96cf877dbd46774684ec0a816cf0616b48daa812'
+    assert PROMPT_VERSION == 'dac-fact-judgement-v16-score-confidence-separated'
+    assert RULE_DIGEST == dac_evidence.RULE_DIGEST
+    assert RULE_DIGEST != dac_evidence.LEGACY_EXTRACTION_RUBRIC
+    assert dac_evidence.extraction_rule_digest() == dac_evidence.LEGACY_EXTRACTION_RUBRIC

@@ -11,7 +11,7 @@ ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'config/dac_evid
 RULES = json.loads((ROOT / 'config/dac_evidence_rubric.json').read_text(encoding='utf-8'))
 VERSION = RULES['version']
 RULE_DIGEST = hashlib.sha256(json.dumps(RULES, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
-PROMPT_VERSION = 'dac-fact-judgement-v15-scope-conflict'
+PROMPT_VERSION = 'dac-fact-judgement-v16-score-confidence-separated'
 STATES = RULES['states']
 
 
@@ -224,17 +224,25 @@ def score_question(qid, item, evidence):
                          'maximum':2 if m['justification']=='verified' else 1,
                          'reason':'전체 사업 예산·기간 150% 이상을 동일 범위 원문으로 검증; '
                                   + ('승인·불가피성 확인' if m['justification']=='verified' else '타당한 사유 없음이 직접 확인됨')})
-    status = ('conflicted' if conflict else 'needs_evidence' if coverage < RULES['coverage_min']
-              else 'needs_review' if confidence < RULES['confidence_min'] else 'proposed')
-    score = min([base]+[c['maximum'] for c in caps]) if base is not None and status == 'proposed' else None
+    evidence_status = ('conflicted' if conflict else 'needs_evidence' if coverage < RULES['coverage_min']
+                       else 'needs_review' if confidence < RULES['confidence_min'] else 'proposed')
+    # Coverage and source confidence qualify a judgement; they do not erase
+    # observed execution. Unknown/conflicted/not-due checks contribute neither
+    # invented success nor zero. A wholly unobserved question still has no score.
+    score = min([base]+[c['maximum'] for c in caps]) if base is not None else None
+    status = 'proposed' if score is not None else evidence_status
     gaps = [f"{c['criterion']}: {c['required_evidence']}" for c in checks if c['state'] not in ('verified','not_due')]
     reason = (f"관측 {len(observed)}/5개, 근거 확보율 {coverage*100:.0f}%, 증거 신뢰도 {confidence:.1f}%. "
               + (f"성과지수 {float(merit):.1f} → 기본 {base}점. " if merit is not None else '판단 가능한 성과 근거 없음. ')
-              + (f"상한 적용 후 {score}점." if score is not None else '자료 미확인 또는 충돌로 점수 판정 보류.'))
+              + (f"관측 성과와 상한을 반영한 잠정 {score}점. "
+                 + ('증빙 부족·신뢰도·충돌은 별도 보완사항으로 관리하며 확인된 성과 점수와 구분함.'
+                    if evidence_status != 'proposed' else '확인된 증빙 범위의 판단임.')
+                 if score is not None else '판단 가능한 관측 성과가 없어 임의 점수를 산정하지 않음.'))
     return {'version':VERSION,'rubric_digest':RULE_DIGEST,'label':RULES['label'],'notice':RULES['notice'],
             'question_id':qid, 'levels':rule['official_levels'], 'checks':checks, 'selected_score':score,
             'selected_level_reason':reason, 'next_level_gap':' / '.join(gaps) or '검증된 성과와 증빙을 유지하고 후속 측정 필요',
-            'status':status, 'merit_index':rounded(merit) if merit is not None else None,
+            'status':status, 'evidence_status':evidence_status,
+            'merit_index':rounded(merit) if merit is not None else None,
             'coverage':rounded(coverage,3),'evidence_dq':rounded(dq,3),'confidence':rounded(confidence),
             'assessment_basis':'provisional_document_review',
             'timing':{'not_due_count':sum(c['state']=='not_due' for c in checks),

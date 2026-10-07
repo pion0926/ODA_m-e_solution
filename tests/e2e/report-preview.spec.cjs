@@ -73,4 +73,35 @@ test('report reader shows a recoverable download failure', async ({page})=>{
   await expect(page.locator('.reader-page svg').first()).toBeVisible();
 });
 
+test('mixed page orientations keep their own paper size through jumps and zoom', async ({page})=>{
+  await page.route('**/api/v2/report/exports/**/download',route=>route.fulfill({contentType:'application/octet-stream',body:fixture}));
+  await page.route('**/report-reader-worker.js',route=>route.fulfill({contentType:'text/javascript',body:`
+    self.onmessage=({data})=>{const landscape=data.page===2;
+      const width=landscape?1123:794,height=landscape?794:1123;
+      const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'"><text x="60" y="80" font-size="20">Readable page '+(data.page+1)+'</text></svg>';
+      self.postMessage({id:data.id,result:data.type==='open'?4:svg});};` }));
+  await page.goto('/assets/rhwp/?reportPreview=1&url='+encodeURIComponent('/api/v2/report/exports/11111111-1111-1111-1111-111111111111/download'));
+  const portrait=page.getByRole('region',{name:'1쪽',exact:true});
+  const landscape=page.getByRole('region',{name:'3쪽',exact:true});
+  await expect(portrait).toHaveAttribute('aria-busy','false');
+  const ratio=locator=>locator.evaluate(el=>el.getBoundingClientRect().width/el.getBoundingClientRect().height);
+  expect(await ratio(portrait)).toBeCloseTo(794/1123,2);
+  const jump=async number=>{await page.getByRole('spinbutton').fill(String(number));await page.getByRole('button',{name:'이동',exact:true}).click();};
+  await jump(3);
+  await expect(landscape).toHaveAttribute('aria-busy','false');
+  await expect.poll(()=>ratio(landscape)).toBeCloseTo(1123/794,2);
+  await expect.poll(()=>landscape.evaluate(el=>Math.abs(el.getBoundingClientRect().top-document.querySelector('#reader-pages').getBoundingClientRect().top))).toBeLessThan(22);
+  expect(await page.locator('#reader-pages').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+  const before=(await landscape.boundingBox()).width;
+  await page.getByRole('button',{name:'확대',exact:true}).click();
+  expect((await landscape.boundingBox()).width).toBeGreaterThan(before);
+  expect(await ratio(landscape)).toBeCloseTo(1123/794,2);
+  await page.getByRole('button',{name:'폭 맞춤',exact:true}).click();
+  expect(await page.locator('#reader-pages').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+  await jump(1);
+  expect(await ratio(portrait)).toBeCloseTo(794/1123,2);
+  await page.getByRole('button',{name:'쪽 맞춤',exact:true}).click();
+  expect(await ratio(portrait)).toBeCloseTo(794/1123,2);
+});
+
 

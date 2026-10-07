@@ -92,3 +92,57 @@ def held_score_issues(part_id, content, evaluations):
                 if not _reference_claim(segment,match.start(),match.end()):
                     issues.append(f'저장된 {name} 기준은 판정보류인데 현재 기준 점수를 임의 확정함: {match[0]}. 하위 질문 점수와 기준 판정보류를 구분해야 함')
     return list(dict.fromkeys(issues))
+
+
+def observed_score_issues(part_id, content, evaluations):
+    """A source-confidence caveat must not erase a saved performance score.
+
+    Match explicit criterion/overall score assertions only. Missing individual
+    questions, historical decisions and ordinary evidence caveats are distinct.
+    """
+    rows = {row['criterion_id']: row for row in evaluations
+            if row.get('criterion_id') in CRITERIA}
+    known = {cid: row['score'] for cid, row in rows.items() if row.get('score') is not None}
+    if not known:
+        return []
+    overall_known = set(known) == set(CRITERIA)
+    held = r'(?:판정\s*)?보류'
+    issues = []
+    if part_id == 'grade':
+        try:
+            slots = json.loads(content).get('slots', {})
+        except (ValueError, AttributeError, TypeError):
+            slots = {}
+        if isinstance(slots, dict):
+            keys = [f'{cid}_total_score' for cid in known]
+            if overall_known:
+                keys += ['overall_score', 'koica_grade', 'government_grade']
+            for key in keys:
+                if re.search(held, str(slots.get(key) or '')):
+                    issues.append(f'저장된 성과 점수가 있는데 등급표 {key}를 보류로 바꿈. 저장 점수를 유지하고 증빙 보완사항을 별도로 설명해야 함')
+            if slots:
+                content = '\n'.join(str(value) for key, value in slots.items()
+                                    if not key.endswith('_score'))
+    subjects = [re.escape(CRITERIA[cid]) + r'(?:\s*기준)?(?:의)?\s*'
+                r'(?:(?:종합|평균|전체)\s*)?(?:평가\s*)?(?:점수|판정|평가결과)?'
+                for cid in known]
+    if part_id.removeprefix('criteria-') in known:
+        subjects += [r'(?:해당\s*기준\s*점수|기준\s*점수|평균\s*점수|평가\s*점수)']
+    if overall_known:
+        subjects += [r'(?:종합\s*(?:평가\s*)?(?:점수|등급|판정)|총점|전체\s*평가\s*점수)']
+    qualifications = r'(?:(?:현재|이번|아직|(?:증빙|자료|근거)\s*부족으로|(?:증빙|자료|근거)가\s*부족하여)\s*)*'
+    pattern = re.compile(r'(?<![가-힣])(?:' + '|'.join(subjects) + r')' + RELATION + qualifications + held)
+    denied = re.compile(r'^\s*(?:(?:로|라고|라는|가|는)(?:는)?\s*)?'
+                        r'(?:아니|하지\s*(?:않|말)|처리하지|바꾸지|전환하지)')
+    for segment in re.split(r'\n|;|(?<!\d)\.(?!\d)|。|(?=하지만|반면|그러나)', str(content or '')):
+        for match in pattern.finditer(segment):
+            if _reference_claim(segment, match.start(), match.end()) or denied.search(segment[match.end():]):
+                continue
+            # A generic score phrase can belong to an explicitly scoped child
+            # question even when the enclosing criterion has a saved score.
+            before = re.split(r'[,，;]', segment[:match.start()])[-1]
+            generic_question_score = re.match(r'(?:평균|평가)\s*점수', match[0])
+            if generic_question_score and re.search(r'질문|문항|\bq\d+\b', before, re.I):
+                continue
+            issues.append(f'저장된 성과 점수를 현재 판정보류로 바꿈: {match[0]}. 확인된 점수는 유지하고 증빙 부족·신뢰도는 별도로 설명해야 함')
+    return list(dict.fromkeys(issues))
