@@ -1,0 +1,25 @@
+# Production-only connector; never attach this service to the development network.
+# Run separately from the frozen production release. No host ports are published.
+name: odame-prod-tunnel
+services:
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:?Set the verified cloudflared image digest}
+    command: [tunnel, --no-autoupdate, run, --token-file, /run/secrets/tunnel_token]
+    secrets: [tunnel_token]
+    networks: [production]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+secrets:
+  tunnel_token:
+    file: ${CLOUDFLARE_TOKEN_FILE:?Set the private local tunnel token file path}
+networks:
+  production:
+    external: true
+    name: odame-prod_default

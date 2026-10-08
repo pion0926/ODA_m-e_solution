@@ -14,6 +14,14 @@ if hasattr(sys.stdout, "reconfigure"):
 
 
 ROOT = Path(__file__).resolve().parents[1]
+BACKEND_DIR = ROOT / "backend"
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+from report_few_shot import build_format_only_few_shot_messages
+from report_outline import NARRATIVE_OUTLINE_PART_IDS, NARRATIVE_OUTLINE_PROMPT
+from report_writing_policy import report_writing_policy_prompt
+
 MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-3.1-flash-lite")
 BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
@@ -53,9 +61,10 @@ DETAILED_EVIDENCE_WRITING_PART_IDS = {
 
 DETAILED_EVIDENCE_WRITING_PROMPT = """
 
-[자료 기반 상세 서술 및 인용 지침]
+[자료 기반 상세 서술 지침]
 - 이 파트는 단순 빈칸 채우기가 아니라 최종 보고서 본문이다. reference_corpus.documents, content_inputs.references, content_inputs.criteria, prior_analysis_sections, sample_reference_for_this_section를 먼저 확인한 뒤 자료에 근거해 충분히 상세하게 작성한다.
-- 주요 주장마다 가능한 경우 근거 문서명 또는 evidenceName을 문장 안에 자연스럽게 언급한다.
+- 독자용 서술은 `ㅇ 논점` 아래 `- (2~15자 핵심어 요약) 본문`으로 구성하고, 문장 끝은 `~함·~음·~됨·~평가됨·~필요함`의 개조식 종결로 통일한다.
+- 근거 문서명과 위치 정보는 사실 검증에만 사용한다. 최종 본문에는 "(문서명, p. 7)", "(보고서, pp. 18-20)", "추출 항목 1" 같은 인용 표기를 넣지 않는다.
 - 직접 인용은 짧게만 사용하고, 대부분은 자료 내용을 해석·종합해 보고서 문체로 재작성한다.
 - 자료가 제한적이면 현재 보유 자료에서 확인되는 사실, 합리적 해석, 판단의 한계를 한 문단 안에 함께 설명하고 "추가 정보 필요" 같은 표식을 쓰지 않는다.
 """.strip()
@@ -72,9 +81,18 @@ def prompt_with_detailed_evidence_usage(prompt: object, part_id: str) -> str:
     base = str(prompt or "").strip()
     if part_id not in DETAILED_EVIDENCE_WRITING_PART_IDS:
         return base
-    if "[자료 기반 상세 서술 및 인용 지침]" in base:
+    if "[자료 기반 상세 서술 지침]" in base:
         return base
     return (base + "\n\n" + DETAILED_EVIDENCE_WRITING_PROMPT).strip()
+
+
+def prompt_with_narrative_outline(prompt: object, part_id: str) -> str:
+    base = str(prompt or "").strip()
+    if part_id not in NARRATIVE_OUTLINE_PART_IDS:
+        return base
+    if "[전 서술형 섹션 공통 문단 양식]" in base:
+        return base
+    return (base + "\n\n" + NARRATIVE_OUTLINE_PROMPT).strip()
 
 PART_ID_BY_SECTION_NUMBER = {
     1: "cover",
@@ -221,10 +239,14 @@ def build_prompt_input(script_file: str | Path, editor_prompt: str) -> dict:
     editor_section_id = EDITOR_SECTION_ID_BY_PART_ID.get(part_id, str(manifest.get("section_id") or part_id))
     reference_context = app_like_reference_context(part_id)
     project = (reference_context.get("context") or {}).get("project") or project_input()
-    writing_prompt = prompt_with_detailed_evidence_usage(
-        prompt_with_sample_reference_usage(editor_prompt),
+    writing_prompt = prompt_with_narrative_outline(
+        prompt_with_detailed_evidence_usage(
+            prompt_with_sample_reference_usage(editor_prompt),
+            part_id,
+        ),
         part_id,
     )
+    writing_prompt = (writing_prompt + "\n\n" + report_writing_policy_prompt()).strip()
     content_request = {
         "report_context": {
             "report_type": "KOICA 5-1 종료평가 결과보고서",
@@ -254,6 +276,14 @@ def build_prompt_input(script_file: str | Path, editor_prompt: str) -> dict:
                 "sample_reference_for_this_section은 좋은 샘플의 구조와 문체를 참고하기 위한 자료이며 문장과 고유 사실은 복사하지 않는다."
             ),
         },
+        *build_format_only_few_shot_messages(
+            part_id,
+            structure_notes=" → ".join(
+                str(item) for item in part.get("sampleHeadings", []) if str(item).strip()
+            ) or str(part.get("title") or part_id),
+            sample_count=len(list((ROOT / "samples").glob("*.pdf"))),
+            output_key=None,
+        ),
         {"role": "user", "content": json.dumps(content_request, ensure_ascii=False)},
     ]
     return {

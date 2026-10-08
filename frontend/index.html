@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="application-version" content="2.4">
+<title>K-ODAME v2.4 · ODA 성과관리 플랫폼</title>
+<link rel="stylesheet" href="assets/app-styles.css?v=20261006-improvements">
+<link rel="stylesheet" href="assets/performance-analysis-review.css?v=20260924-review"></head>
+<body>
+<!-- ============ 액세스 게이트 ============ -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="gate-logo">K-<span class="on">ODAME</span></div>
+    <div class="gate-sub">ODA 성과관리 · 종료평가 플랫폼</div>
+    <div class="auth-status" id="authStatus" role="status" aria-live="polite">
+      <p id="authStatusMessage">접속 상태를 확인하고 있습니다…</p>
+      <button type="button" class="auth-submit" id="authRetry" hidden onclick="location.reload()">다시 확인</button>
+      <button type="button" class="auth-switch" id="authSignOut" hidden>다른 계정으로 로그인</button>
+    </div>
+    <div class="auth-form" id="authForm" hidden>
+      <div class="auth-field" id="nameField" hidden><label for="authName">이름</label><input id="authName" autocomplete="name" placeholder="담당자 이름"></div>
+      <div class="auth-field"><label for="codeInput" id="authIdentityLabel">아이디 또는 이메일</label><input id="codeInput" autocomplete="username" placeholder="test1 또는 name@organization.org"></div>
+      <div class="auth-field"><label for="authPassword">비밀번호</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="비밀번호"></div>
+      <div class="auth-error" id="codeErr" role="alert"></div>
+      <button class="auth-submit" id="codeBtn">로그인</button>
+      <button class="auth-switch" id="authSwitch">새 계정 만들기</button>
+    </div>
+    <div class="gate-foot">배정된 사업과 권한에 따라 메뉴와 작성 기능이 제공됩니다.</div>
+  </div>
+</div>
+
+<!-- ============ 앱 셸 ============ -->
+<div class="app" id="app" style="display:none">
+
+  <aside id="gnb"><div class="gnb-in">
+    <div class="gnb-brand"><span class="bl">K-<span class="on">ODAME</span></span></div>
+    <nav class="gnb-nav" id="gnbNav"></nav>
+    <div class="gnb-foot">
+      <div class="langsw" id="langSw" title="사업 제공 언어 · 사업정보에서 설정"></div>
+      <div class="gnb-role">
+        <span class="avatar" id="roleAv">발</span>
+        <span id="roleName">발주처</span>
+        <button class="out" id="logout">로그아웃</button>
+      </div>
+    </div>
+  </div></aside>
+
+  <div class="shell">
+    <header class="topbar" id="topbar">
+      <div class="crumb" id="crumb"></div>
+      <button class="projchip" id="projChip" title="사업정보 · 사업 전환">
+        <span class="dot"></span><span class="pn">배정 사업 불러오는 중</span><span style="color:var(--faint)">▾</span>
+      </button>
+      <div class="sp"></div>
+      <span class="tb-upd num" id="updTime">자료 등록 전</span>
+      <button class="tb-btn" id="trayBtn" title="AI 작업 트레이"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg><span data-i="tray">AI 작업</span><span class="live" id="trayLive"></span></button>
+      <button class="tb-btn primary" id="uploadBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg><span data-i="upload">증빙 업로드</span></button>
+      <button class="tb-btn compact-signout" id="compactLogout" type="button">로그아웃</button>
+    </header>
+
+    <main><div class="inner">
+
+    <!-- ============ 1. 대시보드 (위계: PDM·DAC 히어로 › 다온 스트립 › 액션) ============ -->
+    <section class="view" id="v-dashboard">
+      <div class="callout" id="emptyProjectStart" hidden style="margin-bottom:16px"><p><b>새 프로젝트입니다. 사업 원본 자료부터 등록해 주세요.</b><br>사업계획서·최신 PDM·실적 및 증빙 문서를 등록하면 이 프로젝트의 데이터로 화면을 구성합니다.</p><button class="btn primary" data-go="#/evidence">자료 등록 시작</button></div>
+
+      <!-- PDM 성과 리스크 · DAC 분석 결과 통합 요약 -->
+      <div class="daonbox" id="daonBox">
+        <div class="avwrap"><img class="av" src="assets/assistant-avatar.png" alt="AI 어시스턴트 다온"><div class="avname">다온 · AI</div></div>
+        <div class="bubble">
+          <div class="bh">
+            <div style="min-width:0">
+              <div class="hello" id="daonHello" data-i="dashboard.insight_title">핵심 리스크·분석 요약</div>
+              <div class="bsub" id="daonSub" data-i="dashboard.insight_empty_subtitle">성과 관리와 종료평가의 최신 분석에서 우선 확인할 항목만 표시합니다.</div>
+            </div>
+            <div class="dach" hidden><span class="lbl" data-i="dashboard.overall_achievement">종합 달성도</span><b class="num" id="achievePct">0%</b><div class="pbar"><i id="achieveBar" style="width:0"></i></div></div>
+            <button class="fold" id="daonFold" hidden>펼치기 ▾</button>
+          </div>
+          <div class="insight-grid" id="fixList"></div>
+          <div class="insight-board-foot" id="fixFoot">분석 결과를 불러오는 중입니다.</div>
+        </div>
+      </div>
+
+      <!-- 히어로: PDM · DAC -->
+      <div class="heroduo">
+        <div class="herocard pdm">
+          <div class="hchead"><span class="tag g" style="font-size:10.5px;padding:3px 9px">PDM</span><h3 data-i="d-ind">핵심 성과지표 달성 현황</h3><button class="hcbtn" data-go="#/project/indicators" data-i="more-ind">성과지표 모니터링 ›</button></div>
+          <div class="hckpi"><b class="num" id="pdmBig">4<small>/8</small></b><span class="hkl num" id="pdmKl">지표 달성 · 미달 1 · 목표 미설정 2</span></div>
+          <div class="minilist" id="dashInd" style="flex:1"></div>
+          <button class="dash-kpi-toggle" id="dashIndToggle" type="button" aria-expanded="false" hidden>전체 성과지표 펼치기 ▾</button>
+        </div>
+        <div class="herocard dac">
+          <div class="hchead"><span class="tag i" style="font-size:10.5px;padding:3px 9px">DAC</span><h3 data-i="d-dac">종료평가 준비도</h3><button class="hcbtn" data-go="#/eval/board" data-i="more-dac">DAC 평가진단 ›</button></div>
+          <div class="hckpi"><b class="num" data-i="dashboard.not_evaluated">평가 전</b><span class="hkl" data-i="dashboard.evaluation_prompt">DAC 재평가를 실행하면 종합점수가 표시됩니다</span></div>
+          <div class="psub" data-i="dashboard.evaluation_source">등록 자료를 기준으로 DAC 평가진단을 실행합니다</div>
+          <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;flex:1">
+            <div class="radarwrap" style="flex:1;min-width:210px"><svg id="radar" viewBox="0 0 400 320" style="width:100%;max-width:300px;height:auto"></svg></div>
+            <div class="minilist" style="flex:1;min-width:180px" id="dacReady"></div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============ 2-1. 증빙자료 · 자료 업로드 ============ -->
+    <section class="view" id="v-ev-manage">
+      <div class="vhead">
+        <h1 data-i="t-ev">자료 업로드</h1>
+        <p data-i="s-ev">문서의 역할과 사실을 정리하고 PDM · DAC · 보고서에 연결합니다.</p>
+        <div class="acts"><button class="btn" id="formsOpen">샘플 서식 6종</button></div>
+      </div>
+      <section class="panel" id="foundationPanel" style="margin-bottom:20px" aria-labelledby="foundationTitle">
+        <div class="ph"><h2 id="foundationTitle">사업 기준 문서</h2><span class="tag">필수</span></div>
+        <div class="psub">사업계획서는 사업 개요의 기준, PDM은 목표·지표의 기준으로 사용합니다. 교체 시 전체 사업 구성이 변경됩니다.</div>
+        <div id="foundationDocuments" class="foundation-grid"></div>
+        <p id="foundationGate" role="status" style="padding:0 16px 16px">사업 기준 문서 상태를 확인하고 있습니다.</p>
+        <input id="foundationFileInput" type="file" hidden accept=".pdf,.hwp,.hwpx,.docx,.xlsx,.pptx,.csv,.txt,.md,.zip">
+      </section>
+      <div class="statrow">
+        <div class="stat link" data-go="#/evidence/pdm"><div class="sl">PDM 자료 슬롯 <span class="tag i" style="font-size:9.5px;padding:1px 6px">검증수단</span></div><div class="sv num" id="statPdm">4<span>/11</span></div><div class="ss">지표 실적 인정 근거 ›</div><div class="spbar"><div class="pbar"><i id="statPdmBar" style="width:36%"></i></div></div></div>
+        <div class="stat link" data-go="#/evidence/dac"><div class="sl">DAC 자료 슬롯 <span class="tag i" style="font-size:9.5px;padding:1px 6px">5대 기준</span></div><div class="sv num" id="statDac">14<span>/22</span></div><div class="ss">평가 판단 근거 ›</div><div class="spbar"><div class="pbar"><i id="statDacBar" style="width:64%"></i></div></div></div>
+        <div class="stat"><div class="sl" data-i="files-common">업로드 문서 (공통)</div><div class="sv num" id="statFiles">20</div><div class="ss" data-i="files-once">원본은 자료실에 한 번만 보관됩니다</div><div class="spbar"><div class="pbar"><i class="g" style="width:100%"></i></div></div></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px">
+        <div class="dropzone" id="dropzone">
+          <div class="dz-big" data-i="dz-big">파일을 끌어다 놓거나 클릭해서 업로드합니다</div>
+          <div class="dz-sub">사업계획에 따른 문서 역할과 사실을 정리하고 <b>PDM 지표 · DAC 슬롯 · 보고서 섹션을 각각 매칭</b>합니다 · <u>파일 선택</u></div><p style="font-size:12px;margin-top:10px">성과 분석은 성과지표 모니터링에서, DAC 근거 분석·평가는 DAC 평가진단에서 버튼을 눌러 실행합니다.</p>
+          <div class="flow"><span>원본 저장</span><em>→</em><span>텍스트 추출</span><em>→</em><span>문서 역할·사실 추출</span><em>→</em><span>3개 관점 매칭 저장</span></div>
+        </div>
+      </div>
+      <div hidden aria-hidden="true"><span id="assignCount"></span><div id="assignList"></div><span id="spPend"></span></div>
+
+      <div class="panel">
+        <div class="ph"><h3 data-i="all-upload-docs">전체 업로드 문서</h3><span class="tag n num" id="cntAll"></span></div>
+        <div class="psub">파일명을 누르면 원본 파일을 다운로드합니다 · 최근 업로드 순</div>
+        <div class="filterrow">
+          <button class="fchipb on" data-f="all">평가 대상</button>
+          <button class="fchipb" data-f="linked">슬롯 연결됨</button>
+          <button class="fchipb" data-f="unlinked">증빙 슬롯 해당 없음</button>
+          <button class="fchipb" data-f="excluded">평가 대상에서 제외</button>
+          <div class="searchbox"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="fileSearch" placeholder="파일명 검색"></div>
+        </div>
+        <div style="overflow-x:auto">
+        <table class="dt">
+          <thead><tr><th style="min-width:250px">파일명</th><th>연결 슬롯</th><th>크기</th><th>업로드</th></tr></thead>
+          <tbody id="fileRows"></tbody>
+        </table>
+        </div>
+        <button class="showmore" id="fileMore" style="display:none"></button>
+      </div>
+    </section>
+
+    <!-- ============ 2-2. 증빙자료 · PDM 증빙 ============ -->
+    <section class="view" id="v-ev-pdm">
+      <div class="vhead">
+        <h1 data-i="t-evpdm">PDM 증빙</h1>
+        <p data-i="s-evpdm">검증수단 기준으로 파일 등록 여부를 확인하는 화면입니다 · 미확보 항목이 항상 위에 표시됩니다.</p>
+        <div class="acts"><button class="btn" data-go="#/project/indicators">성과지표 모니터링 ›</button></div>
+      </div>
+      <div class="statrow" id="covPdm"></div>
+      <div class="kpinote" id="covPdmNote"></div>
+      <div class="slotgrid" id="slotSecPdm"></div>
+    </section>
+
+    <!-- ============ 2-3. 증빙자료 · DAC 증빙 ============ -->
+    <section class="view" id="v-ev-dac">
+      <div class="vhead">
+        <h1 data-i="t-evdac">DAC 증빙</h1>
+        <p data-i="s-evdac">적절성 · 일관성 등 5대 평가기준별 증빙 확보 현황입니다 · 미확보는 분석 감점 요인과 직접 연결됩니다.</p>
+        <div class="acts"><span id="adminNote" style="font-size:11px;color:var(--muted);font-weight:600;align-self:center"></span><button class="btn" data-go="#/eval/results">분석 결과 ›</button></div>
+      </div>
+      <div class="statrow" id="covDac"></div>
+      <div class="kpinote" id="covDacNote"></div>
+      <div class="slotgrid" id="slotSecDac"></div>
+    </section>
+
+    <!-- ============ 2-4. 증빙자료 · 증빙 충족도 ============ -->
+    <section class="view" id="v-ev-coverage">
+      <div class="vhead">
+        <h1 data-i="t-evcov">증빙 충족도</h1>
+        <p data-i="s-evcov">PDM 검증수단과 DAC 평가기준의 증빙 확보 수준을 함께 확인하고 보완 우선순위를 판단합니다.</p>
+        <div class="acts"><button class="btn" data-go="#/evidence">자료 업로드 ›</button></div>
+      </div>
+      <div class="statrow">
+        <div class="stat link" data-go="#/evidence/pdm"><div class="sl">PDM 증빙 충족</div><div class="sv num" id="coveragePdmValue">4<span>/11</span></div><div class="ss">검증수단별 확보 현황 ›</div><div class="spbar"><div class="pbar"><i class="w" id="coveragePdmBar" style="width:36%"></i></div></div></div>
+        <div class="stat link" data-go="#/evidence/dac"><div class="sl">DAC 증빙 충족</div><div class="sv num" id="coverageDacValue">14<span>/22</span></div><div class="ss">평가기준별 확보 현황 ›</div><div class="spbar"><div class="pbar"><i id="coverageDacBar" style="width:64%"></i></div></div></div>
+        <div class="stat"><div class="sl">등록 문서</div><div class="sv num" id="coverageDocumentValue">20</div><div class="ss">전체 원본 자료</div></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h3>증빙 보완 우선순위</h3></div>
+        <div class="psub">미확보 슬롯이 많은 영역부터 보완하면 성과관리와 종료평가 판단의 근거가 함께 강화됩니다.</div>
+        <div class="minilist" id="coverageGapList">
+          <div class="minirow" data-go="#/evidence/pdm"><span class="tag g">PDM</span><span class="mn">검증수단 미확보 항목</span><span class="mv num">7건</span><span class="go2">확인 ›</span></div>
+          <div class="minirow" data-go="#/evidence/dac"><span class="tag i">DAC</span><span class="mn">평가기준 증빙 미확보 항목</span><span class="mv num">8건</span><span class="go2">확인 ›</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 3-1. 성과 관리 · 사업 개요 ============ -->
+    <section class="view" id="v-proj-overview">
+      <div class="vhead">
+        <h1 data-i="t-projov">사업 개요</h1>
+        <p data-i="overview.plan_pdm_roles">사업 기본정보는 사업계획서, 성과지표와 검증수단은 PDM을 기준으로 표시합니다.</p>
+        <div class="acts"></div>
+      </div>
+
+      <div class="grid g2" style="margin-bottom:16px">
+        <div class="panel">
+          <div class="ph"><h3 data-i="overview.basic_info">사업 기본정보</h3></div>
+          <div class="psub" data-i="overview.plan_analysis_wait">사업계획서 분석 후 사업 기본정보가 표시됩니다.</div>
+          <div class="fileinfo">
+            <div class="k">사업명</div><div>자료 분석 전</div>
+            <div class="k">기간 · 예산</div><div class="num">자료 분석 전</div>
+            <div class="k">시행기관</div><div>자료 분석 전</div>
+            <div class="k">분야</div><div>자료 분석 전</div>
+            <div class="k">평가 단계</div><div>종료평가 준비</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h3 data-i="overview.pdm_readiness">PDM 준비도</h3><button class="more" data-go="#/evidence/pdm" data-i="overview.data_status">자료 현황 ›</button></div>
+          <div class="psub" data-i="overview.pdm_connection">지표 · 검증수단 · 증빙 연결 상태</div>
+          <div class="minilist">
+            <div class="minirow"><span class="mn">지표·목표치 설정</span><div class="pbar" style="max-width:140px"><i class="g" style="width:75%"></i></div><span class="mv num">6/8</span></div>
+            <div class="minirow"><span class="mn">검증수단 지정</span><div class="pbar" style="max-width:140px"><i class="g" style="width:100%"></i></div><span class="mv num">8/8</span></div>
+            <div class="minirow"><span class="mn">증빙 연결</span><div class="pbar" style="max-width:140px"><i class="w" style="width:36%"></i></div><span class="mv num" id="pdmEvCnt">4/11</span></div>
+          </div>
+          <div class="callout" style="margin-top:14px;padding:10px 14px"><span class="ci">i</span><p>목표 미설정 지표 2건은 <b data-go="#/project/gaps" style="cursor:pointer;color:var(--brand-text)">성과 리스크 예측 및 개선권고</b>에서 상세를 확인할 수 있습니다.</p></div>
+        </div>
+      </div>
+
+      <div class="panel" style="padding:0;overflow:hidden">
+        <div style="padding:18px 20px 0"><div class="ph"><h3>PDM</h3></div>
+        <div class="psub" data-i="overview.pdm_description">영향 · 성과 · 산출물 · 활동 · 투입을 원본 PDM 기준으로 확인합니다</div></div>
+        <div style="overflow-x:auto">
+        <table class="pdmtbl">
+          <thead><tr><th style="width:112px" data-i="overview.column_tier">성과 구분</th><th data-i="overview.column_summary">사업 요약</th><th data-i="overview.column_indicator">객관적 검증지표(OVI)</th><th data-i="overview.column_mov">검증수단</th><th data-i="overview.column_assumption">가정 · 위험</th></tr></thead>
+          <tbody id="pdmBody"></tbody>
+        </table>
+        </div>
+      </div>
+      <div class="callout" style="margin-top:14px"><span class="ci">i</span><p data-i="overview.monitoring_note">최신 PDM의 객관적 검증지표만 성과지표 모니터링에 반영됩니다. 실적 자료는 PDM 지표의 목표·실적을 보강하는 근거로만 연결됩니다.</p></div>
+    </section>
+
+    <!-- ============ 3-2. 성과 관리 · 성과지표 모니터링 ============ -->
+    <section class="view" id="v-proj-indicators">
+      <div class="vhead">
+        <h1 data-i="t-ind">성과지표 모니터링</h1>
+        <p data-i="s-ind">성과지표 분석에서 분석 개요와 지표별 문서 매핑을 확인·보완한 뒤 분석 실행을 누르면 목표·실적·달성도와 리스크를 분석합니다.</p>
+        <div class="acts"><button class="btn primary" id="indRefresh">✦ 성과지표 분석</button></div>
+      </div>
+      <div class="statrow" id="indSummary"></div>
+      <div class="kpinote" id="indSummaryNote"></div>
+      <div id="narrList"></div>
+    </section>
+
+    <!-- ============ 3-3. 성과 관리 · 성과 리스크 예측 및 개선권고 ============ -->
+    <section class="view" id="v-proj-gaps">
+      <div class="vhead">
+        <h1 data-i="t-gaps">성과 리스크 예측 및 개선권고</h1>
+        <p data-i="s-gaps">AI가 목표·실적·달성도·산출근거를 종합해 위험, 원인, 전망, 개선권고, 추가 필요 근거를 구체적으로 제시합니다.</p>
+        <div class="acts"><span class="tag w num" id="gapCount" style="font-size:12px;padding:6px 12px"></span></div>
+      </div>
+      <div class="gapgrid" id="gapList"></div>
+      <div class="callout"><span class="ci">i</span><p><b>성과지표 모니터링</b>에서 지표 갱신을 실행하면 AI 상세분석을 다시 생성합니다. 실적이 갱신되거나 PDM이 보완되면 위험 목록도 함께 갱신됩니다.</p></div>
+    </section>
+
+    <div class="risk-modal" id="riskDetailModal" hidden>
+      <div class="risk-modal-backdrop" data-risk-close></div>
+      <section class="risk-modal-card" role="dialog" aria-modal="true" aria-labelledby="riskDetailTitle">
+        <button class="risk-modal-close" type="button" data-risk-close aria-label="상세 닫기">×</button>
+        <div class="risk-modal-head"><span class="tag i" id="riskDetailTier">성과 구분</span><h2 id="riskDetailTitle">성과 리스크 상세</h2></div>
+        <div class="psub" id="riskDetailMeta"></div>
+        <div id="riskDetailBody"></div>
+      </section>
+    </div>
+
+    <!-- ============ 4-1. 종료평가 · 종료평가 준비도 ============ -->
+    <section class="view" id="v-eval-overview">
+      <div class="vhead">
+        <h1 data-i="t-evalov">종료평가 준비도</h1>
+        <p data-i="s-evalov">평가보고서 양식에 기반한 이번 평가의 목적 · 기준 · 일정 안내입니다.</p>
+      </div>
+      <div class="grid g2" style="margin-bottom:16px">
+        <div class="panel">
+          <div class="ph"><h3>평가 기본정보</h3></div>
+          <div class="psub">종료평가 결과보고서 양식 표지 · Ⅱ장 기준</div>
+          <div class="fileinfo">
+            <div class="k">평가 유형</div><div>종료평가 (End-of-Project)</div>
+            <div class="k">평가 시기</div><div class="num">2026년 하반기</div>
+            <div class="k">평가 주체</div><div>외부 평가 (감리자 주관)</div>
+            <div class="k">대상 기간</div><div class="num" id="evalPeriodValue">사업 전 기간</div>
+            <div class="k">평가 기준</div><div>OECD DAC 5대 기준 · 질문별 1~4점</div>
+            <div class="k">근거 양식</div><div><u style="cursor:pointer;color:var(--brand-text);font-weight:700" id="formsOpen2">종료평가 결과보고서 양식 (HWP)</u></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h3>평가 일정</h3></div>
+          <div class="psub">2026년 하반기 종료평가 사이클</div>
+          <div class="evtimeline" id="evalTimeline"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="ph"><h3>평가 목적 · 범위</h3></div>
+        <div class="psub">결과보고서 양식 Ⅲ장 기준</div>
+        <p id="evalScopeText" style="font-size:12.5px;color:var(--ink-2);line-height:1.75;font-weight:500;max-width:860px">현재 프로젝트의 사업개요를 불러오는 중입니다.</p>
+        <div class="callout" style="margin-top:14px"><span class="ci">★</span><p><b>등급 산정 방식</b> · KOICA 평가등급은 DAC 5대 기준의 질문별 평균점수 합산(20점 만점)으로 산정하며, 각 기준 점수는 세부 평가질문 1~4점 평균을 소수 첫째 자리까지 반올림합니다.</p></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h3>DAC 5대 평가기준</h3><button class="more" data-go="#/eval/results">기준별 분석 결과 ›</button></div>
+        <div class="psub">각 기준은 3개 내외의 평가질문으로 판단되며, 질문마다 1~4점이 부여됩니다</div>
+        <div class="critdef" id="critDefs"></div>
+      </div>
+    </section>
+
+    <!-- ============ 4-2. 종료평가 · DAC 평가진단 ============ -->
+    <section class="view" id="v-eval-board">
+      <div class="vhead">
+        <h1 data-i="t-board">DAC 평가진단</h1>
+        <p data-i="s-board">DAC 근거 분석·평가 버튼을 누르면 문서 원문 근거를 분석하고 평가점수를 산정합니다. 성과지표 분석은 별도로 실행합니다.</p>
+        <div class="acts"><span class="ri-pend num" id="pendAnalyze" style="font-size:12px">분석 상태 확인 중</span><button class="btn primary" id="runBtn">✦ DAC 근거 분석·평가</button></div>
+      </div>
+      <div class="statrow" id="dacScoreSummary" aria-busy="true">
+        <div class="stat"><div class="sl">종합점수</div><div class="sv num">—</div><div class="ss">저장된 평가 결과 확인 중</div></div>
+        <div class="stat"><div class="sl">KOICA 평가등급</div><div class="sv sky">—</div><div class="ss">저장된 평가 결과 확인 중</div></div>
+        <div class="stat"><div class="sl">국무조정실 등급</div><div class="sv" style="font-size:21px;padding-top:4px">—</div><div class="ss">저장된 평가 결과 확인 중</div></div>
+        <div class="stat link" data-go="#/evidence/dac"><div class="sl">제출 증빙 현황</div><div class="sv warn num" id="boardEv">—</div><div class="ss">DAC 증빙 ›</div></div>
+      </div>
+      <div class="kpinote">점수는 마지막 AI 분석 기준 · <b id="stPend">분석 상태 확인 중</b></div>
+      <div class="callout" id="dacEvaluationState" role="status" aria-live="polite">평가 결과 불러오는 중 · 저장된 점수와 근거를 확인하고 있습니다.</div>
+      <div class="grid g2" style="margin-bottom:16px">
+        <div class="panel">
+          <div class="ph"><h3>DAC 5대 기준 목표 대비</h3></div>
+          <div class="psub" id="dacScoreBasis">목표 4점 대비 마지막 완료 평가 점수 · 칩을 누르면 분석 결과로 이동</div>
+          <div class="radarwrap"><svg id="radar2" viewBox="0 0 400 320" style="width:100%;max-width:380px;height:auto"></svg></div>
+          <div class="scorechips" id="scorechips2"></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h3>진행상황</h3></div>
+          <div class="psub">자료수집 → 기준별 판단 → 자료 분류 → 제출 전 검토</div>
+          <div class="stepline" id="stepline"></div>
+        </div>
+      </div>
+      <div class="callout"><span class="ci">i</span><p>자료를 새로 올리거나 배정하면 재평가가 필요합니다. <b>재평가하기</b>를 실행하면 AI 작업 트레이에서 진행률을 확인할 수 있고, 점수·판단 근거가 최신 증빙 기준으로 갱신됩니다.</p></div>
+    </section>
+
+    <!-- ============ 4-3. 종료평가 · 분석 결과 ============ -->
+    <section class="view" id="v-eval-results">
+      <div class="vhead">
+        <h1 data-i="t-results">분석 결과</h1>
+        <p data-i="s-results">기준별 세부 평가질문의 점수(1~4점)와 판단 근거, 참고 문서입니다 · 근거 칩을 누르면 원본이 열립니다.</p>
+        <div class="acts"><button class="btn primary" id="runBtn2">✦ DAC 근거 분석·평가</button></div>
+      </div>
+      <div class="callout" id="dacResultState" role="status" aria-live="polite" hidden></div>
+      <div class="critgrid" id="critSections"></div>
+    </section>
+
+    <!-- ============ 4-4. 종료평가 · 보고서 자동작성 ============ -->
+    <section class="view" id="v-eval-report">
+      <div class="repbar">
+        <button class="exit" id="repExit">‹ 나가기</button>
+        <div class="report-bar-title"><div class="rt" id="reportProjectTitle">보고서 자동작성</div><div class="rs num" id="repStat">27개 섹션 · 불러오는 중</div></div>
+        <button class="exit" id="rhwpPreview">현재 보고서 미리보기</button>
+        <button class="exit" id="repGenAll">✦ 전체 보고서 작성</button>
+        <button class="exit hl" id="hwpxExport">HWPX 저장</button>
+        <label for="presentationSlideCount">발표자료 분량</label>
+        <select id="presentationSlideCount" class="exit" aria-label="발표자료 페이지 수">
+          <option value="15">15페이지 · 요약 보고</option>
+          <option value="30">30페이지 · 상세 보고</option>
+        </select>
+        <button class="exit hl" id="presentationExport" title="선택한 분량의 샘플 양식과 흐름에 맞춰 보고서 내용과 프로젝트 사진으로 발표자료를 작성합니다">발표자료 작성</button>
+      </div>
+      <div class="rolehint" id="reportRoleHint" style="display:none"></div>
+      <div class="repbar"><span>보고서 생성 완료 후 제출 전 검토가 필요합니다.</span><button class="btn" id="reportReviewApproval">제출 전 검토 · 승인 이력</button></div>
+      <div class="repbar submission-bar" aria-label="별도 제출 서류">
+        <label for="reportSubmissionKind">별도 제출 서류 · KOICA v2.2</label>
+        <select id="reportSubmissionKind" class="exit">
+          <option value="grade-xlsx">5-2 등급결과표 · Excel</option>
+          <option value="grade-hwpx">5-2 등급결과표 · 한글(HWPX)</option>
+          <option value="lessons-pptx">5-3 교훈 리포트 · PPT</option>
+          <option value="lessons-hwpx">5-3 교훈 리포트 · 한글(HWPX)</option>
+          <option value="feedback-xlsx">5-4 환류과제 이행방안 · Excel</option>
+          <option value="feedback-pptx">5-4 환류과제 이행방안 · PPT</option>
+        </select>
+        <button class="exit hl" id="reportSubmissionDownload">별도 파일 다운로드</button>
+        <span id="reportSubmissionStatus" role="status" aria-live="polite"></span>
+      </div>
+      <div class="repwrap" id="repWrap">
+        <nav class="repnav" id="reportSectionNav" aria-label="보고서 섹션 목차">
+          <div class="rlabel">보고서 섹션</div>
+          <div class="seclist" id="seclist"></div>
+        </nav>
+        <div class="repdoc">
+        <div class="report-ai-status" id="reportLifecycle" role="status" hidden></div>
+        <div class="export-progress" id="hwpxProgress" role="status" aria-live="polite" hidden><div class="eh"><span id="hwpxStage">HWPX 생성</span><span id="hwpxPercent">0%</span></div><div class="eb"><i id="hwpxBar" style="width:0%"></i></div><div class="em" id="hwpxMessage"></div></div>
+        <div class="export-progress" id="presentationProgress" role="status" aria-live="polite" hidden><div class="eh"><span id="presentationStage">발표자료 구성</span><span id="presentationPercent">0%</span></div><div class="eb"><i id="presentationBar" style="width:0%"></i></div><div class="em" id="presentationMessage"></div></div>
+        <div class="report-workbench" id="reportWorkbench"><div class="report-edit-panel">
+        <section class="repai" aria-labelledby="reportAiTitle">
+          <div class="report-ai-head"><div class="at" id="reportAiTitle">✦ AI 섹션 생성 · 수정 요청</div><span class="report-ai-badge">현재 선택한 섹션만 적용</span></div>
+          <div class="report-ai-target" id="reportAiTarget">작성할 섹션을 선택하세요.</div>
+          <div class="ad">등록 자료와 현재 본문을 바탕으로 작성합니다. 수정할 내용을 입력하면 해당 요청을 반영하며, 전체 보고서 재생성과는 별도로 실행됩니다.</div>
+          <div class="optlist" id="optcards"></div>
+          <label class="report-ai-label" for="aiPrompt">어떤 내용을 작성하거나 보완할까요? <span style="font-weight:500">(선택)</span></label>
+          <textarea id="aiPrompt" aria-describedby="reportAiStatus" placeholder="예: 현재 사업 자료를 근거로 핵심 성과와 한계를 구분하고, 근거가 부족한 내용은 ‘확인 필요’로 정리해 주세요."></textarea>
+          <div class="report-ai-templates" id="reportAiTemplates"><button type="button" data-instruction="현재 자료를 근거로 이 섹션의 핵심 성과와 한계를 구분해 보완해 주세요.">성과·한계 보완</button><button type="button" data-instruction="사업 자료에서 확인되지 않는 주장은 확인 필요로 표시하고, 근거와 판단을 분리해 주세요.">근거 점검</button><button type="button" data-instruction="사실과 수치는 유지하고 중복 문장을 줄여 개조식으로 정리해 주세요.">문장 정리</button></div>
+          <div class="report-ai-actions"><button class="btn primary" id="aiGen">✦ 이 섹션 초안 생성</button><button class="btn" id="aiCheckStatus" hidden>진행 상태 다시 확인</button></div>
+          <div class="report-ai-status" id="reportAiStatus" role="status" aria-live="polite">섹션을 선택한 뒤 초안을 생성하거나 수정 요청을 보낼 수 있습니다.</div>
+          <button type="button" class="btn sm" id="reportAiNextStep" hidden>DAC 재평가로 이동</button>
+          <div class="report-state" id="reportState" role="status" aria-live="polite"></div>
+          <div class="report-ai-timing" id="reportAiTiming"></div>
+          <p class="report-content-help">수정할 내용을 요청하면 AI가 선택한 섹션만 수정·저장하고 오른쪽 한글 미리보기를 갱신합니다.</p>
+          <details class="report-details" id="reportQualityWarnings" hidden><summary id="reportQualitySummary">내용 검토 권고</summary><div class="report-details-body" id="reportQualityBody"></div></details>
+          <details class="report-details"><summary id="reportDocsSummary">관련 문서 보기</summary><div class="report-details-body" id="reportDocs"></div></details>
+          <details class="report-details"><summary>현재 섹션 작성 기준</summary><div class="report-details-body" id="reportPrompt"></div></details>
+          <details class="report-details" id="reportGenerationHistory" hidden><summary id="reportGenerationHistorySummary">이전 전체 작성 기록</summary><div class="export-progress" id="reportGenerationProgress" hidden><div class="eh"><span id="reportGenerationStage">보고서 생성</span><span id="reportGenerationPercent">0%</span></div><div class="eb"><i id="reportGenerationBar" style="width:0%"></i></div><div class="em" id="reportGenerationMessage"></div></div></details>
+        </section>
+        </div><section class="report-preview-panel" aria-label="선택 섹션 한글 미리보기">
+          <div class="report-preview-head"><h3 id="reportPreviewTitle">선택 섹션 한글 미리보기</h3>
+            <div class="report-preview-actions"><button class="btn sm" id="reportPreviewRefresh">새로고침</button><button class="btn sm" id="reportPreviewExpand" aria-expanded="false">미리보기 크게</button>
+              <div class="report-preview-zoom" role="group" aria-label="한글 미리보기 배율"><button class="btn sm" id="reportZoomOut" aria-label="한글 미리보기 축소">−</button><span id="reportPreviewZoom" aria-live="polite">—</span><button class="btn sm" id="reportZoomIn" aria-label="한글 미리보기 확대">+</button><button class="btn sm" id="reportZoomActual" title="실제 배율로 보기">100%</button><button class="btn sm" id="reportZoomFit">폭 맞춤</button></div>
+              <span id="reportPreviewPages"></span></div>
+            <p id="reportPreviewStatus" role="status" aria-live="polite">섹션을 선택하세요.</p>
+          </div>
+          <div class="report-preview-paper"><iframe id="reportSectionFrame" title="선택 섹션 rHWP 양식 미리보기"></iframe><div id="reportPreviewEmpty">섹션을 선택하세요.</div></div>
+          <p id="reportPreviewNote">선택 섹션만 표시합니다. 미리보기는 읽기 전용이며 AI 수정 요청으로 내용을 수정합니다.</p>
+        </section></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="v-admin">
+      <div class="vhead"><div><h1 id="adminPageTitle">프로젝트 관리</h1><p>운영자 전용 · 사업 자료의 분석과 보고서 작성은 발급한 사용자 계정에서 수행합니다.</p></div><div class="acts"><button class="btn primary" id="adminCreateProject">새 프로젝트</button><button class="btn primary" id="adminCreateAccount">프로젝트 연결 계정 발급</button><button class="btn" id="adminRefresh">새로고침</button></div></div>
+      <div class="admin-onboarding"><b>① 빈 프로젝트 생성 → ② 프로젝트를 선택해 사용자 계정 발급 → ③ 계정 전달</b><br>발급받은 사용자는 자기 프로젝트에 자료를 등록하고 PDM·DAC 평가 및 보고서 생성을 수행합니다. 다른 프로젝트의 자료는 복사하거나 공유하지 않습니다.</div>
+      <div class="admin-summary" id="adminSummary"></div>
+      <section class="panel admin-projects" data-admin-panel="projects"><div class="admin-projects-head"><h3>프로젝트</h3><span style="font-size:11px;color:var(--muted)">프로젝트별 사용자와 자료 적재 상태를 확인합니다.</span></div><div class="admin-toolbar"><input id="adminProjectSearch" type="search" aria-label="프로젝트 검색" placeholder="프로젝트 이름 검색"></div><div class="admin-project-list" id="adminProjectList"><div class="empty">프로젝트 정보를 불러오는 중입니다.</div></div></section>
+      <div data-admin-panel="users"><div class="admin-toolbar"><input id="adminUserSearch" type="search" aria-label="사용자 검색" placeholder="아이디·이름 검색"><select id="adminUserProject" aria-label="프로젝트별 사용자"><option value="">전체 프로젝트</option></select></div><div class="admin-layout">
+        <section class="panel" style="overflow:auto;max-height:420px"><table class="admin-table"><thead><tr><th>계정</th><th>프로젝트 · 상태</th><th>토큰 사용량</th><th>최근 로그인</th></tr></thead><tbody id="adminAccountRows"><tr><td colspan="4">계정 정보를 불러오는 중입니다.</td></tr></tbody></table></section>
+        <aside class="panel admin-detail" id="adminDetail"><div class="empty"><b>계정을 선택해 주세요.</b><br>메뉴 권한과 로그인 기록을 확인할 수 있습니다.</div></aside>
+      </div>
+      </div>
+    </section>
+
+    </div></main>
+  </div>
+</div>
+
+<input id="bulkFileInput" type="file" multiple hidden accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.jpg,.jpeg,.png">
+
+<!-- ============ 전역 레이어 ============ -->
+
+<!-- 원본 파일 뷰어 모달 -->
+<div class="modal-ov" id="viewerOv">
+  <div class="modal viewer">
+    <div class="modal-h"><b id="vwTitle">원본 파일 뷰어</b><button class="modal-x" data-close="viewerOv">×</button></div>
+    <div class="vmeta" id="vwMeta"></div>
+    <div class="vbody"><h4 id="vwHead"></h4>
+      <div class="ln" style="width:88%"></div><div class="ln" style="width:95%"></div><div class="ln" style="width:78%"></div>
+      <div class="ln" style="width:92%;margin-top:16px"></div><div class="ln" style="width:83%"></div><div class="ln" style="width:60%"></div>
+    </div>
+    <div class="vfoot"><button class="btn sm" id="vwSlot">연결 슬롯으로 이동</button><button class="btn sm primary">원본 다운로드</button></div>
+  </div>
+</div>
+
+<!-- 샘플 서식 모달 -->
+<div class="modal-ov" id="formsModal">
+  <div class="modal">
+    <div class="modal-h"><b>샘플 서식 다운로드</b><button class="modal-x" data-close="formsModal">×</button></div>
+    <input class="modal-search" id="formsSearch" placeholder="서식 이름 검색 (예: 결과보고서, 등급)">
+    <div class="modal-list" id="formsList"></div>
+  </div>
+</div>
+
+<div class="modal-ov" id="projectCreateOv">
+  <div class="modal">
+    <div class="modal-h"><b>새 프로젝트 만들기</b><button class="modal-x" data-close="projectCreateOv">×</button></div>
+    <form class="project-form" id="projectCreateForm">
+      <label><span>프로젝트명</span><input type="text" id="projectCreateName" maxlength="160" placeholder="예: 우즈베키스탄 응급구조 교육사업" required></label>
+      <div><label><span>제공 언어 · 복수 선택</span></label><div class="project-language-grid" id="projectLanguageChecks"></div></div>
+      <label><span>기본 언어</span><select id="projectDefaultLocale"></select></label>
+      <div hidden><div class="project-account-grid" id="projectAccountChecks"></div></div><p>자료가 없는 새 프로젝트를 만듭니다. 생성 완료 후 이 프로젝트에 연결된 계정을 발급합니다.</p>
+      <div class="project-form-state" id="projectCreateState"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-close="projectCreateOv">취소</button><button type="submit" class="btn primary" id="projectCreateSubmit">프로젝트 생성</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- 증빙 업로드 사이드패널 -->
+<div class="spanel-ov" id="spanelOv"></div>
+<div class="spanel" id="spanel">
+  <div class="spanel-h"><b>증빙 업로드</b><button class="modal-x" data-close="spanel">×</button></div>
+  <div class="spanel-b">
+    <div class="dropzone" id="spDrop">
+      <div class="dz-big">파일을 여기로</div>
+      <div class="dz-sub">어느 화면에서든 이 패널로 바로 올릴 수 있습니다 · <u>파일 선택</u></div>
+    </div>
+    <div class="hintline">업로드한 문서를 AI가 분석해 <b>PDM 검증수단 · DAC 평가기준 두 관점의 슬롯에 자동 배정</b>합니다.</div>
+    <div class="spanel-sec">방금 올린 파일</div>
+    <div id="spRecent"><div class="empty" style="padding:16px">아직 없습니다. 파일을 올리면 여기에 처리 상태가 표시됩니다.</div></div>
+  </div>
+</div>
+
+<!-- 사업정보 퀵드로어 -->
+<div class="drawer-ov" id="drawerOv"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-h"><b>사업 정보</b><button class="modal-x" data-close="drawer">×</button></div>
+  <div class="drawer-b">
+    <div class="fileinfo" style="margin-bottom:6px">
+      <div class="k">사업명</div><div>배정 사업 불러오는 중</div>
+      <div class="k">기간</div><div class="num">자료 분석 전</div>
+      <div class="k">예산</div><div class="num">자료 분석 전</div>
+      <div class="k">국가 · 지역</div><div>자료 분석 전</div>
+      <div class="k">시행</div><div>자료 분석 전</div>
+      <div class="k">평가 단계</div><div>종료평가 준비</div>
+    </div>
+    <div class="spanel-sec">제공 언어 <span style="font-weight:500;color:var(--muted)">· 관리자 생성 설정</span></div>
+    <div class="locale-tags" id="projectLanguageSummary"></div>
+    <div class="spanel-sec">사업 전환</div>
+    <div id="projList"></div>
+  </div>
+</div>
+
+<!-- AI 작업 트레이 -->
+<div class="tray" id="tray">
+  <div class="tray-h"><img id="trayAv" alt=""><span class="tt">AI 작업 트레이</span><button class="modal-x" data-close="tray" style="width:25px;height:25px;font-size:13px">×</button></div>
+  <div class="tray-b" id="trayJobs"></div>
+</div>
+
+<div class="toast num" id="toast"></div>
+<script>
+// Keep recovery available even when the shell itself cannot be downloaded.
+window.reportModuleUnavailable = function () {
+  window.KODAME_MODULE_FAILED = true;
+  const byId = id => document.getElementById(id);
+  byId('authForm').hidden = true;
+  byId('authStatus').hidden = false;
+  byId('authStatusMessage').textContent = '화면을 불러오지 못했습니다. 다시 확인을 눌러 새로고침해 주세요.';
+  byId('authRetry').hidden = false;
+  byId('gate').style.display = 'flex';
+  byId('app').style.display = 'none';
+};
+</script>
+<script src="assets/app-shell.js" onerror="reportModuleUnavailable()"></script>
+<script src="assets/report-section-flow.js?v=20260912-service-2" onerror="reportModuleUnavailable()"></script>
+<link rel="stylesheet" href="assets/report-section-preview.css?v=20260912-1">
+<script src="assets/report-section-preview.js?v=20260912-1" onerror="reportModuleUnavailable()"></script>
+<script src="assets/service-admin-ui.js?v=20260924-project-delete" onerror="reportModuleUnavailable()"></script>
+<script src="assets/service-scope.js?v=20260919-service-2.2" onerror="reportModuleUnavailable()"></script>
+<script src="assets/service-auth.js?v=20260925-session" onerror="reportModuleUnavailable()"></script>
+<script src="assets/foundation-upload.js?v=20260924-foundation" onerror="reportModuleUnavailable()"></script><script src="assets/service-intake.js?v=20260919-service-2.2" onerror="reportModuleUnavailable()"></script>
+<link rel="stylesheet" href="assets/project-ai-ui.css?v=20260913-1">
+<script src="assets/project-ai-ui.js?v=20260913-1" onerror="reportModuleUnavailable()"></script>
+<script src="assets/dac-scoring-ui.js?v=20261006-improvements" onerror="reportModuleUnavailable()"></script>
+<script src="assets/service-job-tray.js?v=20260924-stability" onerror="reportModuleUnavailable()"></script>
+<script src="assets/dac-analysis-review.js?v=20260924-review" onerror="reportModuleUnavailable()"></script><script src="assets/performance-analysis-review.js?v=20260924-review" onerror="reportModuleUnavailable()"></script><script src="assets/service-pdm-refresh.js?v=20260924-stability" onerror="reportModuleUnavailable()"></script>
+<script src="assets/service-review.js" onerror="reportModuleUnavailable()"></script>
+<script src="assets/app-controller.js?v=20261006-improvements" onerror="reportModuleUnavailable()" onload="if(!window.KODAME_LIVE_READY)reportModuleUnavailable()"></script>
+</body>
+</html>

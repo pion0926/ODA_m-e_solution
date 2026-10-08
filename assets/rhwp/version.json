@@ -1,0 +1,32 @@
+{
+  "version": "0.8.6",
+  "source_commit": "f1f9c6ae58344ee9368996d3543f76b9345cf227",
+  "source": "https://github.com/edwardkim/rhwp/tree/f1f9c6ae58344ee9368996d3543f76b9345cf227",
+  "core_package": "@rhwp/core@0.8.6",
+  "build": "RHWP_WITHOUT_HWPCTRL=1 RHWP_DISABLE_EXTERNAL_WEBFONTS=1 npm run build -- --base=/assets/rhwp/",
+  "sha256": {
+    "index.html": "e8aa48494dc5a3982934c30b0d746768664d35b00df6117f36b39d9dc0dab6e6",
+    "print.html": "39be7ccd47a179ca9b216aae4b753df299dce14c137eeac69290972c367987ce",
+    "report-qa.js": "dd0d285b2578aa149010d0d5c55b45bab3e7faeaf1c7edd9c3071ca2022b18b5",
+    "report-reader-worker.js": "139e323742816db05f2a74af16aa4d6952b1646d182ec970cefd3800676f5cf7",
+    "report-reader.css": "54c2841e3cde490d14a0eccf5d2d62509cb5d7733d0f4d58b07da7e65dfd4a12",
+    "report-reader.js": "c9baa2d87c4a174ad363ad3abf2a311f92703c4bf1e5117741fb64bb230ed692",
+    "section-preview-mode.js": "2ba528d91ea2de9b962a191454a13dd36b28da7a53caeac18fa0e32f35eeb2e3",
+    "service-host.js": "f7696834bae4c90bbb2ac52feb5fabb07769504aeda272d46c62fa77f08feaa6",
+    "studio-loader.js": "aa0535514a63ee96a035cbdd40821fb484fa4f78c2c949adfa5bb87cfb392a9a",
+    "theme-init.js": "5841355fffd7acfe83bcb23c36566be687c6f44d40332694181aa6146206613b",
+    "assets/canvaskit-renderer-BrJSksk4.js": "9aea8b627ae5805d03520519f631acdc0687e906752e4f1c5254d83e56084740",
+    "assets/canvaskit-renderer-DlYiyaFC.js": "5aff57e658afc1ae90fc8d49a1564380c3d2e94e9c52da1336bdfb11f9ab7bf4",
+    "assets/canvaskit-SCAxUyCS.wasm": "25ebed8e60158c5854f8dc807b936daca21354f8bfb6a2231266b0a93812f301",
+    "assets/index-D96DYkgg.css": "8505d5108ea99165d682e76f4053577e9c39f10d2e1269af69bc481e12aa5eb0",
+    "assets/index-DYFch6Ux.js": "a848a7985203ce29d375798368a031e47570b44ce5fdee65aa8596bd88323b76",
+    "assets/index.css": "880cfab7b03b3bd88b23f4efb56af91ab0793e29412c7084ddd255d85cb2a434",
+    "assets/index.js": "5728345519b7c8bd884bfe2f92d7170158a479bd4d3b74be8345a159a66d243a",
+    "assets/rhwp_bg-DsnvX-Xj.wasm": "c196cb8ad98b2b7b05918c064f171f5f5fe8cac9ca25cbca9896fda3c45c77d1",
+    "assets/rhwp_bg-PUGAA2uC.wasm": "8000e4ce320b7994dca6bcd58be0c862144c7b805576504e523a420439da658b",
+    "core/rhwp.js": "e84c5b03cd32927a86e1a2c8acf2c43d60127fcff83f8896daf85b864c78968a",
+    "core/rhwp_bg.wasm": "8000e4ce320b7994dca6bcd58be0c862144c7b805576504e523a420439da658b",
+    "core/0.8.6/rhwp.js": "e84c5b03cd32927a86e1a2c8acf2c43d60127fcff83f8896daf85b864c78968a",
+    "core/0.8.6/rhwp_bg.wasm": "8000e4ce320b7994dca6bcd58be0c862144c7b805576504e523a420439da658b"
+  }
+}

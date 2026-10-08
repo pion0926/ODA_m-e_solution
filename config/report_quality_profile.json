@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "layout": {
+    "grade_table": {
+      "page_row_groups": [
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        [0, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+      ],
+      "font_height": 900,
+      "line_spacing_percent": 130,
+      "cell_margin_horizontal": 360,
+      "cell_margin_vertical": 100
+    },
+    "pdm_table": {
+      "page_row_groups": [
+        [0, 1, 2, 3, 4],
+        [0, 5, 6, 7, 8]
+      ],
+      "column_widths": [15000, 12500, 10500, 9688],
+      "header_labels": [
+        "프로그램 요약",
+        "객관적 검증지표 (OVI)",
+        "검증수단 (MOV)",
+        "중요가정"
+      ],
+      "font_height": 800,
+      "line_spacing_percent": 130,
+      "header_row_height": 2400,
+      "level_label_row_height": 1450,
+      "minimum_group_height": 5200,
+      "maximum_table_height": 64000,
+      "cell_margin_horizontal": 120,
+      "cell_margin_vertical": 50
+    },
+    "achievement_table": {
+      "page_item_groups": [
+        [0, 1, 2, 3, 4],
+        [5, 6, 7, 8, 9],
+        [10, 11, 12, 13]
+      ],
+      "preserve_full_cell_text": true,
+      "font_height": 900,
+      "line_spacing_percent": 130,
+      "cell_margin_vertical": 400,
+      "header_row_heights": [2600, 3200, 5600]
+    },
+    "evaluation_matrix_table": {
+      "page_row_groups": [
+        [0, 1, 2, 3, 4, 5],
+        [0, 6, 7, 8]
+      ],
+      "font_height": 900,
+      "line_spacing_percent": 130,
+      "cell_margin_horizontal": 360,
+      "cell_margin_vertical": 100,
+      "header_row_height": 1500
+    },
+    "recommendation_tables": {
+      "feedback_rows_per_page": 3,
+      "lessons_rows_per_page": 4,
+      "lessons_max_table_height": 42000,
+      "font_height": 900,
+      "line_spacing_percent": 130,
+      "cell_margin_horizontal": 240,
+      "cell_margin_vertical": 100,
+      "preserve_full_cell_text": true
+    },
+    "project_overview": {
+      "canonical_heading": "2. 사업개요",
+      "remove_authoring_notes": [
+        "(사업개요서 최종본 사용)",
+        "사업개요서 최종본 사용"
+      ],
+        "start_on_new_page": true,
+        "remove_adjacent_empty_paragraphs": true,
+        "table_cell_margin_vertical": 100,
+        "source_cell_margin_vertical": 566,
+          "table_row_min_height": 1700,
+          "page_height_budget": 60000,
+        "column_widths": [2600, 8500, 7400, 28961],
+        "font_height": 1000,
+        "line_spacing_percent": 130,
+        "cell_margin_horizontal": 240
+      },
+    "page_identity": {
+      "enabled": false,
+      "page_number_position": "BOTTOM_CENTER",
+      "page_number_side_character": "-",
+      "header_max_characters": 28,
+      "header_text": "K-ODAME",
+      "header_paragraph_property_id": 1,
+      "footer_paragraph_property_id": 25,
+      "apply_from_section": 1,
+      "header_reserve_height": 2500,
+      "header_text_height": 1500,
+      "header_body_gap": 700,
+      "remove_texts": ["K-ODAME"]
+    },
+    "supplemental_visuals": {
+      "enabled": false,
+      "grade_title": "DAC 기준별 평가등급 요약",
+      "performance_title": "성과지표 상태 및 후속조치 우선순위",
+      "width_pixels": 1600,
+      "height_pixels": 900,
+      "colors": {
+        "navy": "173B57",
+        "teal": "238B8D",
+        "green": "2E8B57",
+        "yellow": "D6A21E",
+        "red": "C44E52",
+        "paper": "F7F5EF",
+        "ink": "1D2A31",
+        "muted": "5B6870",
+        "line": "D4DDE1"
+      }
+    }
+  },
+  "writing": {
+    "forbidden_generic_detail_labels": [
+      "사업 기본정보",
+      "근거 기반 판단",
+      "후속 과제",
+      "세부 판단"
+    ],
+    "forbidden_repetitive_phrases": [
+      "관련 근거가 확인됨",
+      "근거가 확인됨"
+    ],
+    "feedback_item_range": [3, 6],
+    "lesson_item_range": [3, 5],
+    "grade_reason_sentences": [2, 3],
+    "narrative_detail_layout": {
+      "maximum_characters": 420,
+      "maximum_sentences": 4,
+      "paragraph_spacing_after_hwpunit": 300
+    }
+  },
+  "rhwp_toc": {
+    "strategy": "render_then_verified_override",
+    "appendix_policy": "omit_when_not_exported",
+    "project_overrides": {
+      "contains:우즈베키스탄 응급구조학과": {
+        "summary_ko_page": "6",
+        "project_background_page": "11",
+        "project_overview_page": "13",
+        "pdm_page": "14",
+        "evaluation_purpose_page": "15",
+        "evaluation_matrix_page": "17",
+        "evaluation_methods_page": "18",
+        "evaluation_limitations_page": "19",
+        "evaluation_team_page": "20",
+        "achievement_page": "21",
+        "criteria_relevance_page": "29",
+        "criteria_coherence_page": "31",
+        "criteria_effectiveness_page": "33",
+        "criteria_efficiency_page": "35",
+        "criteria_sustainability_page": "37",
+        "criteria_crosscutting_page": "39",
+        "criteria_other_page": "40",
+        "conclusion_page": "41",
+        "factors_page": "43",
+        "feedback_lessons_page": "48"
+      }
+    }
+  }
+}

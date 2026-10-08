@@ -1,0 +1,34 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const html = fs.readFileSync('frontend/index.html', 'utf8');
+const css = fs.readFileSync('assets/report-section-preview.css', 'utf8');
+const controller = fs.readFileSync('assets/report-section-preview.js', 'utf8');
+const proof = fs.readFileSync('assets/rhwp/section-preview-mode.js', 'utf8');
+const frame = fs.readFileSync('assets/rhwp/index.html', 'utf8');
+const host = fs.readFileSync('assets/rhwp/service-host.js', 'utf8');
+assert(css.includes('body.report-mode main{padding:0 24px 12px;'), 'keep the compact gutter on each side');
+assert(css.includes('body.report-mode main>.inner{width:100%;max-width:none;margin:0}'), 'report content uses the available width inside the shared responsive gutters');
+assert(css.includes('width:100%;max-width:none;margin:0'), 'workbench uses full width');
+assert(css.includes('grid-template-columns:minmax(260px,0.65fr) minmax(0,1fr)'), 'AI uses the remaining width without a fixed maximum');
+assert(css.includes('max-width:210mm'), 'reading pane is capped at A4 width');
+assert(css.includes('min-height:200px!important;font-size:16px'), 'readable AI input');
+assert(!html.includes('report-nav-collapsed'));
+assert(!html.includes('id="reportNavToggle"'));
+assert(!html.includes('aria-label="보고서 섹션 목차" hidden'));
+for (const id of ['reportZoomIn','reportZoomOut','reportZoomActual','reportZoomFit','reportPreviewZoom']) {
+  assert.equal(html.split(`id="${id}"`).length - 1, 1, id);
+  assert(controller.includes(id));
+}
+assert(controller.includes('new ResizeObserver'));
+assert(controller.includes("status.dataset.state = 'empty'"), 'blank sections show guidance without starting the full conversion pipeline');
+assert(controller.includes('event.source !== frame.contentWindow'));
+assert(controller.includes('event.origin !== origin'));
+assert(proof.includes('event.source !== parent || event.origin !== location.origin'));
+assert(frame.includes('/assets/rhwp/service-host.js'), 'load the service-owned guard before Studio');
+assert(host.includes("['in', 'out', '100', 'fit'].includes(event.data.action)"));
+assert(host.includes('event.origin === location.origin && event.source === parent'));
+assert(proof.includes('[data-cmd="view:zoom-100"]'));
+assert(!css.includes('transform:scale'), 'zoom must use the renderer, not magnify a bitmap');
+assert(!html.includes('id="reportEditor"'), 'manual content editor must stay removed');
+assert(html.indexOf('id="hwpxProgress"') < html.indexOf('id="reportWorkbench"'), 'export progress remains visible while the AI panel is collapsed');
+console.log('PASS: responsive gutters, permanent section navigation, A4-capped preview, flexible AI width, renderer zoom and same-origin guards');

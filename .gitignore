@@ -4,16 +4,49 @@ data/*
 data-redesign/
 
 # Removed legacy application retained only in local recovery copies
-/assets/
+/assets/*
+!/assets/odaon-api.js
+!/assets/odaon-v1-live.js
+!/assets/app-shell.js
+!/assets/app-controller.js
+!/assets/app-styles.css
+!/assets/service-auth.js
+!/assets/assistant-avatar.png
+!/assets/report-section-flow.js
+!/assets/report-section-preview.js
+!/assets/report-section-preview.css
+!/assets/service-admin-ui.js
+!/assets/project-ai-ui.js
+!/assets/project-ai-ui.css
+!/assets/dac-scoring-ui.js
+!/assets/service-job-tray.js
+!/assets/service-pdm-refresh.js
+!/assets/performance-analysis-review.js
+!/assets/performance-analysis-review.css
+!/assets/foundation-upload.js
+!/assets/service-intake.js
+!/assets/service-review.js
+!/assets/service-scope.js
+!/assets/rhwp/
 /backend/
+!/backend/
+/backend/*
+!/backend/report_prompts.py
+!/backend/report_few_shot.py
+!/backend/report_outline.py
+!/backend/report_writing_policy.py
+!/backend/evaluation_specs.py
+!/backend/oda_me/
 /deploy/
 /Dockerfile
 /docker-compose.production.yml
-/index.html
 /requirements.txt
 /docs/flightbase_deployment.md
 
 # Python cache
+node_modules/
+playwright-report/
+test-results/
 __pycache__/
 *.py[cod]
 
@@ -26,9 +59,38 @@ Thumbs.db
 # Environment/secrets
 .env
 .env.*
+!.env.example
+
+# Release/deployment secrets, backups, customer uploads and generated QA outputs
+/.runtime/
+/output/
+/tmp/
+/.agents/
+/.codex/
+/docs/qa/reports/
+/samples/교통대_종료평가_자료요청_업로드폴더/
+/samples/knut-production-20260920/
+/K-ODAME_User_Manual_20260906.pdf
+/assets/rhwp/*.hwpx
+/assets/rhwp/*.hwp
+/assets/rhwp/*.pdf
+*.log
 
 # Locally built deployment artifacts
 output/docker/
 
 # Local ngrok tunnel config and binary
 tools/ngrok/
+
+!/assets/dac-analysis-review.js
+
+# Local customer data, generated documents and browser captures
+/artifacts/
+/outputs/
+/.playwright-mcp/
+/samples/user-guide-current.pdf
+/samples/koica-v2.2-20260919/standard-forms-v2.2.zip
+# The reader uses the versioned core/0.8.6 distribution.
+/assets/rhwp/core/rhwp.js
+/assets/rhwp/core/rhwp_bg.wasm
+/assets/rhwp/core/LICENSE

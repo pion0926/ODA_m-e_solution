@@ -1,0 +1,142 @@
+# Isolated synthetic QA. Never points at production DB/files; keys are empty by default.
+name: odame-qa
+x-environment: &environment
+  DATA_DIR: /app/data
+  DATABASE_URL: postgresql://kodame_app:qa-local-only@postgres:5432/kodame
+
+  OPENROUTER_API_KEY: ${QA_OPENROUTER_API_KEY:-}
+  OPENROUTER_MODEL: ${QA_OPENROUTER_MODEL:-google/gemini-3.5-flash-lite}
+
+  KODAME_SEED_DEMO_ACCOUNTS: "false"
+  ALLOW_REGISTRATION: "false"
+  AUTH_COOKIE_SECURE: "false"
+  SESSION_COOKIE_NAME: kodame_qa_session
+  RUN_MIGRATIONS_ON_START: "false"
+  WORKER_CONCURRENCY: "4"
+  AI_MAX_IN_FLIGHT: "4"
+  AI_GLOBAL_BUDGET_ENABLED: "true"
+  AI_GLOBAL_IN_FLIGHT: "4"
+  PARSER_ISOLATION: "true"
+  PARSER_TIMEOUT_SECONDS: "240"
+  PARSER_MEMORY_MB: "512"
+  WORKER_STEP_DELAY_SECONDS: "0"
+
+x-api: &api
+  image: odame-qa/api:refactor
+  environment: *environment
+  volumes: [qa-files:/app/data]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+
+services:
+  kodame-data-permissions:
+    image: odame-qa/api:refactor
+    user: "0:0"
+    command: [sh, -c, "chown -R 10001:10001 /app/data && chmod -R u+rwX,go-rwx /app/data"]
+    volumes: ["qa-files:/app/data"]
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    restart: "no"
+    healthcheck: {disable: true}
+
+  postgres:
+    image: postgres:17-alpine
+    environment: {POSTGRES_DB: kodame, POSTGRES_USER: kodame, POSTGRES_PASSWORD: qa-local-only}
+    volumes:
+      - qa-database:/var/lib/postgresql/data
+      - ./redesign/postgres/001-create-app-role.sh:/docker-entrypoint-initdb.d/001-create-app-role.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U kodame -d kodame"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  kodame-migrate:
+    <<: *api
+    environment:
+      <<: *environment
+      ADMIN_DATABASE_URL: postgresql://kodame:qa-local-only@postgres:5432/kodame
+      KODAME_BOOTSTRAP_PASSWORD: qa-admin-local-only
+    command: [python, -m, kodame_intake.migrate]
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck: {disable: true}
+  kodame-redesign-api:
+    <<: *api
+    mem_limit: 1536m
+    cpus: 2
+    build: {context: ., dockerfile: redesign/backend/Dockerfile}
+    depends_on:
+      kodame-data-permissions: {condition: service_completed_successfully}
+      kodame-migrate: {condition: service_completed_successfully}
+      kodame-kordoc: {condition: service_healthy}
+  kodame-intake-worker:
+    mem_limit: 2560m
+    cpus: 2
+    pids_limit: 256
+    <<: *api
+    command: [python, -m, kodame_intake.worker]
+    depends_on:
+      kodame-redesign-api: {condition: service_healthy}
+    stop_grace_period: 60s
+    healthcheck:
+      test: [CMD, python, -m, kodame_intake.worker_health, intake]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+  kodame-analysis-worker: &workflow
+    mem_limit: 3072m
+    cpus: 2
+    pids_limit: 256
+    <<: *api
+    command: [python, -m, kodame_intake.workflow_worker]
+    environment:
+      <<: *environment
+      WORKFLOW_QUEUE: analysis
+    depends_on:
+      kodame-redesign-api: {condition: service_healthy}
+    stop_grace_period: 60s
+    healthcheck:
+      test: [CMD, python, -m, kodame_intake.worker_health, workflow]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+  kodame-report-worker:
+    <<: *workflow
+    environment:
+      <<: *environment
+      WORKFLOW_QUEUE: reports
+  kodame-kordoc:
+    image: odame-dev/kordoc:latest
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  kodame-analysis-worker-2:
+    <<: *workflow
+    environment:
+      <<: *environment
+      WORKFLOW_QUEUE: analysis
+      WORKFLOW_SLOT: "1"
+
+  kodame-report-worker-2:
+    <<: *workflow
+    environment:
+      <<: *environment
+      WORKFLOW_QUEUE: reports
+      WORKFLOW_SLOT: "1"
+
+  kodame-redesign-web:
+    image: odame-qa/web:refactor
+    build: {context: ., dockerfile: redesign/frontend/Dockerfile}
+    depends_on:
+      kodame-redesign-api: {condition: service_healthy}
+    ports: ["127.0.0.1:8004:8080"]
+
+volumes:
+  qa-database:
+  qa-files:
