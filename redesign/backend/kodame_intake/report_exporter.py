@@ -210,11 +210,18 @@ def _body_probes(value: object, limit: int = 2) -> list[str]:
 def _narrative_body_probes(part_id: str, value: object) -> list[str]:
     if part_id == "achievement":
         from backend.oda_me.hwpx.achievement_records import ACHIEVEMENT_RECORD_RE
+        from backend.oda_me.hwpx.performance_notes import system_performance_interpretation_omissions
         # Structured records are mapped to cells and independently checked
         # field-by-field below. Their literal slash/field-label representation
         # is intentionally absent from the reader-facing narrative.
-        value = "\n".join(line for line in str(value or "").splitlines()
-                          if not ACHIEVEMENT_RECORD_RE.match(line))
+        lines = str(value or "").splitlines()
+        records = [line for line in lines if ACHIEVEMENT_RECORD_RE.match(line)]
+        system_records = [bool(achievement_export_fields(item, 0).get('_system_note_omitted'))
+                          for record in records for item in parse_achievement_items(record)]
+        narrative = [line for line in lines if not ACHIEVEMENT_RECORD_RE.match(line)]
+        omitted = system_performance_interpretation_omissions(
+            narrative, any(system_records), bool(system_records) and all(system_records))
+        value = "\n".join(line for index, line in enumerate(narrative) if index not in omitted)
     return _body_probes(value)
 
 
@@ -296,7 +303,15 @@ def _validate_semantic_coverage(data: bytes, context: dict, sections_by_id: dict
         body = values.get(body_key) or sections_by_id.get(part_id) or ""
         probes = _narrative_body_probes(part_id, body)
         missing = [probe for probe in probes if probe not in visible_by_path.get(path, "")]
-        ok = bool(probes) and not missing
+        system_only_body = False
+        if part_id == 'achievement' and not probes:
+            records = parse_achievement_items(body)
+            system_only_body = bool(records) and all(
+                achievement_export_fields(item, index).get('_system_note_omitted')
+                for index, item in enumerate(records))
+        # A table with only intentionally omitted system commentary has no
+        # prose anchor. Its rows and all reader-visible cells are still checked.
+        ok = (bool(probes) or system_only_body) and not missing
         section_results.append({"section": section_number, "part_id": part_id, "ok": ok, "probe_count": len(probes)})
         if not ok:
             failures.append(f"{section_number}:{part_id} 본문 앵커 누락")

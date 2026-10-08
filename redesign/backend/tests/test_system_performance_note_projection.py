@@ -111,6 +111,61 @@ def test_mixed_manual_notes_keep_their_group_and_prose():
     assert '직접 확인한 사용 기록을 추가함' in projected
 
 
+FALLBACK = ('ㅇ 저장된 목표·실적과 남은 근거 공백을 구분하여 해석함. 기준일 또는 자료 범위가 다른 목표는 '
+            '단순 합산하지 않으며, 미확인 실적은 0으로 간주하지 않음.')
+
+
+def test_exact_system_interpretation_fallback_and_its_empty_heading_are_omitted():
+    xml = (paragraph(record(MARKER + '; 내부 메모')) + paragraph('3. 종합 평가 및 시사점')
+           + paragraph(FALLBACK))
+    projected, _ = improve_achievement_readability(xml)
+    assert FALLBACK not in projected and '3. 종합 평가 및 시사점' not in projected
+    assert FALLBACK in xml
+    assert improve_achievement_readability(projected) == (projected, 0)
+
+
+@pytest.mark.parametrize('authored', [
+    'ㅇ 교육 수료자 7명의 현장 활동이 확인되었으며 후속 운영 기록의 확보가 필요함.',
+    FALLBACK + ' 이 사업에서는 지역별 목표 기간을 재검토할 필요가 있음.',
+    FALLBACK.replace('0으로', '실패로'),
+    'ㅇ 원문 인용: "' + FALLBACK + '"',
+])
+def test_authored_conclusion_or_similar_fallback_is_preserved(authored):
+    xml = (paragraph(record(MARKER + '; 내부 메모')) + paragraph('3. 종합 평가 및 시사점')
+           + paragraph(authored))
+    projected, _ = improve_achievement_readability(xml)
+    assert '3. 종합 평가 및 시사점' in projected
+    assert escape(authored) in projected
+
+
+def test_additional_authored_conclusion_keeps_heading_while_exact_fallback_is_removed():
+    authored = 'ㅇ 현장 운영실적 7명에 근거하여 사업 성과의 후속 검증을 제언함.'
+    xml = (paragraph(record(MARKER + '; 내부 메모')) + paragraph('3. 종합 평가 및 시사점')
+           + paragraph(FALLBACK) + paragraph(authored))
+    projected, _ = improve_achievement_readability(xml)
+    assert FALLBACK not in projected
+    assert '3. 종합 평가 및 시사점' in projected and authored in projected
+
+
+def test_fallback_like_text_without_system_record_is_not_omitted():
+    xml = paragraph('3. 종합 평가 및 시사점') + paragraph(FALLBACK)
+    assert improve_achievement_readability(xml) == (xml, 0)
+
+
+def test_semantic_narrative_probes_use_same_narrow_fallback_omission():
+    from kodame_intake.report_exporter import _narrative_body_probes, _body_probes
+    authored = 'ㅇ 확인된 교육 실적 7명과 검증된 후속 운영 기록에 따라 사업의 성과를 판단함.'
+    raw = '\n'.join([record(MARKER), '3. 종합 평가 및 시사점', FALLBACK, authored])
+    assert _narrative_body_probes('achievement', raw) == _body_probes('3. 종합 평가 및 시사점\n' + authored)
+    changed = FALLBACK + ' 이 사업의 추가 해설을 보존함.'
+    assert _narrative_body_probes('achievement', '\n'.join([record(MARKER), changed])) == _body_probes(changed)
+    assert _narrative_body_probes('achievement', FALLBACK) == _body_probes(FALLBACK)
+    internal_only = '\n'.join(['2. 성과지표별 목표 대비 실적 분석', record(MARKER), '3. 종합 평가 및 시사점', FALLBACK])
+    assert _narrative_body_probes('achievement', internal_only) == []
+    mixed = '\n'.join(['2. 성과지표별 목표 대비 실적 분석', record(MARKER), record('직접 작성한 해설')])
+    assert _narrative_body_probes('achievement', mixed) == _body_probes('2. 성과지표별 목표 대비 실적 분석')
+
+
 def test_section_preview_adapter_preserves_prepared_source_and_projects_only_during_patch(monkeypatch):
     from kodame_intake import theory_visual
     monkeypatch.setattr(theory_visual, 'current_llm_model', lambda: 'qa/mock')
@@ -130,9 +185,10 @@ def test_section_preview_adapter_preserves_prepared_source_and_projects_only_dur
 def test_semantic_validator_requires_empty_system_note_and_still_checks_measurements(monkeypatch):
     from kodame_intake import report_exporter
     # Isolate the real achievement validator from unrelated chapter contracts.
-    monkeypatch.setattr(report_exporter, 'NARRATIVE_VALIDATION_KEYS', {})
+    monkeypatch.setattr(report_exporter, 'NARRATIVE_VALIDATION_KEYS', {14: ('qa_body', 'achievement')})
+    monkeypatch.setattr(report_exporter, 'review_values_for_section', lambda *args: {})
     monkeypatch.setattr(report_exporter, 'PDM_TABLE_PAGE_ROW_GROUPS', ())
-    raw = record(MARKER + '; 내부 설명')
+    raw = '\n'.join(['2. 성과지표별 목표 대비 실적 분석', record(MARKER + '; 내부 설명'), '3. 종합 평가 및 시사점', FALLBACK])
     patched = patch_hwpx_achievement_table_xml(template(), {'achievement': raw})
     table = find_hwpx_table_span_by_text(patched, ['성과지표', '기초선', '달성도'], 20)[2]
 
