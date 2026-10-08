@@ -3842,8 +3842,19 @@ def parse_achievement_items(body: object) -> list[str]:
 
 
 def achievement_item_fields(item: str, index: int) -> dict[str, str]:
-    indicator = field_from_item(
-        item,
+    from .achievement_records import indexed_record_fields
+    explicit_fields = indexed_record_fields(item)
+
+    def read_field(labels: list[str], fallback: str = "") -> str:
+        if explicit_fields is None:
+            return field_from_item(item, labels, fallback)
+        for label in labels:
+            key = re.sub(r"\s+", "", label)
+            if key in explicit_fields:
+                return normalize_hwpx_table_value(explicit_fields[key])
+        return fallback
+
+    indicator = read_field(
         [
             "PDM 지표명", "PDM 지표", "성과목표 및 지표 (OVI)", "성과목표 및 지표",
             "성과지표 (OVI)", "성과 지표 명칭", "산출 지표 명칭", "지표 명칭", "성과지표",
@@ -3865,17 +3876,15 @@ def achievement_item_fields(item: str, index: int) -> dict[str, str]:
     return {
         "name": name,
         "indicator": indicator or "확인 필요",
-        "baseline": field_from_item(item, ["기초선 (Baselines)", "기초선", "기획단계"], "확인 필요"),
-        "target": field_from_item(item, ["누적 목표치", "목표치 (Targets)", "목표치", "목표"], "확인 필요"),
-        "endline": field_from_item(
-            item,
+        "baseline": read_field(["기초선 (Baselines)", "기초선", "기획단계"], "확인 필요"),
+        "target": read_field(["누적 목표치", "목표치 (Targets)", "목표치", "목표"], "확인 필요"),
+        "endline": read_field(
             ["실적 (현재시점)", "실적 (누적/최신)", "누적 실적", "누적달성치 / 실적", "누적달성치", "실적", "수행단계", "종료선"],
             "확인 필요",
         ),
-        "achievement": field_from_item(item, ["달성률(%)", "달성률 (%)", "달성률", "달성도", "대비 결과 (B-A)", "대비 결과"], "확인 필요"),
-        "mov": field_from_item(item, ["검증수단(MOV)", "검증수단 (MOV)", "검증수단", "지표입증수단 (MOV)", "지표입증수단", "MOV"], "확인 필요"),
-        "note": field_from_item(
-            item,
+        "achievement": read_field(["달성률(%)", "달성률 (%)", "달성률", "달성도", "대비 결과 (B-A)", "대비 결과"], "확인 필요"),
+        "mov": read_field(["검증수단(MOV)", "검증수단 (MOV)", "검증수단", "지표입증수단 (MOV)", "지표입증수단", "MOV"], "확인 필요"),
+        "note": read_field(
             [
                 "달성 여부 및 차이 원인 / 해설",
                 "달성 여부 및 차이 원인",
@@ -4157,7 +4166,7 @@ def field_from_item(item: str, labels: list[str], fallback: str = "") -> str:
         "완료\\s*기한|기한|점검\\s*주기|검토\\s*주기|"
         "체크리스트\\s*질문|구분|계층|PDM\\s*지표(?:명)?|성과(?:목표\\s*및\\s*)?지표(?:\\s*\\(OVI\\))?|기획단계|"
         "기초선(?:\\s*\\(Baselines\\))?|누적\\s*목표치|목표치(?:\\s*\\(Targets\\))?|목표|수행단계|종료선|"
-        "누적\\s*실적|누적달성치(?:\\s*/\\s*실적)?|실적|달성률(?:\\s*\\(%\\))?|달성도|"
+        "누적\\s*실적|누적달성치(?:\\s*/\\s*실적)?|실적(?:\\s*\\((?:현재시점|누적/최신)\\))?|달성률(?:\\s*\\(%\\))?|달성도|"
         "대비\\s*결과(?:\\s*\\(B-A\\))?|검증수단(?:\\s*\\(MOV\\))?|지표입증수단(?:\\s*\\(MOV\\))?|MOV|"
         "근거\\s*위치|판단|"
         "달성\\s*여부\\s*및\\s*원인\\s*해설|"
