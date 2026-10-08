@@ -1649,6 +1649,7 @@
         cancel.disabled = true;
         try {
           latestGenerationStatus = await request(`/api/v2/report/generation/${encodeURIComponent(latestGenerationStatus.id)}/cancel`, {method:'POST'});
+          updateGenerationTray(latestGenerationStatus);
           renderGeneration(latestGenerationStatus);
         } catch (error) { cancel.disabled = false; notify(error.message); }
         pollGeneration();
@@ -1684,11 +1685,6 @@
       String(section.content || '').trim() && !['generating', 'failed'].includes(section.status)
     );
     const historicalErrorsResolved = !active && Number(status.failed_sections || 0) > 0 && currentSectionsComplete;
-    window.ServiceJobTray?.update('report', {name:'보고서 전체 작성', active,
-      cancelled:status.status === 'cancelled',
-      failed:!historicalErrorsResolved && ['failed','completed_with_errors'].includes(status.status),
-      completed:historicalErrorsResolved ? total : completed, total,
-      detail:historicalErrorsResolved ? '이전 실행의 실패 섹션을 개별 보완하여 현재 27개 섹션 작성 완료' : status.error_message || status.message || `${completed}/${total}개 섹션`});
     const history = byId('reportGenerationHistory');
     history.hidden = status.status === 'not_started';
     // Keep the server's historical result intact, but only running work gets
@@ -1719,6 +1715,22 @@
     renderSectionAssistant(reportSections.find((item) => item.part_id === activeReportPart));
   }
 
+  function updateGenerationTray(status) {
+    // Only a new server response may update the global tray. Section reads
+    // also render cached generation history, which may precede a newer run.
+    const active = ['queued', 'running'].includes(status.status);
+    const total = Number(status.total_sections || 27);
+    const completed = Number(status.completed_sections || 0);
+    const historicalErrorsResolved = !active && Number(status.failed_sections || 0) > 0
+      && reportSections.length === 27 && reportSections.every((section) =>
+        String(section.content || '').trim() && !['generating', 'failed'].includes(section.status));
+    window.ServiceJobTray?.update('report', {name:'보고서 전체 작성', active,
+      cancelled:status.status === 'cancelled',
+      failed:!historicalErrorsResolved && ['failed','completed_with_errors'].includes(status.status),
+      completed:historicalErrorsResolved ? total : completed, total,
+      detail:historicalErrorsResolved ? '이전 실행의 실패 섹션을 개별 보완하여 현재 27개 섹션 작성 완료' : status.error_message || status.message || `${completed}/${total}개 섹션`});
+  }
+
   function renderReportSummary(generation = latestGenerationStatus) {
     const counts = { saved: 0, complete: 0, generating: 0, attention: 0 };
     for (const section of reportSections) {
@@ -1745,6 +1757,7 @@
       const status = await request('/api/v2/report/generation/latest');
       if (revision !== generationPollRevision) return;
       latestGenerationStatus = status;
+      updateGenerationTray(status);
       renderGeneration(status);
       if (['queued', 'running'].includes(status.status)) {
         await refreshReportSections(activeReportPart);
@@ -2077,6 +2090,7 @@
       if (location.hash.startsWith('#/admin')) refreshAdmin();
       if (location.hash === '#/eval/report') {
         refreshReportLifecycle(true);
+        pollGeneration(); // A run may have started elsewhere since the last terminal response.
         if (activeReportPart) loadReportSection(activeReportPart, false).catch(error => { byId('reportState').textContent = error.message; });
       } else sectionPreview.clear();
     });
