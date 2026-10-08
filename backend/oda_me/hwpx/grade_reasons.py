@@ -18,11 +18,16 @@ _KNOWN_BLOCK = re.compile(
     r"이\s+항목의\s+판정을\s+(?:보류합니다|보류함)\.?\s*"
     rf"(?:{_UNVERIFIED_VALUE}(?:\s+|$))+"
 )
-READER_MEASUREMENT_LIMITATION = "정량 비교 근거가 충분히 확인되지 않아 해당 항목의 판정을 보류함."
+READER_MEASUREMENT_LIMITATION = "일부 정량 비교는 원문 근거가 충분히 확인되지 않아 계산에서 제외함."
+_LEGACY_READER_LIMITATION = "정량 비교 근거가 충분히 확인되지 않아 해당 항목의 판정을 보류함."
 
 
 def readable_grade_reason(value: str) -> str:
     """Replace an exact known diagnostic block without editing other facts."""
+    # Existing saved grade drafts may already carry the previous reader
+    # projection. Upgrade only its exact generated prefix on export.
+    if value.startswith(_LEGACY_READER_LIMITATION):
+        value = READER_MEASUREMENT_LIMITATION + value[len(_LEGACY_READER_LIMITATION):]
     return _KNOWN_BLOCK.sub(
         lambda match: READER_MEASUREMENT_LIMITATION + (" " if match.end() < len(value) else ""),
         value,

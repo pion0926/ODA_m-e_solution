@@ -536,17 +536,17 @@ def _project_reader_text(value: object, donor: str) -> str:
     for old, new in tone_replacements.items():
         text = text.replace(old, new)
     if "KOICA" not in donor.upper():
-        protected = {
-            "__KOICA_EVAL_GRADE__": "KOICA 평가등급",
-            "__KOICA_GRADE__": "KOICA 등급",
-        }
-        for token, phrase in protected.items():
-            text = text.replace(phrase, token)
-        text = text.replace("대한민국 정부 및 KOICA의", "대한민국 정부 및 지원기관의")
-        text = text.replace("KOICA의", "지원기관의")
-        text = text.replace("KOICA", "지원기관")
-        for token, phrase in protected.items():
-            text = text.replace(token, phrase)
+        # The server's exact assessment disclaimer and grade labels describe
+        # the evaluation framework, not this project's donor. Preserve them
+        # before the idempotent notice step, without user-collidable tokens.
+        protected = (PROVISIONAL_NOTICE, "KOICA 평가등급", "KOICA 등급")
+        segments = re.split("(" + "|".join(re.escape(phrase) for phrase in protected) + ")", text)
+        for index in range(0, len(segments), 2):
+            segments[index] = (segments[index]
+                .replace("대한민국 정부 및 KOICA의", "대한민국 정부 및 지원기관의")
+                .replace("KOICA의", "지원기관의")
+                .replace("KOICA", "지원기관"))
+        text = "".join(segments)
     return text
 
 

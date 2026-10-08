@@ -7,6 +7,7 @@ from dataclasses import asdict
 from typing import Iterable
 
 from backend.oda_me.hwpx.adapters.summary_ko import parse_summary_ko_section, render_summary_ko_document
+from backend.oda_me.hwpx.performance_notes import readable_performance_notes
 from backend.oda_me.reports.context import (
     parse_structured_section_slots,
     structured_slots_to_json,
@@ -203,6 +204,8 @@ def normalize_section_text(part_id: str, value: str, max_chars: int | None = Non
         # Parse before prose sanitization. Keys/schema must never become
         # reader text or be reclassified as a generated paragraph.
         source = "\n\n".join([*structured_input.slots.values(), *structured_input.unassigned_values])
+    if part_id == "achievement":
+        source = readable_performance_notes(source)
     if part_id == "summary-ko":
         try:
             slots = parse_summary_ko_section(source)
