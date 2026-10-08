@@ -10,6 +10,7 @@ _UNDATED_ACTUAL_NOTE = re.compile(
     re.MULTILINE,
 )
 _READER_NOTE = "실적 선택 기준: 기준일이 없어 같은 단위의 수치를 우선 비교함"
+SYSTEM_INTERPRETATION_OMITTED = '<!--odame-system-performance-interpretation-omitted-->'
 _SYSTEM_INTERPRETATION_FALLBACK = (
     'ㅇ 저장된 목표·실적과 남은 근거 공백을 구분하여 해석함. 기준일 또는 자료 범위가 다른 목표는 '
     '단순 합산하지 않으며, 미확인 실적은 0으로 간주하지 않음.'

@@ -116,10 +116,13 @@ FALLBACK = ('ㅇ 저장된 목표·실적과 남은 근거 공백을 구분하�
 
 
 def test_exact_system_interpretation_fallback_and_its_empty_heading_are_omitted():
+    from backend.oda_me.hwpx.performance_notes import SYSTEM_INTERPRETATION_OMITTED
     xml = (paragraph(record(MARKER + '; 내부 메모')) + paragraph('3. 종합 평가 및 시사점')
            + paragraph(FALLBACK))
     projected, _ = improve_achievement_readability(xml)
     assert FALLBACK not in projected and '3. 종합 평가 및 시사점' not in projected
+    assert projected.count(SYSTEM_INTERPRETATION_OMITTED) == 1
+    assert SYSTEM_INTERPRETATION_OMITTED not in get_hwpx_xml_scope_text(projected)
     assert FALLBACK in xml
     assert improve_achievement_readability(projected) == (projected, 0)
 
@@ -131,11 +134,13 @@ def test_exact_system_interpretation_fallback_and_its_empty_heading_are_omitted(
     'ㅇ 원문 인용: "' + FALLBACK + '"',
 ])
 def test_authored_conclusion_or_similar_fallback_is_preserved(authored):
+    from backend.oda_me.hwpx.performance_notes import SYSTEM_INTERPRETATION_OMITTED
     xml = (paragraph(record(MARKER + '; 내부 메모')) + paragraph('3. 종합 평가 및 시사점')
            + paragraph(authored))
     projected, _ = improve_achievement_readability(xml)
     assert '3. 종합 평가 및 시사점' in projected
     assert escape(authored) in projected
+    assert SYSTEM_INTERPRETATION_OMITTED not in projected
 
 
 def test_additional_authored_conclusion_keeps_heading_while_exact_fallback_is_removed():
@@ -205,3 +210,49 @@ def test_semantic_validator_requires_empty_system_note_and_still_checks_measurem
     wrong_actual, _ = set_hwpx_table_cell_text_xml(table, 20 + ACHIEVEMENT_CELL_OFFSETS['endline'], '99명')
     with pytest.raises(RuntimeError, match='endline 셀 매핑 오류'):
         validate(wrong_actual)
+
+
+def layout_errors_for_achievement(xml, other_section_marker=''):
+    """Run the actual package validator; unrelated sample errors are retained."""
+    from kodame_intake.hwpx_layout.validation import validate_report_layout_contract
+    path = Path(__file__).resolve().parents[3] / 'samples' / '5-1. 종료평가 결과보고서 placeholder.hwpx'
+    data = BytesIO()
+    with zipfile.ZipFile(path) as original, zipfile.ZipFile(data, 'w') as output:
+        for info in original.infolist():
+            value = original.read(info)
+            if info.filename == 'Contents/section5.xml':
+                value = xml.encode('utf-8')
+            elif info.filename == 'Contents/section4.xml' and other_section_marker:
+                value += other_section_marker.encode('utf-8')
+            output.writestr(info, value)
+    return validate_report_layout_contract(data.getvalue())['errors']
+
+
+def test_layout_contract_accepts_only_explicit_system_heading_omission():
+    from backend.oda_me.hwpx.performance_notes import SYSTEM_INTERPRETATION_OMITTED
+    xml = (paragraph(record(MARKER)) + paragraph('3. 종합 평가 및 시사점')
+           + paragraph(FALLBACK))
+    projected, _ = improve_achievement_readability(xml)
+    missing = '제목 앞 한 줄 여백 누락: 3. 종합 평가 및 시사점'
+    with_marker = layout_errors_for_achievement(projected)
+    assert missing not in with_marker
+    without_marker = layout_errors_for_achievement(projected.replace(SYSTEM_INTERPRETATION_OMITTED, ''))
+    assert missing in without_marker
+    assert set(without_marker) == set(with_marker) | {missing}
+
+
+def test_layout_contract_does_not_infer_omission_from_other_section_or_similar_marker():
+    from backend.oda_me.hwpx.performance_notes import SYSTEM_INTERPRETATION_OMITTED
+    missing = '제목 앞 한 줄 여백 누락: 3. 종합 평가 및 시사점'
+    assert missing in layout_errors_for_achievement(paragraph('원문 해설'), SYSTEM_INTERPRETATION_OMITTED)
+    assert missing in layout_errors_for_achievement(SYSTEM_INTERPRETATION_OMITTED.replace('omitted', 'unknown'))
+
+
+def test_layout_contract_still_requires_spacing_when_authored_heading_exists():
+    from backend.oda_me.hwpx.performance_notes import SYSTEM_INTERPRETATION_OMITTED
+    missing = '제목 앞 한 줄 여백 누락: 3. 종합 평가 및 시사점'
+    body = paragraph('앞선 사업 실적')
+    heading = paragraph('3. 종합 평가 및 시사점')
+    authored = paragraph('ㅇ 검증된 교육 수료자 7명의 사업 성과를 설명함.')
+    assert missing in layout_errors_for_achievement(SYSTEM_INTERPRETATION_OMITTED + body + heading + authored)
+    assert missing not in layout_errors_for_achievement(SYSTEM_INTERPRETATION_OMITTED + body + paragraph('') + heading + authored)

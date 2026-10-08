@@ -1,7 +1,9 @@
 """Keep PDM mapping records in tables and show their interpretation as prose."""
 import re
 from backend.oda_me.hwpx.achievement_records import ACHIEVEMENT_RECORD_RE
-from backend.oda_me.hwpx.performance_notes import system_performance_interpretation_omissions
+from backend.oda_me.hwpx.performance_notes import (
+    SYSTEM_INTERPRETATION_OMITTED, system_performance_interpretation_omissions,
+)
 from backend.oda_me.hwpx.patchers import (
     find_hwpx_tag_spans, get_hwpx_xml_scope_text, set_hwpx_xml_scope_text,
     parse_achievement_items, achievement_export_fields,
@@ -68,11 +70,16 @@ def improve_achievement_readability(xml: str) -> tuple[str, int]:
         # additional narrative even when they mention similar concepts.
         omitted = system_performance_interpretation_omissions(
             [text for start, end, text in narrative_paragraphs], True, not retained_records)
-        omitted_starts = {narrative_paragraphs[index][0] for index in omitted}
+        omitted_values = {
+            narrative_paragraphs[index][0]: (
+                SYSTEM_INTERPRETATION_OMITTED
+                if narrative_paragraphs[index][2] == '3. 종합 평가 및 시사점' else ''
+            ) for index in omitted
+        }
         edited_starts = {start for start, end, value in edits}
-        edits = [(start, end, '' if start in omitted_starts else value) for start, end, value in edits]
-        edits.extend((start, end, '') for start, end, text in narrative_paragraphs
-                     if start in omitted_starts and start not in edited_starts)
+        edits = [(start, end, omitted_values.get(start, value)) for start, end, value in edits]
+        edits.extend((start, end, omitted_values[start]) for start, end, text in narrative_paragraphs
+                     if start in omitted_values and start not in edited_starts)
     edits.sort(key=lambda item: item[0])
     for start,end,value in reversed(edits):
         xml = xml[:start] + value + xml[end:]

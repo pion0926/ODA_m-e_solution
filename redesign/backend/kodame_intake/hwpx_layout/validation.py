@@ -10,6 +10,7 @@ from backend.oda_me.hwpx.patchers import (
     get_hwpx_xml_scope_text,
 )
 from backend.oda_me.reports.citations import strip_inline_source_citations
+from backend.oda_me.hwpx.performance_notes import SYSTEM_INTERPRETATION_OMITTED
 
 from .headings import (
     FORCED_CRITERION_PAGE_BREAK_LABELS,
@@ -588,7 +589,12 @@ def validate_report_layout_contract(data: bytes) -> dict:
         ("Contents/section7.xml", "(2) 비작동요인"),
     )
     for section_name, heading in spacing_checks:
-        if not heading_has_blank_line_before_xml(sections.get(section_name, ""), heading):
+        section_xml = sections.get(section_name, "")
+        if (section_name == 'Contents/section5.xml' and heading == '3. 종합 평가 및 시사점'
+                and SYSTEM_INTERPRETATION_OMITTED in section_xml
+                and not _paragraph_for_text(section_xml, heading)):
+            continue
+        if not heading_has_blank_line_before_xml(section_xml, heading):
             errors.append(f"제목 앞 한 줄 여백 누락: {heading}")
 
     for section_index in range(2, 9):
