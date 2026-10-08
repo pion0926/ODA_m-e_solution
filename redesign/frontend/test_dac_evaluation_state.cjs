@@ -67,6 +67,7 @@ test('actual controller rendering replaces stale 5/5 step while retaining score 
   };
   const labels = [{}, {}, {}];
   const harness = {window: context.window, byId, latestEvaluationData: previous,
+    evaluationLoaded: true, evaluationLoadError: '',
     latestEvaluationStatus: active, latestWorkflowSteps: [],
     document: {querySelectorAll: () => labels},
     esc: value => String(value ?? '').replaceAll('<', '&lt;'), tr: (_, fallback) => fallback};

@@ -49,6 +49,8 @@
   let projectOverview = null;
   let dacCoverage = { filled: 0, total: 0, assigned: 0 };
   let latestEvaluationData = { status: 'not_run', criteria: [], overall: null };
+  let evaluationLoaded = false;
+  let evaluationLoadError = '';
   let latestEvaluationStatus = null;
   let latestWorkflowSteps = [];
   let pdmCoverage = { filled: 0, total: 0, complete_tiers: 0, tier_total: 0 };
@@ -1303,6 +1305,8 @@
   }
 
   function syncDashboardDac(data) {
+    // A status/dashboard response cannot establish that no evaluation exists.
+    if (!evaluationLoaded) return;
     const items = (data?.criteria || []).filter((item) => item.id !== 'impact');
     const overall = data?.overall || {};
     const provisional = overall.assessment_basis === 'provisional_document_review';
@@ -1333,6 +1337,12 @@
 
   function syncEvaluationState() {
     const state = window.DacScoringUI.evaluationState(latestEvaluationData, latestEvaluationStatus);
+    if (!evaluationLoaded || evaluationLoadError) {
+      state.title = evaluationLoadError ? (evaluationLoaded ? '평가 결과 갱신 실패' : '평가 결과 조회 실패') : '평가 결과 불러오는 중';
+      state.detail = evaluationLoadError
+        ? `${evaluationLoaded ? '마지막으로 확인한 결과를 표시합니다. ' : ''}${evaluationLoadError} · 새로고침해 주세요.`
+        : '저장된 점수와 근거를 확인하고 있습니다.';
+    }
     for (const id of ['dacEvaluationState', 'dacResultState']) {
       const node = byId(id);
       if (!node) continue;
@@ -1345,7 +1355,9 @@
       : ['종합점수', 'KOICA 평가등급', '국무조정실 평가등급'];
     names.forEach((name, index) => { if (labels[index]) labels[index].textContent = `${state.historical ? '이전 완료 평가 · ' : ''}${name}`; });
     const basis = byId('dacScoreBasis');
-    if (basis) basis.textContent = `${state.historical ? '이전 완료 평가 점수' : '마지막 완료 평가 점수'} · 목표 4점 대비 · 칩을 누르면 분석 결과로 이동`;
+    if (basis) basis.textContent = evaluationLoaded
+      ? `${state.historical ? '이전 완료 평가 점수' : '마지막 완료 평가 점수'} · 목표 4점 대비 · 칩을 누르면 분석 결과로 이동`
+      : '저장된 평가 결과를 확인한 뒤 기준별 점수를 표시합니다.';
     renderWorkflowSteps(latestWorkflowSteps);
   }
 
@@ -1360,6 +1372,9 @@
   }
 
   function renderEvaluation(data) {
+    evaluationLoaded = true;
+    evaluationLoadError = '';
+    byId('dacScoreSummary')?.setAttribute('aria-busy', 'false');
     latestEvaluationData = data || { status: 'not_run', criteria: [], overall: null };
     data = latestEvaluationData;
     const items = (data.criteria || []).filter((item) => item.id !== 'impact');
@@ -1378,7 +1393,9 @@
     if (stats[1]) stats[1].textContent = data.overall?.koica_grade || '-';
     if (stats[2]) stats[2].textContent = data.overall?.government_grade || '-';
     const statNotes = document.querySelectorAll('#v-eval-board .statrow .ss');
+    if (statNotes[0]) statNotes[0].textContent = 'DAC 5대 기준 합산';
     if (statNotes[1]) statNotes[1].textContent = scored.length === 5 ? `5대 기준 평균 ${average}점` : `점수 판정 ${scored.length}/5개 기준 · 나머지 판정보류`;
+    if (statNotes[2]) statNotes[2].textContent = '종합 정성 등급';
     byId('scorechips2').innerHTML = items.filter((item) => item.id !== 'impact').map((item) => `<button class="schip" data-go="#/eval/results"><div class="nm">${esc(item.name)}</div><div class="sc num">${item.score == null ? '판정보류' : `${formatDacScore(item.score)}<small>/4</small>`}</div></button>`).join('');
     byId('critSections').innerHTML = items.length ? items.map((criterion) => `<div class="csec"><div class="csec-h"><div class="nm">${esc(criterion.name)}</div><div class="hbar"><div class="pbar"><i class="${Number(criterion.score || 0) < 3 ? 'w' : 'g'}" style="width:${Math.round(Number(criterion.score || 0) / 4 * 100)}%"></i></div></div><span class="tag ${Number(criterion.score || 0) < 3 ? 'w' : 'g'}">${criterion.scored ? '근거 평가 완료' : '자료보완 · 판정보류'}</span><span class="scr num">${criterion.score ?? '-'}<small> /4</small></span></div><div class="csec-b">${window.DacScoringUI.renderImprovements(criterion, esc)}${(criterion.question_assessments || []).map((question, index) => `<div class="qrow"><span class="qno">Q${index + 1}</span><div class="qbody"><div class="qq">${esc(question.question)}</div><div class="qa"><b>근거 판단</b> · ${esc(question.finding)}</div>${question.evidence_gaps?.length ? `<div class="qlost w">${question.evidence_gaps.map(esc).join(' · ')}</div>` : ''}${dacQuestionEvidence(question)}</div><div class="qmeta"><span class="qscore num">${question.score ?? '보류'}<small> /4</small></span></div></div>`).join('') || `<div class="qrow"><div class="qbody">${esc(criterion.score_reason || criterion.summary || '분석 내용이 없습니다.')}${evidenceFold(criterion.evidence_documents)}</div></div>`}</div></div>`).join('') : '<div class="panel empty evaluation-empty"><b>아직 생성된 분석 결과가 없습니다.</b><br>등록 문서의 처리가 끝난 뒤 재평가를 실행하면 DAC 기준별 점수와 판단 근거가 표시됩니다.<div style="margin-top:14px"><button class="btn primary" data-go="#/eval/board">DAC 평가진단으로 이동</button></div></div>';
     renderDashboardInsights();
@@ -1389,7 +1406,17 @@
     try {
       const data = await request('/api/v2/evaluations');
       renderEvaluation(localizedView('evaluation', data));
-    } catch (error) { byId('critSections').innerHTML = `<div class="empty">${esc(error.message)}</div>`; }
+    } catch (error) {
+      evaluationLoadError = error.message;
+      byId('dacScoreSummary')?.setAttribute('aria-busy', 'false');
+      if (!evaluationLoaded) {
+        document.querySelectorAll('#v-eval-board .statrow .ss').forEach((note, index) => {
+          if (index < 3) note.textContent = '평가 결과 조회 실패';
+        });
+        byId('critSections').innerHTML = `<div class="empty">${esc(error.message)}</div>`;
+      }
+      syncEvaluationState();
+    }
   }
 
   async function refreshEvaluationStatus() {
