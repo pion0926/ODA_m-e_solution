@@ -24,6 +24,7 @@ from backend.oda_me.hwpx.patchers import (
     find_hwpx_tag_spans,
     get_hwpx_xml_scope_text,
     achievement_item_fields,
+    achievement_export_fields,
     achievement_row_starts,
     parse_achievement_items,
     parse_feedback_items,
@@ -385,7 +386,7 @@ def _validate_semantic_coverage(data: bytes, context: dict, sections_by_id: dict
                 continue
             item = achievement_rows[item_index]
             base = row_starts[local_index]
-            fields = achievement_item_fields(item, item_index)
+            fields = achievement_export_fields(item, item_index)
             if not fields["indicator"] or fields["indicator"] == "확인 필요":
                 failures.append(f"14:achievement 표 {item_index + 1}행 PDM 지표명 누락")
             for field_key in ("name", "indicator", "baseline", "target", "endline", "achievement", "mov", "note"):
@@ -394,6 +395,10 @@ def _validate_semantic_coverage(data: bytes, context: dict, sections_by_id: dict
                 expected = _coverage_text(expected_value)[:probe_length]
                 cell_index = base + ACHIEVEMENT_CELL_OFFSETS[field_key]
                 actual = _coverage_text(resolve_detail_text(achievement_section, achievement_cells[cell_index])) if cell_index < len(achievement_cells) else ""
+                if field_key == 'note' and fields.get('_system_note_omitted'):
+                    if actual:
+                        failures.append(f'14:achievement 표 {item_index + 1}행 내부 분석 메모가 비고에 남음')
+                    continue
                 if expected and expected not in actual:
                     failures.append(
                         f"14:achievement 표 {item_index + 1}행 {field_key} 셀 매핑 오류"

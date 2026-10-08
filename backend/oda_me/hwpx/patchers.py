@@ -3898,6 +3898,16 @@ def achievement_item_fields(item: str, index: int) -> dict[str, str]:
     }
 
 
+def achievement_export_fields(item: str, index: int) -> dict:
+    """Project known internal review notes without changing source parsing."""
+    from .performance_notes import is_system_performance_note
+
+    fields = achievement_item_fields(item, index)
+    if is_system_performance_note(item, fields['note']):
+        fields = {**fields, 'note': '', '_system_note_omitted': True}
+    return fields
+
+
 def _shift_hwpx_row_addresses(row_xml: str, delta: int) -> str:
     return re.sub(
         r'(<hp:cellAddr\b[^>]*\browAddr=")(\d+)(")',
@@ -3979,7 +3989,7 @@ def patch_hwpx_achievement_table_xml(xml_text: str, sections_by_id: dict[str, st
     cell_values: dict[int, str] = {}
     for index, item in enumerate(items):
         base = row_starts[index]
-        fields = achievement_item_fields(item, index)
+        fields = achievement_export_fields(item, index)
         cell_values.update({
             # The former fixed character budgets appended a literal ellipsis,
             # so the HWPX no longer matched the editor draft.  Pagination and
@@ -3993,7 +4003,7 @@ def patch_hwpx_achievement_table_xml(xml_text: str, sections_by_id: dict[str, st
             base + ACHIEVEMENT_CELL_OFFSETS["achievement"]: normalize_hwpx_table_value(fields["achievement"], 10000),
             base + ACHIEVEMENT_CELL_OFFSETS["mov"]: normalize_hwpx_table_value(fields["mov"], 10000),
             base + ACHIEVEMENT_CELL_OFFSETS["note"]: normalize_hwpx_table_value(
-                fields["note"] or fields["achievement"],
+                '' if fields.get('_system_note_omitted') else fields["note"] or fields["achievement"],
                 10000,
             ),
         })
