@@ -346,6 +346,8 @@ def refresh_pdm(request: Request, background_tasks: BackgroundTasks, review: Per
         current = build_plan(conn)
         reviewed = validate_selection(current, review.revision, review.mappings)
         save_overrides(conn, current, reviewed)
+        from ..performance_freshness import capture_inputs
+        reviewed['performance_inputs'] = capture_inputs(conn)
         run_id = uuid.uuid4()
         row = conn.execute("INSERT INTO pdm_refresh_runs(id,model,analysis_plan) VALUES (%s,%s,%s) RETURNING *",
                            (run_id,selected_model,Jsonb(reviewed))).fetchone()

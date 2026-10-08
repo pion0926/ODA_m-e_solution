@@ -20,6 +20,7 @@
       const pairs=plan.indicators.reduce((n,item)=>n+selected(item).size,0);
       const restored=plan.indicators.reduce((n,item)=>n+[...selected(item)].filter(id=>restorable(item,id)).length,0);
       $('[data-review-summary]').textContent=`PDM: ${plan.source_file_name || '미등록'} · 신규 분석 ${pairs-restored}개 조합 · 기존 분석 재사용·연결 복원 ${restored}개 조합 · 대상 지표 ${mapped}개 · 연결 변경 ${(plan.mapping_changed_indicator_ids||[]).length}개 지표 · 유효한 기존 분석 유지`;
+      if(plan.freshness_review_required) $('[data-review-summary]').textContent+=' · 입력 현재성 재검증';
       $('[data-review-status]').textContent=plan.message;
       $('[data-review-pending]').innerHTML=plan.documents.filter(doc=>doc.status!=='completed').map(doc=>
         `<div class="performance-document"><b>${esc(doc.file_name)}</b><small>${esc(states[doc.status]||doc.status)} · ${Number(doc.progress)||0}%</small>${['failed','waiting_llm','cancelled'].includes(doc.status)?`<button type="button" class="btn sm" data-review-retry="${esc(doc.id)}" ${busy?'disabled':''}>분석 재시도</button><small class="performance-error">${esc(doc.error_message||'기본 분석 완료가 필요합니다.')}</small>`:''}</div>`).join('');
@@ -31,7 +32,7 @@
         <td><select aria-label="${esc(item.text)} 기존 문서 선택" ${busy?'disabled':''}>${options(item)}</select>
           <div class="performance-row-actions"><button type="button" class="btn sm" data-review-add ${busy?'disabled':''}>매핑 추가</button><button type="button" class="btn sm" data-review-upload ${busy?'disabled':''}>새 문서 업로드</button></div></td>
       </tr>`).join('') || '<tr><td colspan="3">등록된 PDM 지표가 없습니다. <a href="#/evidence" data-review-close>사업 기준 문서 등록으로 이동</a></td></tr>';
-      $('[data-review-run]').disabled=busy||!plan.ready||(pairs===0&&!(plan.mapping_changed_indicator_ids||[]).length);
+      $('[data-review-run]').disabled=busy||!plan.ready||(pairs===0&&!(plan.mapping_changed_indicator_ids||[]).length&&!plan.freshness_review_required);
       $('[data-review-reload]').disabled=busy;
       $('[data-review-close]').disabled=busy;
     }

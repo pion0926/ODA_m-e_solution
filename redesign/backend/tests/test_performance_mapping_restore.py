@@ -10,6 +10,7 @@ from kodame_intake.performance_review import build_plan, save_overrides, validat
 from kodame_intake.performance_targets import TARGET_SELECTION_VERSION
 from kodame_intake.pdm_evidence import MEASUREMENT_VERSION
 from kodame_intake.pdm_mapping_policy import VERSION
+from kodame_intake.llm_models import current_llm_model
 
 
 INDICATOR = {'id': 'i', 'text': '교원 양성 인원 수 (명)', 'mov': '수료자 명단'}
@@ -31,6 +32,7 @@ def stored_model():
         'monitoring': {'reviewed_mappings': {'i': []}, 'pair_results': {
             fingerprint('pdm', source_document('old'), INDICATOR): {
                 'document_id': 'old', 'indicator_id': 'i', 'measurement_version': MEASUREMENT_VERSION,
+                'model': current_llm_model(),
                 'observations': [observation], 'reviews': [{'indicator_id': 'i', 'status': 'found'}]}}}}}
 
 

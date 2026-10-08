@@ -502,11 +502,16 @@ def refresh_pdm_model(*, analyze_risks: bool = False, refresh_run_id=None, analy
 def _refresh_pdm_model(*, analyze_risks: bool = False, refresh_run_id=None, analysis_plan=None) -> uuid.UUID:
     from .project_lifecycle import capture_input_snapshot, snapshots_match
     input_snapshot = capture_input_snapshot() if refresh_run_id else None
+    from .performance_freshness import capture_inputs, matches as performance_inputs_match
+    performance_inputs = capture_inputs() if refresh_run_id else None
     if analysis_plan and not snapshots_match(analysis_plan['input_snapshot'], input_snapshot, include_evaluation=False):
         raise RuntimeError('검토 이후 자료가 변경되었습니다. 분석 개요와 문서 매핑을 다시 확인해 주세요.')
     documents = _documents()
     with connection() as conn:
         previous=conn.execute('SELECT id,source_document_id,model FROM pdm_models ORDER BY created_at DESC LIMIT 1').fetchone()
+    if refresh_run_id and analysis_plan:
+        from .performance_freshness import execution_plan
+        analysis_plan = execution_plan(analysis_plan, previous, documents, performance_inputs)
     if analysis_plan and 'new_mappings' in analysis_plan and analysis_plan.get('baseline_model_id') != (str(previous['id']) if previous else None):
         raise RuntimeError('이전 성과 평가가 변경되었습니다. 신규 분석 대상을 다시 확인해 주세요.')
     if refresh_run_id and not analysis_plan:
@@ -587,16 +592,25 @@ def _refresh_pdm_model(*, analyze_risks: bool = False, refresh_run_id=None, anal
     changed.update(apply_pdm_targets(performance, source['id']))
     if refresh_run_id:
         model['monitoring']['input_snapshot'] = input_snapshot
+        model['monitoring']['performance_inputs'] = performance_inputs
     if analysis_plan:
         model['monitoring']['reviewed_mappings'] = analysis_plan['mappings']
         model['monitoring']['deferred_mappings'] = analysis_plan.get('deferred_mappings', {})
         model['monitoring']['review_revision'] = analysis_plan['revision']
-    model["risk_analysis"] = _attach_performance_risk_analysis([i for i in performance if i['id'] in changed], analyze_risks)
+        if analysis_plan.get('execution_model_change'):
+            model['monitoring']['execution_model_change'] = analysis_plan['execution_model_change']
+    if not changed and previous:
+        from copy import deepcopy
+        model['risk_analysis'] = deepcopy(previous['model'].get('risk_analysis') or {})
+    else:
+        model["risk_analysis"] = _attach_performance_risk_analysis([i for i in performance if i['id'] in changed], analyze_risks)
 
     model_id = uuid.uuid4()
     with connection() as conn, conn.transaction():
         if refresh_run_id and not snapshots_match(input_snapshot, capture_input_snapshot(conn), include_evaluation=False):
             raise RuntimeError('성과 분석 도중 자료가 변경되었습니다. 기존 성과 결과를 보존했습니다. 최신 자료로 다시 분석해 주세요.')
+        if refresh_run_id and not performance_inputs_match(performance_inputs, capture_inputs(conn)):
+            raise RuntimeError('성과 분석 도중 문서·지표·매핑 입력이 변경되었습니다. 기존 결과를 보존했습니다. 최신 자료로 다시 분석해 주세요.')
         conn.execute("DELETE FROM pdm_document_assignments")
         # Append versions so foundation changes and earlier measurements remain auditable.
         conn.execute(

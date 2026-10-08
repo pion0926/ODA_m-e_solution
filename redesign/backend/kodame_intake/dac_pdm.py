@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from .db import connection
-from .project_lifecycle import capture_input_snapshot, snapshots_match
+from .performance_freshness import capture_inputs, analysis_status
 
 
 def build_context(row, assignments, documents):
@@ -42,11 +42,9 @@ def refresh_context(documents):
         assignments = conn.execute(
             "SELECT document_id,indicator_id,tier,requirement_title,confidence,rationale FROM pdm_document_assignments"
         ).fetchall()
-        snapshot = capture_input_snapshot(conn)
+        snapshot = capture_inputs(conn)
     context = build_context(row, assignments, documents)
-    saved = row['model'].get('monitoring', {}).get('input_snapshot')
-    context['performance_analysis_status'] = ('current' if snapshots_match(saved, snapshot, include_evaluation=False)
-                                               else 'stale' if saved else 'not_run')
+    context['performance_analysis_status'] = analysis_status(row['model'], snapshot)
     context['performance_analysis_note'] = ('성과지표 모니터링에서 저장한 결과를 사용합니다. '
         '미실행 또는 최신 자료 미반영 상태의 성과 수치를 현재 실적으로 단정하지 말고 이번 DAC 원문 근거와 대조하세요.')
     return context

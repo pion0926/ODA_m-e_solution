@@ -188,6 +188,7 @@ def enrich(performance, documents, plan, previous):
         current['id']==i['id'] and current['indicator']==i.get('indicator') and current['evidence']==i.get('evidence') for current in performance)}
     by_id={i['id']:i for i in performance}; errors={key:[] for key in by_id}
     changed=set(plan.get('mapping_changed_indicator_ids', [])) & set(by_id)
+    changed.update(set(plan.get('reconciliation_indicator_ids', [])) & set(by_id))
     from .performance_targets import reference_targets, reference_signature, target_policy_needs_review
     text_cache = {}
     targets_by_id = {}
@@ -215,6 +216,11 @@ def enrich(performance, documents, plan, previous):
         if not ids:return doc,ids,[],None
         baseline={key:comparison_baseline(old.get(key,{})) for key in ids}
         try:
+            if plan.get('force_measurement_recheck'):
+                # A source/prompt implementation change cannot reuse a cache
+                # keyed only by the old manually maintained version string.
+                doc['analysis'] = {key: value for key, value in (doc.get('analysis') or {}).items()
+                                   if key not in ('pdm_measurements', 'pdm_measurement_cache')}
             observations=extract_measurements(doc,[by_id[key] for key in ids],previous_evaluation=baseline)
             return doc,ids,observations,None
         except Exception as exc:

@@ -69,6 +69,10 @@ def build_plan(conn=None):
     from .performance_delta import history, fingerprint
     previous=conn.execute('SELECT id,source_document_id,model FROM pdm_models ORDER BY created_at DESC LIMIT 1').fetchone()
     records=history(previous,rows,[i for tier in model['tiers'] for i in tier['indicators']],source['id'] if source else None)
+    from .performance_freshness import inputs_from_documents, compatible_records, analysis_status, extraction_changed
+    performance_inputs = inputs_from_documents(rows)
+    records = compatible_records(previous, records, performance_inputs)
+    freshness_review = bool(previous and analysis_status(previous['model'], performance_inputs) != 'current')
     from .performance_targets import reference_targets, reference_signature, target_policy_needs_review
     prior_indicators = {item['id']:item for item in (previous or {}).get('model', {}).get('performance_indicators', [])
                         if source and str((previous or {}).get('source_document_id')) == str(source['id'])}
@@ -135,10 +139,21 @@ def build_plan(conn=None):
                        set(item['document_ids'] + item['retained_document_ids'])]
     if ready and mapping_changes and not any(item['document_ids'] for item in indicators):
         message += ' 증빙 연결이 변경된 지표는 기존 원문을 다시 호출하지 않고 유효한 근거로 결과를 재정리합니다.'
+    if ready and freshness_review and not any(item['document_ids'] for item in indicators):
+        message += ' 입력 현재성을 재검증하고 검증된 기존 측정값을 재사용합니다. 새 원문 분석으로 표시하지 않습니다.'
+    old_policy = (prior_model.get('monitoring', {}).get('performance_inputs') or {}).get('policies') or {}
+    policy_changes = [item['id'] for item in indicators] if old_policy and any(
+        old_policy.get(key) != performance_inputs['policies'][key] for key in ('reconciliation', 'risk')) else []
+    prior_risk_model = (prior_model.get('risk_analysis') or {}).get('model')
+    if prior_risk_model and prior_risk_model != performance_inputs['model']:
+        policy_changes = [item['id'] for item in indicators]
     payload = {'source_document_id': str(source['id']) if source else None,
                'baseline_model_id':str(previous['id']) if previous else None,
                'source_file_name': source['original_name'] if source else None,
                'input_snapshot': snapshot, 'indicators': indicators, 'documents': documents,
+               'performance_inputs': performance_inputs, 'freshness_review_required': freshness_review,
+               'reconciliation_indicator_ids': policy_changes,
+               'force_measurement_recheck': extraction_changed(previous, performance_inputs),
                'deferred_mappings':deferred, 'recheck_count':recheck_count,
                'mapping_changed_indicator_ids': sorted(set(mapping_changes) | set(target_changes))}
     revision = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()
@@ -170,11 +185,15 @@ def validate_selection(current, revision, selections):
         mappings[indicator] = sorted(set(ids)|set(item.get('retained_document_ids',[])))
     changed = set(current.get('mapping_changed_indicator_ids', []))
     changed.update(key for key, ids in restored_mappings.items() if ids)
-    if not any(new_mappings.values()) and not changed:
+    if not any(new_mappings.values()) and not changed and not current.get('freshness_review_required'):
         raise HTTPException(409,'신규 문서 또는 신규 매핑이 없습니다. 기존 분석 결과를 유지합니다.')
     return {'revision': revision, 'source_document_id': current['source_document_id'],
             'source_file_name': current['source_file_name'], 'input_snapshot': current['input_snapshot'],
             'indicators': current['indicators'], 'mappings': mappings, 'new_mappings':new_mappings,
+            'performance_inputs':current.get('performance_inputs'),
+            'freshness_review_required':bool(current.get('freshness_review_required')),
+            'reconciliation_indicator_ids':current.get('reconciliation_indicator_ids', []),
+            'force_measurement_recheck':bool(current.get('force_measurement_recheck')),
             'restored_mappings':restored_mappings, 'mapping_changed_indicator_ids':sorted(changed),
             'deferred_mappings':{key:[id for id in ids if id not in mappings.get(key, [])]
                                  for key,ids in current.get('deferred_mappings', {}).items()},

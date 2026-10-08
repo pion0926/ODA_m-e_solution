@@ -38,5 +38,13 @@ const client = env.window.PerformanceAnalysisReview.create({request:async()=>str
   await handlers.click({target:{closest:selector=>selector==='[data-review-run]'?{}:null}});
   assert.deepEqual(JSON.parse(JSON.stringify(submitted)),{revision:'r',mappings:{i:['old']}});
   assert.equal(dialog.open,false);
+  plan.freshness_review_required=true;
+  plan.message='입력 현재성을 재검증하고 검증된 기존 측정값을 재사용합니다.';
+  await client.open();
+  assert.match(nodes.get('[data-review-summary]').textContent,/신규 분석 0개 조합/);
+  assert.match(nodes.get('[data-review-summary]').textContent,/입력 현재성 재검증/);
+  assert.equal(nodes.get('[data-review-run]').disabled,false);
+  await handlers.click({target:{closest:selector=>selector==='[data-review-run]'?{}:null}});
+  assert.deepEqual(JSON.parse(JSON.stringify(submitted)),{revision:'r',mappings:{i:[]}});
   console.log('PASS manual mapping restoration display, retained-pair exclusion, draft refresh and submission');
 })().catch(error=>{console.error(error);process.exitCode=1;});

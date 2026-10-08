@@ -47,7 +47,7 @@ class DACPDMLinkingTests(unittest.TestCase):
         self.assertEqual(context["model"], {})
 
     @patch('kodame_intake.pdm_monitoring.refresh_pdm_model')
-    @patch('kodame_intake.dac_pdm.capture_input_snapshot', return_value={'document_digest': 'new'})
+    @patch('kodame_intake.dac_pdm.capture_inputs', return_value={'document_digest': 'new'})
     @patch('kodame_intake.dac_pdm.connection')
     def test_dac_reads_saved_pdm_without_running_performance(self, connection, snapshot, refresh):
         conn = connection.return_value.__enter__.return_value
